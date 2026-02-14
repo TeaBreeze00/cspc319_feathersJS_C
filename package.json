@@ -3,7 +3,13 @@
   "version": "1.0.0",
   "description": "FeathersJS MCP Server",
   "main": "dist/index.js",
-  "scripts": {},
+  "scripts": {
+    "build": "tsc",
+    "test": "jest --coverage",
+    "lint": "eslint 'src/**/*.ts'",
+    "format": "prettier --write src/ tests/",
+    "prepare": "npm run build"
+  },
   "author": "",
   "license": "MIT",
   "engines": {
