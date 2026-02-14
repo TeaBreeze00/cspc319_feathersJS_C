@@ -1,0 +1,12 @@
+{
+  "name": "feathers-mcp-server",
+  "version": "1.0.0",
+  "description": "FeathersJS MCP Server",
+  "main": "dist/index.js",
+  "scripts": {},
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
