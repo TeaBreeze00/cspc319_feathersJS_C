@@ -1,9 +1,5 @@
 import ToolRegistry from './registry';
 
-// Use runtime require to avoid pulling complex SDK types into the compiler.
-const _sdkMcp = require('@modelcontextprotocol/sdk/server/mcp');
-const _stdio = require('@modelcontextprotocol/sdk/server/stdio');
-
 type AnyClass = any;
 
 export class McpServer {
@@ -19,6 +15,9 @@ export class McpServer {
   async start(): Promise<void> {
     if (this.sdkServer) return;
 
+    // Defer loading the SDK until start to avoid requiring it at module load time.
+    const _sdkMcp = require('@modelcontextprotocol/sdk/server/mcp');
+    const _stdio = require('@modelcontextprotocol/sdk/server/stdio');
     const SdkMcpServer: AnyClass = _sdkMcp.McpServer ?? _sdkMcp.default ?? _sdkMcp;
     const StdioServerTransport: AnyClass = _stdio.StdioServerTransport ?? _stdio.default ?? _stdio;
 
