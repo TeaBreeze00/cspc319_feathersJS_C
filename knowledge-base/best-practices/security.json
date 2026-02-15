@@ -1,42 +1,75 @@
 [
   {
-    "id": "bp-security-always-authenticate",
-    "topic": "Authentication",
-    "rule": "Always authenticate external requests. Use the authenticate hook on every service that handles sensitive data.",
-    "rationale": "Unauthenticated endpoints are the most common source of data breaches. Even read-only services should verify the user's identity.",
-    "goodExample": "before: {\n  all: [authenticate('jwt')],\n  find: [],\n  get: []\n}",
-    "badExample": "before: {\n  all: [],\n  create: [authenticate('jwt')]\n  // find and get are wide open!\n}"
+    "id": "bp-011",
+    "topic": "security",
+    "rule": "Never expose internal errors to clients",
+    "rationale": "Internal errors can leak sensitive information about your system. Sanitize errors in application error hooks.",
+    "goodExample": "app.hooks({\n  error: {\n    all: [async (context) => {\n      if (!context.error.code) {\n        context.error = new GeneralError('Internal server error')\n      }\n      if (process.env.NODE_ENV === 'production') {\n        context.error.stack = undefined\n      }\n    }]\n  }\n})",
+    "badExample": "// Bad: raw errors sent to client\n// No error hooks - database errors go directly to client\n// Client sees: \"SQLITE_CONSTRAINT: UNIQUE constraint failed: users.email\"",
+    "version": "v5",
+    "tags": [
+      "security",
+      "errors",
+      "production"
+    ]
   },
   {
-    "id": "bp-security-validate-input",
-    "topic": "Input Validation",
-    "rule": "Validate and sanitize all user input in before hooks. Never trust client-submitted data.",
-    "rationale": "Unvalidated input leads to injection attacks, corrupt data, and unexpected behavior. Validation should happen before any database operation.",
-    "goodExample": "before: {\n  create: [\n    authenticate('jwt'),\n    schemaHooks.validateData(messageDataValidator),\n    schemaHooks.resolveData(messageDataResolver)\n  ]\n}",
-    "badExample": "before: {\n  create: [\n    authenticate('jwt')\n    // No validation — raw user data goes straight to database\n  ]\n}"
+    "id": "bp-012",
+    "topic": "security",
+    "rule": "Use resolveExternal for safe response data",
+    "rationale": "Always use resolveExternal to create safe representations of data that is sent to external clients. This prevents leaking sensitive fields like passwords.",
+    "goodExample": "const userExternalResolver = resolve<User, HookContext>({\n  password: async () => undefined, // Always remove password\n  internalNotes: async () => undefined,\n})\n\napp.service('users').hooks({\n  around: {\n    all: [resolveExternal(userExternalResolver)]\n  }\n})",
+    "badExample": "// Bad: manually trying to remove fields in after hooks\n// Easy to miss fields, doesn't handle nested/associated data\napp.service('users').hooks({\n  after: { all: [protect('password')] } // deprecated pattern\n})",
+    "version": "v5",
+    "tags": [
+      "security",
+      "resolver",
+      "password"
+    ]
   },
   {
-    "id": "bp-security-restrict-queries",
-    "topic": "Query Restriction",
-    "rule": "Restrict allowable query parameters to prevent unauthorized data access.",
-    "rationale": "Without query restrictions, attackers can craft queries like { $limit: 999999 } or use operators like $regex to probe data.",
-    "goodExample": "// v5: Use schema validators for queries\nconst messageQueryValidator = queryValidator.compile(\n  querySyntax(Type.Pick(messageSchema, ['_id', 'text', 'userId']))\n);\nbefore: { find: [schemaHooks.validateQuery(messageQueryValidator)] }",
-    "badExample": "// No query validation — clients can query ANY field with ANY operator\nbefore: { find: [] }"
+    "id": "bp-013",
+    "topic": "security",
+    "rule": "Validate and sanitize all input data",
+    "rationale": "Always validate incoming data with schemas. Use TypeBox or JSON Schema validators in the hook chain before any data processing.",
+    "goodExample": "// Schema-based validation\nconst messageDataValidator = getValidator(messageDataSchema, dataValidator)\napp.service('messages').hooks({\n  before: {\n    create: [schemaHooks.validateData(messageDataValidator)],\n    patch: [schemaHooks.validateData(messageDataValidator)]\n  }\n})",
+    "badExample": "// Bad: trusting client data without validation\napp.service('messages').hooks({\n  before: {\n    create: [async (context) => {\n      // No validation - client could send anything\n      // SQL injection, XSS, huge payloads all possible\n    }]\n  }\n})",
+    "version": "v5",
+    "tags": [
+      "security",
+      "validation",
+      "input",
+      "schema"
+    ]
   },
   {
-    "id": "bp-security-protect-fields",
-    "topic": "Field Protection",
-    "rule": "Use resolvers or after hooks to remove sensitive fields (password, tokens) from API responses.",
-    "rationale": "Accidentally exposing password hashes or auth tokens in API responses is a critical security vulnerability.",
-    "goodExample": "// v5 resolver\nconst userExternalResolver = resolve(userSchema, {\n  password: async () => undefined,\n  verifyToken: async () => undefined\n});\n// Applied: around: { all: [schemaHooks.resolveExternal(userExternalResolver)] }",
-    "badExample": "// No field protection — user objects include password hash in ALL responses:\n// GET /users/1 → { email: 'a@b.com', password: '$2b$10$...' }"
+    "id": "bp-014",
+    "topic": "security",
+    "rule": "Use query resolvers to restrict access",
+    "rationale": "Use resolveQuery to ensure users can only access their own data or data they are authorized to see.",
+    "goodExample": "const messageQueryResolver = resolve<MessageQuery, HookContext>({\n  userId: async (value, query, context) => {\n    // Regular users can only see their own messages\n    if (context.params.user && !context.params.user.isAdmin) {\n      return context.params.user.id\n    }\n    return value\n  }\n})",
+    "badExample": "// Bad: relying on client to send correct userId\n// Client could query any user's messages\napp.service('messages').hooks({\n  before: {\n    find: [] // no query restriction - anyone sees everything\n  }\n})",
+    "version": "v5",
+    "tags": [
+      "security",
+      "authorization",
+      "query",
+      "resolver"
+    ]
   },
   {
-    "id": "bp-security-use-channels",
-    "topic": "Real-time Event Security",
-    "rule": "Configure channels to control which clients receive real-time events. Never broadcast everything to all connections.",
-    "rationale": "Without proper channels, user A can receive real-time events about user B's private data, including create/update/remove events.",
-    "goodExample": "// channels.ts\napp.on('connection', (connection) => {\n  app.channel('anonymous').join(connection);\n});\napp.on('login', (authResult, { connection }) => {\n  if (connection) {\n    app.channel('anonymous').leave(connection);\n    app.channel('authenticated').join(connection);\n    app.channel(`user/${connection.user._id}`).join(connection);\n  }\n});\napp.publish((data, context) => {\n  return app.channel('authenticated');\n});",
-    "badExample": "// Broadcasts ALL events to ALL connected clients:\napp.publish(() => app.channel('anonymous'));"
+    "id": "bp-015",
+    "topic": "security",
+    "rule": "Rate-limit authentication attempts",
+    "rationale": "Protect authentication endpoints from brute force attacks by limiting login attempts per IP or account.",
+    "goodExample": "// Use rate-limiting middleware\nimport rateLimit from 'express-rate-limit'\n\nconst authLimiter = rateLimit({\n  windowMs: 15 * 60 * 1000, // 15 minutes\n  max: 5, // 5 attempts per window\n  message: 'Too many login attempts'\n})\n\napp.use('/authentication', authLimiter)",
+    "badExample": "// Bad: no rate limiting on authentication\n// Allows unlimited brute force attempts\napp.use('authentication', authentication)",
+    "version": "v5",
+    "tags": [
+      "security",
+      "rate-limit",
+      "authentication",
+      "brute-force"
+    ]
   }
 ]

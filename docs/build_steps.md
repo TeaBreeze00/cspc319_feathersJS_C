@@ -12,7 +12,7 @@ Before implementing ANY step, verify compliance with these constraints:
 
 - **G1**: NO network requests at runtime. All knowledge embedded in package.
 - **G2**: NO session state between tool calls. Tools are stateless.
-- **G3**: ALL knowledge content has `version` field (`'v4'` | `'v5'` | `'both'`).
+- **G3**: ALL knowledge content targets FeathersJS v5 only. No v4 support.
 - **G4**: Response time <2s (p95). Server startup <3s.
 - **G5**: Memory usage <200MB peak.
 - **G6**: ALL generated code MUST pass validation before return.
@@ -755,7 +755,7 @@ Create `tests/routing/router.test.ts`:
 
 ### Step 30: Define Knowledge Base types
 Create `src/knowledge/types.ts`:
-- `DocEntry`: `{ id, title, content, version: 'v4' | 'v5' | 'both', tokens: string[], category }`
+- `DocEntry`: `{ id, title, content, version: 'v5', tokens: string[], category }`
 - `TemplateFragment`: `{ id, name, code, imports: string[], dependencies: string[], featureFlags: string[], version }`
 - `CodeSnippet`: `{ id, type, useCase, code, explanation, version }`
 - `ErrorPattern`: `{ id, pattern: string, cause, solution, example }`
@@ -770,8 +770,8 @@ node -e "
 const src = require('fs').readFileSync('src/knowledge/types.ts', 'utf8');
 const types = ['DocEntry', 'TemplateFragment', 'CodeSnippet', 'ErrorPattern', 'BestPractice'];
 types.forEach(t => { if (!src.includes(t)) throw 'missing type: ' + t; });
-if (!src.includes(\"'v4'\") || !src.includes(\"'v5'\")) throw 'missing version literals';
-console.log('✓ All knowledge types defined with version support');
+if (!src.includes(\"'v5'\")) throw 'missing v5 version literal';
+console.log('✓ All knowledge types defined with v5 version support');
 "
 ```
 
@@ -822,7 +822,7 @@ files.forEach(f => {
   data.forEach((entry, i) => {
     if (!entry.version) throw f + '[' + i + '] missing version';
     if (!entry.tokens || !Array.isArray(entry.tokens)) throw f + '[' + i + '] missing tokens array';
-    if (!['v4', 'v5', 'both'].includes(entry.version)) throw f + '[' + i + '] invalid version: ' + entry.version;
+    if (entry.version !== 'v5') throw f + '[' + i + '] invalid version (must be v5): ' + entry.version;
   });
   total += data.length;
 });
@@ -839,7 +839,7 @@ console.log('✓ ' + total + ' DocEntry objects validated across 5 files');
 Create `knowledge-base/templates/base-project.json`:
 - Minimal FeathersJS app structure fragments
 - `package.json`, `app.ts`, `index.ts` fragments
-- Both v4 and v5 variants
+- v5 variants only
 
 Create `knowledge-base/templates/service.json`:
 - Service class template, hooks file template
@@ -886,10 +886,9 @@ console.log('✓ 6 template files validated with version tags');
 ```bash
 node -e "
 const data = JSON.parse(require('fs').readFileSync('knowledge-base/templates/base-project.json'));
-const hasV4 = data.some(f => f.version === 'v4' || f.version === 'both');
-const hasV5 = data.some(f => f.version === 'v5' || f.version === 'both');
-if (!hasV4 || !hasV5) throw 'base-project missing v4 or v5 variants';
-console.log('✓ base-project has both v4 and v5 variants');
+const hasV5 = data.some(f => f.version === 'v5');
+if (!hasV5) throw 'base-project missing v5 variants';
+console.log('✓ base-project has v5 variants');
 "
 ```
 
@@ -1290,7 +1289,7 @@ console.log('✓ BM25 ranks and normalizes scores correctly');
 ### Step 43: Implement search_docs tool
 Create `src/tools/searchDocs.ts`:
 - Extends `BaseTool` with name `'search_docs'`
-- Input schema: `{ query: string, version?: 'v4' | 'v5' | 'both', limit?: number }`
+- Input schema: `{ query: string, limit?: number }`
 - Uses BM25 to rank documentation
 - Filters by version if specified (default 'v5')
 - Returns top N results with snippets
@@ -1385,7 +1384,7 @@ console.log('✓ ImportMerger deduplicates correctly');
 ### Step 45: Implement get_feathers_template tool
 Create `src/tools/getTemplate.ts`:
 - Extends `BaseTool` with name `'get_feathers_template'`
-- Input schema: `{ database: 'mongodb' | 'postgresql' | 'sqlite', auth?: boolean, typescript?: boolean, version?: 'v4' | 'v5' }`
+- Input schema: `{ database: 'mongodb' | 'postgresql' | 'sqlite', auth?: boolean, typescript?: boolean }`
 - Loads fragments from knowledge base based on flags
 - Uses TemplateComposer to build project
 - Returns file tree with contents
@@ -2037,7 +2036,7 @@ Create `tests/tools/validateCode.test.ts`:
 ### Step 60: Implement get_hook_example tool
 Create `src/tools/getHookExample.ts`:
 - Extends `BaseTool` with name `'get_hook_example'`
-- Input schema: `{ hookType: 'before' | 'after' | 'error', useCase?: string, version?: 'v4' | 'v5' }`
+- Input schema: `{ hookType: 'before' | 'after' | 'error', useCase?: string }`
 - Queries snippet library from knowledge base
 - Returns code with explanation
 - Filters by version (default 'v5')
@@ -2171,7 +2170,7 @@ const tool = new GetBestPracticesTool();
 ### Step 63: Implement explain_concept tool
 Create `src/tools/explainConcept.ts`:
 - Extends `BaseTool` with name `'explain_concept'`
-- Input schema: `{ concept: string, version?: 'v4' | 'v5' }`
+- Input schema: `{ concept: string }`
 - Searches documentation knowledge base
 - Returns explanation with code examples
 - Includes related concepts
@@ -2186,7 +2185,6 @@ const src = require('fs').readFileSync('src/tools/explainConcept.ts', 'utf8');
 if (!src.includes('explain_concept')) throw 'wrong tool name';
 if (!src.includes('extends BaseTool')) throw 'must extend BaseTool';
 if (!src.includes('concept')) throw 'missing concept in schema';
-if (!src.includes('version')) throw 'missing version support';
 console.log('✓ ExplainConceptTool structure valid');
 "
 ```
@@ -2197,7 +2195,7 @@ const {ExplainConceptTool} = require('./dist/tools/explainConcept');
 const tool = new ExplainConceptTool();
 
 (async () => {
-  const result = await tool.execute({concept: 'hooks', version: 'v5'});
+  const result = await tool.execute({concept: 'hooks'});
   if (!result.content) throw 'No content returned';
   console.log('✓ explain_concept returns explanations with examples');
 })();
@@ -2328,48 +2326,8 @@ const tool = new SuggestAlternativesTool();
 
 ---
 
-### Step 67: Implement get_migration_guide tool
-Create `src/tools/getMigrationGuide.ts`:
-- Extends `BaseTool` with name `'get_migration_guide'`
-- Input schema: `{ fromVersion: 'v4', toVersion: 'v5', topic?: string }`
-- Returns migration steps
-- Includes before (v4) and after (v5) code examples
-- Topics: hooks, services, authentication, database adapters
-
-**Depends on**: Steps 41, 31, 37
-**Verify**:
-1. `npx tsc --noEmit src/tools/getMigrationGuide.ts` → compiles
-2. Structure check:
-```bash
-node -e "
-const src = require('fs').readFileSync('src/tools/getMigrationGuide.ts', 'utf8');
-if (!src.includes('get_migration_guide')) throw 'wrong tool name';
-if (!src.includes('extends BaseTool')) throw 'must extend BaseTool';
-if (!src.includes('fromVersion')) throw 'missing fromVersion in schema';
-if (!src.includes('toVersion')) throw 'missing toVersion in schema';
-if (!src.includes('v4') || !src.includes('v5')) throw 'missing version literals';
-console.log('✓ GetMigrationGuideTool structure valid');
-"
-```
-3. Functional test (after build):
-```bash
-node -e "
-const {GetMigrationGuideTool} = require('./dist/tools/getMigrationGuide');
-const tool = new GetMigrationGuideTool();
-
-(async () => {
-  const result = await tool.execute({fromVersion: 'v4', toVersion: 'v5', topic: 'hooks'});
-  if (!result.content) throw 'No content returned';
-  // Should have before/after examples
-  const content = result.content;
-  if (!content.includes('v4') && !content.includes('before')) throw 'Missing v4/before code';
-  if (!content.includes('v5') && !content.includes('after')) throw 'Missing v5/after code';
-  console.log('✓ get_migration_guide returns migration steps with examples');
-})();
-"
-```
-
-**Artifact**: get_migration_guide returns migration steps.
+### Step 67: ~~REMOVED~~ (get_migration_guide — v4 support dropped)
+> This step has been removed. v4 migration support is not provided. The tool count is now 10.
 
 ---
 
@@ -2420,10 +2378,9 @@ Update `src/tools/index.ts`:
 
 Update `src/index.ts`:
 - Register suggest_alternatives
-- Register get_migration_guide
 - Register list_available_tools
 
-Verify: `tools/list` returns all 11 tools.
+Verify: `tools/list` returns all 10 tools.
 
 **Depends on**: Steps 66, 67, 68
 **Verify**:
@@ -2432,7 +2389,7 @@ Verify: `tools/list` returns all 11 tools.
 ```bash
 node -e "
 const src = require('fs').readFileSync('src/tools/index.ts', 'utf8');
-const tools = ['SuggestAlternativesTool', 'GetMigrationGuideTool', 'ListToolsTool'];
+const tools = ['SuggestAlternativesTool', 'ListToolsTool'];
 tools.forEach(t => { if (!src.includes(t)) throw 'missing export: ' + t; });
 console.log('✓ All advanced tools exported');
 "
@@ -2450,13 +2407,13 @@ process.stdin.on('end', () => {
   const expected = [
     'search_docs', 'get_feathers_template', 'generate_service', 'validate_code',
     'get_hook_example', 'troubleshoot_error', 'get_best_practices', 'explain_concept',
-    'suggest_alternatives', 'get_migration_guide', 'list_available_tools'
+    'suggest_alternatives', 'list_available_tools'
   ];
   
   expected.forEach(t => { if (!tools.includes(t)) throw 'missing tool: ' + t; });
   
-  if (tools.length !== 11) console.log('Warning: Expected 11 tools, got ' + tools.length);
-  console.log('✓ All 11 tools registered and invocable');
+  if (tools.length !== 10) console.log('Warning: Expected 10 tools, got ' + tools.length);
+  console.log('✓ All 10 tools registered and invocable');
   console.log('Tools: ' + tools.join(', '));
 });
 "
@@ -2786,10 +2743,10 @@ node -e "
 const readme = require('fs').readFileSync('README.md', 'utf8');
 const tools = ['search_docs', 'get_feathers_template', 'generate_service', 'validate_code',
   'get_hook_example', 'troubleshoot_error', 'get_best_practices', 'explain_concept',
-  'suggest_alternatives', 'get_migration_guide', 'list_available_tools'];
+  'suggest_alternatives', 'list_available_tools'];
 const missing = tools.filter(t => !readme.includes(t));
 if (missing.length > 0) throw 'README missing tools: ' + missing.join(', ');
-console.log('✓ All 11 tools documented in README');
+console.log('✓ All 10 tools documented in README');
 "
 ```
 
@@ -2818,7 +2775,7 @@ const api = require('fs').readFileSync('docs/API.md', 'utf8');
 // Check for tool sections
 const tools = ['search_docs', 'get_feathers_template', 'generate_service', 'validate_code',
   'get_hook_example', 'troubleshoot_error', 'get_best_practices', 'explain_concept',
-  'suggest_alternatives', 'get_migration_guide', 'list_available_tools'];
+  'suggest_alternatives', 'list_available_tools'];
   
 tools.forEach(t => {
   if (!api.includes(t)) throw 'Missing documentation for: ' + t;

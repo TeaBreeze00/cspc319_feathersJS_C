@@ -1,42 +1,58 @@
 [
   {
-    "id": "service-pattern-soft-delete",
-    "type": "pattern",
-    "useCase": "Soft delete pattern with automatic filtering",
-    "code": "import type { Application } from '../../declarations';\nimport { KnexService } from '@feathersjs/knex';\nimport type { KnexAdapterParams } from '@feathersjs/knex';\n\n// Extend service to override remove\nexport class SoftDeleteService<T = any> extends KnexService<T> {\n  async remove(id: any, params?: KnexAdapterParams) {\n    // Patch instead of delete\n    return this.patch(id, { deleted: true, deletedAt: new Date().toISOString() } as any, params);\n  }\n\n  async find(params?: KnexAdapterParams) {\n    // Automatically exclude soft-deleted records\n    params = params || {};\n    params.query = { ...params.query, deleted: { $ne: true } };\n    return super.find(params);\n  }\n\n  async get(id: any, params?: KnexAdapterParams) {\n    const result = await super.get(id, params);\n    if ((result as any).deleted) {\n      throw new Error('Record has been deleted');\n    }\n    return result;\n  }\n}",
-    "explanation": "Extends a Knex service to implement soft-delete. Remove patches with a deleted flag, find/get exclude deleted records.",
-    "version": "v5"
+    "id": "snp-014",
+    "type": "service",
+    "useCase": "Custom method service",
+    "code": "class PaymentService {\n  async create(data: any, params: Params) {\n    return this.processPayment(data)\n  }\n\n  async refund(data: { paymentId: string }, params: Params) {\n    return this.processRefund(data.paymentId)\n  }\n\n  private async processPayment(data: any) { /* ... */ }\n  private async processRefund(id: string) { /* ... */ }\n}\n\napp.use('payments', new PaymentService(), {\n  methods: ['create', 'refund']\n})",
+    "explanation": "Registers a service with a custom method (refund). Custom methods must be listed in the methods option.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "custom-method",
+      "service",
+      "registration"
+    ]
   },
   {
-    "id": "service-pattern-audit-log",
-    "type": "pattern",
-    "useCase": "Audit logging for all service operations",
-    "code": "import type { HookContext } from '../../declarations';\n\n// Audit log service stores all change events\nconst auditLog = async (context: HookContext) => {\n  const { method, path, id, data, result, params } = context;\n  const userId = params.user?._id || 'system';\n\n  try {\n    await context.app.service('audit-logs').create({\n      service: path,\n      method,\n      recordId: id || result?._id,\n      userId,\n      before: method === 'patch' || method === 'update' ? JSON.stringify(data) : undefined,\n      after: JSON.stringify(result),\n      timestamp: new Date().toISOString(),\n      ip: params.ip\n    });\n  } catch (err) {\n    // Don't fail the original operation\n    console.error('Audit log failed:', (err as Error).message);\n  }\n  return context;\n};\n\n// Usage: after: { create: [auditLog], patch: [auditLog], update: [auditLog], remove: [auditLog] }",
-    "explanation": "After-hook that records all mutations to an audit-logs service. Captures who, what, when, and the before/after state.",
-    "version": "v5"
+    "id": "snp-031",
+    "type": "service",
+    "useCase": "Audit logging service pattern",
+    "code": "class AuditService {\n  async create(data: any, params: Params) {\n    return { ...data, id: Date.now(), timestamp: new Date().toISOString() }\n  }\n}\n\n// Register as application hook to audit all service calls\napp.hooks({\n  after: {\n    all: [async (context: HookContext) => {\n      if (context.path !== 'audit-logs') {\n        await context.app.service('audit-logs').create({\n          service: context.path,\n          method: context.method,\n          userId: context.params.user?.id,\n          data: context.method === 'remove' ? { id: context.id } : undefined\n        })\n      }\n    }]\n  }\n})",
+    "explanation": "Audit logging pattern that records all service operations using an application-level after hook.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "audit",
+      "logging",
+      "pattern"
+    ]
   },
   {
-    "id": "service-pattern-cache-v5",
-    "type": "pattern",
-    "useCase": "In-memory caching with TTL for frequently read services",
-    "code": "import type { Application } from '../../declarations';\nimport { MemoryService } from '@feathersjs/memory';\n\ninterface CacheEntry<T> {\n  data: T;\n  expires: number;\n}\n\nexport class CachedService<T = any> {\n  private cache = new Map<string, CacheEntry<T>>();\n  private ttl: number;\n  private inner: any;\n\n  constructor(inner: any, ttlMs = 30_000) {\n    this.inner = inner;\n    this.ttl = ttlMs;\n  }\n\n  async get(id: any, params?: any): Promise<T> {\n    const key = `get:${id}`;\n    const cached = this.cache.get(key);\n    if (cached && Date.now() < cached.expires) return cached.data;\n\n    const result = await this.inner.get(id, params);\n    this.cache.set(key, { data: result, expires: Date.now() + this.ttl });\n    return result;\n  }\n\n  // Invalidate cache on mutation\n  async create(data: any, params?: any) {\n    this.cache.clear();\n    return this.inner.create(data, params);\n  }\n\n  async patch(id: any, data: any, params?: any) {\n    this.cache.delete(`get:${id}`);\n    return this.inner.patch(id, data, params);\n  }\n}",
-    "explanation": "Wrapper that adds TTL caching to any Feathers service. Caches get results and invalidates on mutations.",
-    "version": "v5"
+    "id": "snp-032",
+    "type": "service",
+    "useCase": "Multi-tenant service pattern",
+    "code": "app.service('messages').hooks({\n  before: {\n    all: [\n      async (context: HookContext) => {\n        // Add tenant filter to all queries\n        const tenantId = context.params.user?.tenantId\n        if (!tenantId) throw new NotAuthenticated('No tenant')\n        context.params.query = {\n          ...context.params.query,\n          tenantId\n        }\n      }\n    ],\n    create: [\n      async (context: HookContext) => {\n        // Set tenant on create\n        context.data.tenantId = context.params.user.tenantId\n      }\n    ]\n  }\n})",
+    "explanation": "Multi-tenant data isolation using hooks to automatically filter by tenant ID.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "multi-tenant",
+      "pattern",
+      "isolation"
+    ]
   },
   {
-    "id": "service-pattern-multi-tenancy",
-    "type": "pattern",
-    "useCase": "Multi-tenancy pattern using query scoping",
-    "code": "// Before hook: scope all queries to the current tenant\nconst scopeToTenant = async (context: HookContext) => {\n  const { params } = context;\n  const tenantId = params.user?.tenantId;\n\n  if (!tenantId && params.provider) {\n    throw new Forbidden('No tenant context');\n  }\n\n  if (tenantId) {\n    // Scope queries\n    if (context.method === 'find') {\n      context.params.query = { ...context.params.query, tenantId };\n    }\n    // Stamp data\n    if (context.data) {\n      context.data.tenantId = tenantId;\n    }\n    // Scope get/patch/remove\n    if (context.id) {\n      context.params.query = { ...context.params.query, tenantId };\n    }\n  }\n  return context;\n};\n\n// Usage: before: { all: [authenticate('jwt'), scopeToTenant] }",
-    "explanation": "Automatically scopes all service operations to the current user's tenant. Ensures data isolation between tenants.",
-    "version": "both"
-  },
-  {
-    "id": "service-pattern-v4-pagination",
-    "type": "pattern",
-    "useCase": "v4 custom pagination with metadata",
-    "code": "// v4 after hook: add pagination metadata\nmodule.exports = async function addPaginationMeta(context) {\n  const { result, params } = context;\n\n  if (result.total !== undefined) {\n    const limit = result.limit || 10;\n    const skip = result.skip || 0;\n    const page = Math.floor(skip / limit) + 1;\n    const totalPages = Math.ceil(result.total / limit);\n\n    result.pagination = {\n      page,\n      totalPages,\n      hasNext: page < totalPages,\n      hasPrev: page > 1\n    };\n  }\n\n  return context;\n};\n\n// Usage: after: { find: [addPaginationMeta] }",
-    "explanation": "Adds computed pagination metadata (page number, totalPages, hasNext/hasPrev) to paginated results.",
-    "version": "v4"
+    "id": "snp-033",
+    "type": "service",
+    "useCase": "Batch processing service",
+    "code": "class BatchService {\n  async create(data: { items: any[] }, params: Params) {\n    const results = []\n    const errors = []\n    for (const item of data.items) {\n      try {\n        const result = await this.app.service('items').create(item, params)\n        results.push(result)\n      } catch (error: any) {\n        errors.push({ item, error: error.message })\n      }\n    }\n    return { processed: results.length, failed: errors.length, errors }\n  }\n}",
+    "explanation": "Batch processing service that creates multiple items with individual error handling.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "batch",
+      "bulk",
+      "pattern"
+    ]
   }
 ]

@@ -1,44 +1,90 @@
 [
   {
-    "id": "err-auth-not-authenticated",
-    "pattern": "Not authenticated|NotAuthenticated|401|jwt.*expired|no.*auth.*token",
-    "cause": "No valid authentication token was provided, or the token has expired.",
-    "solution": "Ensure the client sends the JWT in the Authorization header: 'Bearer <token>'. If the token expired, re-authenticate to get a new one. Check your jwtOptions.expiresIn setting in config.",
-    "example": "NotAuthenticated: Not authenticated"
+    "id": "err-001",
+    "pattern": "NotAuthenticated: Not authenticated",
+    "cause": "A service method was called without valid authentication credentials (no JWT or invalid JWT).",
+    "solution": "Ensure the client sends a valid JWT token. Use `client.authenticate()` before making service calls. Check that the `authenticate` hook is registered correctly.",
+    "example": "await client.authenticate({ strategy: \"local\", email: \"user@example.com\", password: \"secret\" })",
+    "version": "v5",
+    "tags": [
+      "authentication",
+      "jwt",
+      "401"
+    ],
+    "category": "authentication"
   },
   {
-    "id": "err-auth-invalid-credentials",
-    "pattern": "Invalid login|Invalid credentials|password.*incorrect|bad.*credentials",
-    "cause": "The email/password combination does not match any user record.",
-    "solution": "Verify the user exists and the password is correct. Check that the local strategy usernameField matches your user schema (default: 'email'). Ensure passwords are being hashed on create with the local strategy hashPassword hook.",
-    "example": "NotAuthenticated: Invalid login"
+    "id": "err-002",
+    "pattern": "Forbidden: You do not have the correct permissions",
+    "cause": "The authenticated user does not have permission to perform this action.",
+    "solution": "Check your authorization/permission hooks. Verify the user has the required role. Review the `abilityFor` or custom permission logic.",
+    "example": "app.service(\"admin\").hooks({ before: { all: [authenticate(\"jwt\"), authorize()] } })",
+    "version": "v5",
+    "tags": [
+      "authorization",
+      "permissions",
+      "403"
+    ],
+    "category": "authentication"
   },
   {
-    "id": "err-auth-jwt-malformed",
-    "pattern": "jwt malformed|invalid.*signature|JsonWebTokenError|invalid token",
-    "cause": "The JWT token is malformed, tampered with, or signed with a different secret.",
-    "solution": "Re-authenticate to get a fresh token. Verify the authentication secret in config/default.json matches on all server instances. Do not modify the token contents.",
-    "example": "JsonWebTokenError: jwt malformed"
+    "id": "err-003",
+    "pattern": "BadRequest: Password must be provided",
+    "cause": "Local authentication strategy received a request without the password field.",
+    "solution": "Ensure both email/username and password fields are sent. Check the field names match your authentication configuration.",
+    "example": "await client.authenticate({ strategy: \"local\", email: \"user@example.com\", password: \"mysecret\" })",
+    "version": "v5",
+    "tags": [
+      "authentication",
+      "local",
+      "password",
+      "400"
+    ],
+    "category": "authentication"
   },
   {
-    "id": "err-auth-strategy-not-found",
-    "pattern": "strategy.*not.*found|No auth.*strategy|Unknown authentication strategy",
-    "cause": "The authentication strategy referenced in the request is not registered.",
-    "solution": "Register the strategy in your authentication configuration: authentication.register('jwt', new JWTStrategy()). Check that authStrategies in your config includes the strategy name.",
-    "example": "NotAuthenticated: No authentication strategy 'github' found"
+    "id": "err-004",
+    "pattern": "NotAuthenticated: jwt expired",
+    "cause": "The JWT access token has expired.",
+    "solution": "Re-authenticate to get a new token. Configure appropriate `expiresIn` in authentication config. Implement token refresh logic.",
+    "example": "try { await client.reAuthenticate() } catch(e) { await client.authenticate({ strategy: \"local\", ...credentials }) }",
+    "version": "v5",
+    "tags": [
+      "authentication",
+      "jwt",
+      "expired",
+      "401"
+    ],
+    "category": "authentication"
   },
   {
-    "id": "err-auth-oauth-callback-error",
-    "pattern": "OAuth.*error|oauth.*callback.*failed|redirect.*error|access_denied",
-    "cause": "OAuth authentication callback failed due to misconfigured redirect URI or denied access.",
-    "solution": "Verify your OAuth provider settings: callback URL must match exactly (including protocol and port). Check that client ID and secret are correct. Ensure the OAuth redirect in config points to your actual host.",
-    "example": "OAuthError: The redirect_uri parameter does not match the registered callback URL"
+    "id": "err-005",
+    "pattern": "NotAuthenticated: invalid algorithm",
+    "cause": "The JWT was signed with a different algorithm than expected.",
+    "solution": "Ensure the JWT algorithm in authentication configuration matches between server and client. Default is HS256.",
+    "example": "Check config/default.json: authentication.jwtOptions.algorithm should be \"HS256\"",
+    "version": "v5",
+    "tags": [
+      "authentication",
+      "jwt",
+      "algorithm",
+      "401"
+    ],
+    "category": "authentication"
   },
   {
-    "id": "err-auth-forbidden",
-    "pattern": "Forbidden|403|not allowed|insufficient.*permission|not.*authorized",
-    "cause": "The authenticated user does not have permission to perform the requested action.",
-    "solution": "Check your authorization hooks. Ensure the user has the required role or ownership. Common pattern: use an after-authenticate hook that checks params.user.role against the required permission level.",
-    "example": "Forbidden: You do not have the correct permissions"
+    "id": "err-006",
+    "pattern": "BadRequest: A \"header\" must be provided",
+    "cause": "Socket.io or REST transport is missing required headers for authentication.",
+    "solution": "Ensure authentication headers are set. For Socket.io, use `extraHeaders` option. For REST, include the Authorization header.",
+    "example": "const socket = io({ extraHeaders: { Authorization: `Bearer ${token}` } })",
+    "version": "v5",
+    "tags": [
+      "transport",
+      "headers",
+      "socketio",
+      "400"
+    ],
+    "category": "authentication"
   }
 ]

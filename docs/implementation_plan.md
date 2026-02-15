@@ -77,12 +77,11 @@ function searchDocs(params: { query: string }): SearchResult {
 
 | ID | Constraint | Rationale |
 |----|------------|-----------|
-| G3.1 | **ALL documentation entries MUST have a `version` field** with value `'v4'`, `'v5'`, or `'both'`. | Prevents mixing incompatible APIs. |
+| G3.1 | **ALL documentation entries MUST have a `version` field** with value `'v5'`. | All content targets FeathersJS v5 only. |
 | G3.2 | **ALL template fragments MUST have a `version` field.** | Generated code must be version-consistent. |
-| G3.3 | **ALL code snippets MUST have a `version` field.** | Examples must match user's FeathersJS version. |
-| G3.4 | **NEVER return v4 content when user requests v5, or vice versa** (unless `version: 'both'`). | API differences cause runtime errors. |
-| G3.5 | **NEVER compose templates mixing v4 and v5 fragments.** | Incompatible APIs will produce broken code. |
-| G3.6 | **Default version MUST be `'v5'`** when user does not specify. | v5 is current stable release. |
+| G3.3 | **ALL code snippets MUST have a `version` field.** | Examples must match FeathersJS v5. |
+| G3.4 | **All content is v5 only.** No v4 content is provided or supported. | v4 is deprecated; v5 is the current stable release. |
+| G3.5 | **Default version is `'v5'`** — the only supported version. | Simplifies implementation; no version-mixing risk. |
 
 **Violation Example (FORBIDDEN):**
 ```json
@@ -343,7 +342,6 @@ This section defines the optimal order for implementing the 11 MCP tools, design
 │ Complex tools building on all prior infrastructure                          │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  10. suggest_alternatives → Needs templates + snippets + search             │
-│  11. get_migration_guide  → Needs v4/v5 docs comparison                     │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -473,15 +471,9 @@ This section defines the optimal order for implementing the 11 MCP tools, design
 
 ---
 
-### Tool 11: `get_migration_guide` (IMPLEMENT LAST)
+### Tool 11: ~~REMOVED~~ (`get_migration_guide` — v4 support dropped)
 
-| Attribute | Details |
-|-----------|---------|
-| **Why Last** | (1) Requires comprehensive v4 AND v5 documentation. (2) Most specialized tool — only useful for migration scenarios. (3) Lower priority (SHOULD HAVE). (4) Can be cut if time runs short without affecting core functionality. |
-| **Layers Touched** | Protocol → Routing → **Tools** → **Knowledge Base** (docs with v4/v5 comparison) |
-| **Prerequisites** | • Complete v4 documentation <br> • Complete v5 documentation <br> • Migration mapping data <br> • Diff/comparison logic |
-| **Shared Utilities Created** | • Version comparison utilities |
-| **Testability Benefit** | Test specific API migrations (e.g., hooks v4→v5 syntax). |
+> This tool has been removed. v4 migration support is not provided. The server targets FeathersJS v5 only.
 
 ---
 
@@ -531,11 +523,11 @@ This section defines the optimal order for implementing the 11 MCP tools, design
               ┌────────────────┴────────────────┐
               │                                 │
               ▼                                 ▼
-    ┌─────────────────────┐         ┌─────────────────────┐
-    │ 10. suggest_        │         │ 11. get_migration_  │
-    │ alternatives        │         │ guide               │
-    │ (uses all above)    │         │ (v4/v5 comparison)  │
-    └─────────────────────┘         └─────────────────────┘
+    ┌─────────────────────┐
+    │ 10. suggest_        │
+    │ alternatives        │
+    │ (uses all above)    │
+    └─────────────────────┘
 ```
 
 ---
@@ -578,7 +570,7 @@ Building tools in this order creates reusable utilities that reduce code in late
 | **Validation integration pain** | Tool 3 built before any code generation tools |
 | **Template composition complexity** | Tool 4 isolates composer logic before service generation |
 | **Knowledge Base format issues** | Tools 1, 6, 7, 8 exercise all content types early |
-| **Version mixing** | Tool 11 (migration) deferred until v4/v5 handling proven |
+| **Version mixing** | N/A — v4 support dropped; server targets v5 only |
 
 ---
 
@@ -894,7 +886,7 @@ When Phase 2 is complete, the following must exist:
 ## Phase 3: Knowledge Base Layer Implementation
 
 ### Objective
-Create the embedded knowledge base containing all FeathersJS documentation, template fragments, code snippets, error patterns, and best practices. All content is version-tagged (v4/v5) and pre-tokenized for fast search. This is the data layer that all tools query.
+Create the embedded knowledge base containing all FeathersJS v5 documentation, template fragments, code snippets, error patterns, and best practices. All content targets v5 only and is pre-tokenized for fast search. This is the data layer that all tools query.
 
 ### Components/Layers Involved
 - Knowledge Base Layer (`src/knowledge/`, `knowledge-base/`)
@@ -924,7 +916,7 @@ When Phase 3 is complete, the following must exist:
 | Attribute | Value |
 |-----------|-------|
 | **Files/Directories** | `src/knowledge/types.ts` |
-| **Definition of Done** | (1) `DocEntry` interface: `id`, `title`, `content`, `version: 'v4' \| 'v5' \| 'both'`, `tokens: string[]`, `category`. (2) `TemplateFragment` interface: `id`, `name`, `code`, `imports`, `dependencies`, `featureFlags`, `version`. (3) `CodeSnippet` interface: `id`, `type`, `useCase`, `code`, `explanation`, `version`. (4) `ErrorPattern` interface: `id`, `pattern: RegExp`, `cause`, `solution`, `example`. (5) `BestPractice` interface: `id`, `topic`, `rule`, `rationale`, `goodExample`, `badExample`. |
+| **Definition of Done** | (1) `DocEntry` interface: `id`, `title`, `content`, `version: 'v5'`, `tokens: string[]`, `category`. (2) `TemplateFragment` interface: `id`, `name`, `code`, `imports`, `dependencies`, `featureFlags`, `version`. (3) `CodeSnippet` interface: `id`, `type`, `useCase`, `code`, `explanation`, `version`. (4) `ErrorPattern` interface: `id`, `pattern: RegExp`, `cause`, `solution`, `example`. (5) `BestPractice` interface: `id`, `topic`, `rule`, `rationale`, `goodExample`, `badExample`. |
 | **Dependencies** | Task 0.4 |
 | **Parallelizable** | Yes |
 
@@ -932,7 +924,7 @@ When Phase 3 is complete, the following must exist:
 | Attribute | Value |
 |-----------|-------|
 | **Files/Directories** | `knowledge-base/docs/core-concepts.json`, `knowledge-base/docs/services.json`, `knowledge-base/docs/hooks.json`, `knowledge-base/docs/authentication.json`, `knowledge-base/docs/databases.json` |
-| **Definition of Done** | (1) Each file contains array of `DocEntry` objects. (2) All entries have `version` tag (v4/v5/both). (3) Content pre-tokenized in `tokens` array. (4) Minimum 10 documentation entries per file. (5) JSON validates against `DocEntry` schema. (6) Covers: services, hooks, authentication, database adapters, configuration. |
+| **Definition of Done** | (1) Each file contains array of `DocEntry` objects. (2) All entries have `version: 'v5'`. (3) Content pre-tokenized in `tokens` array. (4) Minimum 10 documentation entries per file. (5) JSON validates against `DocEntry` schema. (6) Covers: services, hooks, authentication, database adapters, configuration. |
 | **Dependencies** | Task 3.1 |
 | **Parallelizable** | Yes (each file independent) |
 
@@ -1055,7 +1047,7 @@ When Phase 4 is complete, the following must exist:
 | Attribute | Value |
 |-----------|-------|
 | **Files/Directories** | `src/tools/searchDocs.ts` |
-| **Definition of Done** | (1) Extends `BaseTool` with name `search_docs`. (2) Input schema: `{ query: string, version?: 'v4' \| 'v5' \| 'both', limit?: number }`. (3) Two-stage search: keyword filter → BM25 rank. (4) Title matches weighted 2x body matches. (5) Filters results by version if specified. (6) Returns top N results with snippets and scores. (7) Response time <500ms for typical queries. |
+| **Definition of Done** | (1) Extends `BaseTool` with name `search_docs`. (2) Input schema: `{ query: string, limit?: number }`. (3) Two-stage search: keyword filter → BM25 rank. (4) Title matches weighted 2x body matches. (5) Returns top N results with snippets and scores. (6) Response time <500ms for typical queries. |
 | **Dependencies** | Tasks 4.1, 4.2, 3.8 |
 | **Parallelizable** | No (depends on 4.1, 4.2) |
 
@@ -1234,7 +1226,7 @@ When Phase 6 is complete, the following must exist:
 | Attribute | Value |
 |-----------|-------|
 | **Files/Directories** | `src/tools/getHookExample.ts` |
-| **Definition of Done** | (1) Extends `BaseTool` with name `get_hook_example`. (2) Input schema: `{ hookType: 'before' \| 'after' \| 'error', useCase?: string, version?: 'v4' \| 'v5' }`. (3) Queries snippet library from knowledge base. (4) Returns code with inline explanation comments. (5) Filters by version if specified. (6) Returns multiple examples if `useCase` not specified. (7) Registered with router. |
+| **Definition of Done** | (1) Extends `BaseTool` with name `get_hook_example`. (2) Input schema: `{ hookType: 'before' \| 'after' \| 'error', useCase?: string }`. (3) Queries snippet library from knowledge base. (4) Returns code with inline explanation comments. (5) Returns multiple examples if `useCase` not specified. (6) Registered with router. |
 | **Dependencies** | Tasks 4.1, 3.4, 3.8 |
 | **Parallelizable** | Yes (with Tasks 6.2, 6.3, 6.4) |
 
@@ -1258,7 +1250,7 @@ When Phase 6 is complete, the following must exist:
 | Attribute | Value |
 |-----------|-------|
 | **Files/Directories** | `src/tools/explainConcept.ts` |
-| **Definition of Done** | (1) Extends `BaseTool` with name `explain_concept`. (2) Input schema: `{ concept: string, version?: 'v4' \| 'v5' }`. (3) Searches documentation knowledge base. (4) Returns concept explanation with code examples. (5) Includes links to related concepts. (6) Notes version differences if applicable. (7) Registered with router. |
+| **Definition of Done** | (1) Extends `BaseTool` with name `explain_concept`. (2) Input schema: `{ concept: string }`. (3) Searches documentation knowledge base. (4) Returns concept explanation with code examples. (5) Includes links to related concepts. (6) Registered with router. |
 | **Dependencies** | Tasks 4.1, 3.2, 3.8 |
 | **Parallelizable** | Yes (with Tasks 6.1, 6.2, 6.3) |
 
@@ -1283,7 +1275,7 @@ When Phase 6 is complete, the following must exist:
 ## Phase 7: Tool Implementation Layer — Advanced Tools
 
 ### Objective
-Implement optional/advanced tools: `suggest_alternatives` (alternative implementations), `get_migration_guide` (v4→v5 migration), and `list_available_tools` (tool discovery). These are lower-priority SHOULD HAVE/COULD HAVE features.
+Implement optional/advanced tools: `suggest_alternatives` (alternative implementations) and `list_available_tools` (tool discovery). These are lower-priority SHOULD HAVE/COULD HAVE features. (`get_migration_guide` has been removed — v4 support dropped.)
 
 ### Components/Layers Involved
 - Tool Implementation Layer (`src/tools/`)
@@ -1296,9 +1288,8 @@ Implement optional/advanced tools: `suggest_alternatives` (alternative implement
 ### Exit Artifacts
 When Phase 7 is complete, the following must exist:
 - [ ] `src/tools/suggestAlternatives.ts` — Returns 2+ alternative implementations with trade-offs
-- [ ] `src/tools/getMigrationGuide.ts` — Returns v4→v5 migration steps with code examples
 - [ ] `src/tools/listTools.ts` — Returns all available tools with descriptions and schemas
-- [ ] All three tools registered and invocable via MCP protocol
+- [ ] Both tools registered and invocable via MCP protocol
 - [ ] `tests/tools/` — Unit tests for advanced tools
 
 ---
@@ -1313,13 +1304,9 @@ When Phase 7 is complete, the following must exist:
 | **Dependencies** | Tasks 4.1, 3.3, 3.4, 3.8 |
 | **Parallelizable** | Yes (with Tasks 7.2, 7.3) |
 
-#### Task 7.2: Implement `get_migration_guide` Tool
-| Attribute | Value |
-|-----------|-------|
-| **Files/Directories** | `src/tools/getMigrationGuide.ts` |
-| **Definition of Done** | (1) Extends `BaseTool` with name `get_migration_guide`. (2) Input schema: `{ fromVersion: 'v4', toVersion: 'v5', topic?: string }`. (3) Returns migration steps for specific APIs. (4) Includes `before` (v4) and `after` (v5) code examples. (5) Covers: hooks, services, authentication, database adapters. (6) Uses documentation knowledge base. (7) Registered with router. |
-| **Dependencies** | Tasks 4.1, 3.2, 3.8 |
-| **Parallelizable** | Yes (with Tasks 7.1, 7.3) |
+#### Task 7.2: ~~REMOVED~~ (`get_migration_guide` — v4 support dropped)
+
+> This task has been removed. v4 migration support is not provided.
 
 #### Task 7.3: Implement `list_available_tools` Tool
 | Attribute | Value |
@@ -1333,15 +1320,15 @@ When Phase 7 is complete, the following must exist:
 | Attribute | Value |
 |-----------|-------|
 | **Files/Directories** | `src/tools/index.ts`, `src/index.ts` |
-| **Definition of Done** | (1) All three advanced tools exported from `src/tools/index.ts`. (2) All tools registered in `src/index.ts`. (3) `tools/list` includes all advanced tools. (4) Total tool count is now complete (all 10+ tools). |
+| **Definition of Done** | (1) All advanced tools exported from `src/tools/index.ts`. (2) All tools registered in `src/index.ts`. (3) `tools/list` includes all advanced tools. (4) Total tool count is now 10 tools. |
 | **Dependencies** | Tasks 7.1, 7.2, 7.3 |
 | **Parallelizable** | No |
 
 #### Task 7.5: Advanced Tools Unit Tests
 | Attribute | Value |
 |-----------|-------|
-| **Files/Directories** | `tests/tools/suggestAlternatives.test.ts`, `tests/tools/getMigrationGuide.test.ts`, `tests/tools/listTools.test.ts` |
-| **Definition of Done** | (1) Test alternative suggestions for hook patterns. (2) Test alternative suggestions for service patterns. (3) Test migration guide for each topic. (4) Test tool listing returns all tools. (5) Test category filtering. (6) >80% coverage for advanced tools. |
+| **Files/Directories** | `tests/tools/suggestAlternatives.test.ts`, `tests/tools/listTools.test.ts` |
+| **Definition of Done** | (1) Test alternative suggestions for hook patterns. (2) Test alternative suggestions for service patterns. (3) Test tool listing returns all tools. (4) Test category filtering. (5) >80% coverage for advanced tools. |
 | **Dependencies** | Task 7.4 |
 | **Parallelizable** | No |
 
@@ -1835,7 +1822,6 @@ feathers-mcp-server/
 │   │   ├── getBestPractices.ts
 │   │   ├── explainConcept.ts
 │   │   ├── suggestAlternatives.ts
-│   │   ├── getMigrationGuide.ts
 │   │   ├── listTools.ts
 │   │   ├── search/
 │   │   │   ├── bm25.ts
@@ -1919,7 +1905,6 @@ feathers-mcp-server/
 │   │   ├── getBestPractices.test.ts
 │   │   ├── explainConcept.test.ts
 │   │   ├── suggestAlternatives.test.ts
-│   │   ├── getMigrationGuide.test.ts
 │   │   ├── listTools.test.ts
 │   │   ├── search/
 │   │   │   └── bm25.test.ts
@@ -2013,8 +1998,8 @@ This section maps all requirements to specific tests and defines measurement str
 |-----------|-----------|---------------|---------------------|
 | Unit | Exact match ranking | `tests/tools/searchDocs.test.ts` | Search "hooks", verify "hooks" doc ranks #1 |
 | Unit | Partial match | `tests/tools/searchDocs.test.ts` | Search "authenticate", verify auth docs returned |
-| Unit | Version filtering v5 | `tests/tools/searchDocs.test.ts` | Search with `version: 'v5'`, verify no v4-only results |
-| Unit | Version filtering v4 | `tests/tools/searchDocs.test.ts` | Search with `version: 'v4'`, verify no v5-only results |
+| Unit | Version filtering v5 | `tests/tools/searchDocs.test.ts` | All results are v5 (only version supported) |
+| Unit | Version filtering (v4 removed) | `tests/tools/searchDocs.test.ts` | N/A — v4 not supported |
 | Unit | Empty results | `tests/tools/searchDocs.test.ts` | Search "xyznonexistent", verify empty array returned |
 | Unit | Result limit | `tests/tools/searchDocs.test.ts` | Search with `limit: 5`, verify ≤5 results |
 | Unit | BM25 ranking quality | `tests/tools/search/bm25.test.ts` | Test known relevance judgments (query → expected top result) |
@@ -2107,15 +2092,11 @@ This section maps all requirements to specific tests and defines measurement str
 
 ---
 
-#### FR-013: Migration Guide (get_migration_guide)
+#### FR-013: ~~REMOVED~~ (Migration Guide — v4 support dropped)
 
-| Test Type | Test Name | Test Location | Verification Method |
-|-----------|-----------|---------------|---------------------|
-| Unit | Hooks migration | `tests/tools/getMigrationGuide.test.ts` | Request hooks v4→v5, verify before/after examples |
-| Unit | Services migration | `tests/tools/getMigrationGuide.test.ts` | Request services v4→v5, verify migration steps |
-| Unit | Invalid version | `tests/tools/getMigrationGuide.test.ts` | Request v5→v4, verify error (unsupported direction) |
+> This test section has been removed. `get_migration_guide` tool is not implemented.
 
-**Pass Criteria:** Migration steps include working before/after code examples.
+**Pass Criteria:** N/A
 
 ---
 
@@ -2165,7 +2146,6 @@ For each tool:
 | `get_best_practices` | <200ms | Simple lookup |
 | `explain_concept` | <500ms | Search + retrieval |
 | `suggest_alternatives` | <1000ms | Multi-source query |
-| `get_migration_guide` | <500ms | Lookup + diff |
 | `list_available_tools` | <100ms | Registry query only |
 
 ---

@@ -1,42 +1,76 @@
 [
   {
-    "id": "bp-testing-use-app-instance",
-    "topic": "Test Setup",
-    "rule": "Create a fresh app instance for each test suite. Use the app's service methods directly instead of HTTP requests for unit tests.",
-    "rationale": "Testing through the app instance is faster, more deterministic, and tests business logic in isolation from transport concerns.",
-    "goodExample": "describe('messages service', () => {\n  let app;\n  beforeAll(async () => {\n    app = await createApp();\n    await app.setup();\n  });\n  afterAll(async () => {\n    await app.teardown();\n  });\n  it('creates a message', async () => {\n    const message = await app.service('messages').create({\n      text: 'Hello'\n    }, { user: testUser });\n    expect(message.text).toBe('Hello');\n  });\n});",
-    "badExample": "// Starting an HTTP server for every unit test\nlet server;\nbeforeEach(() => { server = app.listen(3030); });\nafterEach(() => { server.close(); });\nit('creates a message', async () => {\n  const res = await fetch('http://localhost:3030/messages', {\n    method: 'POST', body: JSON.stringify({text:'Hi'})\n  });\n});"
+    "id": "bp-016",
+    "topic": "testing",
+    "rule": "Test services in isolation with app.setup()",
+    "rationale": "Create a test app, register services, call app.setup() and test service methods directly without HTTP.",
+    "goodExample": "const app = feathers()\napp.use('messages', new MessageService())\nawait app.setup()\nconst result = await app.service('messages').create({ text: 'test' })\nexpect(result.text).toBe('test')\nawait app.teardown()",
+    "badExample": "// Bad: testing through HTTP/WebSocket (slow, brittle)\nconst response = await fetch('http://localhost:3030/messages', {\n  method: 'POST',\n  body: JSON.stringify({ text: 'test' })\n})",
+    "version": "v5",
+    "tags": [
+      "testing",
+      "unit",
+      "jest"
+    ]
   },
   {
-    "id": "bp-testing-mock-dependencies",
-    "topic": "Mocking",
-    "rule": "Mock external services and databases in unit tests. Use in-memory adapters or mock functions for database services.",
-    "rationale": "Tests that depend on external services are slow, flaky, and hard to run in CI. Mocking isolates the unit under test.",
-    "goodExample": "// Use memory adapter for tests\nimport { MemoryService } from '@feathersjs/memory';\napp.use('messages', new MemoryService({\n  paginate: { default: 10, max: 50 }\n}));\n\n// Mock an external email service\napp.use('mailer', {\n  async create(data) {\n    return { ...data, sent: true };\n  }\n});",
-    "badExample": "// Tests against live MongoDB — fails without running DB, slow, non-deterministic\nimport { MongoDBService } from '@feathersjs/mongodb';\napp.use('messages', new MongoDBService({\n  Model: db.collection('messages')\n}));"
+    "id": "bp-017",
+    "topic": "testing",
+    "rule": "Use the Memory adapter for testing",
+    "rationale": "The Memory adapter is perfect for tests - no database setup needed, fast, and implements the full service interface.",
+    "goodExample": "import { MemoryService } from '@feathersjs/memory'\n\nconst app = feathers()\napp.use('messages', new MemoryService({\n  paginate: { default: 10, max: 100 }\n}))",
+    "badExample": "// Avoid in tests: real database connections\n// Slow, requires setup, can fail due to connection issues\napp.use('messages', new MongoDBService({ Model: mongoCollection }))",
+    "version": "v5",
+    "tags": [
+      "testing",
+      "memory",
+      "mock",
+      "adapter"
+    ]
   },
   {
-    "id": "bp-testing-test-hooks-independently",
-    "topic": "Hook Testing",
-    "rule": "Test hooks as standalone functions with minimal context objects rather than always going through a full service call.",
-    "rationale": "Hook logic is often complex and deserves focused unit tests. Testing in isolation makes failures easier to diagnose and tests run faster.",
-    "goodExample": "import { setTimestamp } from '../hooks/set-timestamp';\n\nit('sets createdAt on create', async () => {\n  const context = {\n    type: 'before',\n    method: 'create',\n    data: { text: 'Hello' }\n  };\n  const result = await setTimestamp('createdAt')(context);\n  expect(result.data.createdAt).toBeDefined();\n  expect(result.data.createdAt).toBeInstanceOf(Date);\n});",
-    "badExample": "// Only testing hooks through full service — no isolation\nit('sets createdAt', async () => {\n  const msg = await app.service('messages').create({ text: 'Hi' });\n  expect(msg.createdAt).toBeDefined();\n  // If this fails, is it the hook, the service, or the DB?\n});"
+    "id": "bp-018",
+    "topic": "testing",
+    "rule": "Test hooks independently",
+    "rationale": "Export and test hook functions in isolation rather than only through full service calls. This makes tests faster and more focused.",
+    "goodExample": "// Export hook for direct testing\nexport const setTimestamp = async (context: HookContext) => {\n  context.data.createdAt = Date.now()\n  return context\n}\n\n// Test in isolation\nconst context = { data: { text: 'test' } } as HookContext\nconst result = await setTimestamp(context)\nexpect(result.data.createdAt).toBeDefined()",
+    "badExample": "// Bad: only testing hooks through service calls\n// Slow, unclear what's being tested\nconst result = await app.service('messages').create({ text: 'test' })\nexpect(result.createdAt).toBeDefined() // Which hook set this?",
+    "version": "v5",
+    "tags": [
+      "testing",
+      "hooks",
+      "unit",
+      "isolation"
+    ]
   },
   {
-    "id": "bp-testing-test-error-cases",
-    "topic": "Error Testing",
-    "rule": "Test error conditions and edge cases, not just the happy path. Verify that proper FeathersJS errors are thrown.",
-    "rationale": "Many bugs live in error-handling code. Testing error paths ensures your application fails gracefully and returns informative errors.",
-    "goodExample": "it('rejects unauthenticated create', async () => {\n  await expect(\n    app.service('messages').create({ text: 'Hi' })\n  ).rejects.toThrow('Not authenticated');\n});\n\nit('returns NotFound for missing record', async () => {\n  try {\n    await app.service('messages').get('nonexistent');\n    fail('Should have thrown');\n  } catch (error) {\n    expect(error.code).toBe(404);\n    expect(error.className).toBe('not-found');\n  }\n});",
-    "badExample": "// Only tests happy paths — misses entire classes of bugs\nit('creates a message', async () => {\n  const msg = await app.service('messages').create({\n    text: 'Hello'\n  });\n  expect(msg.text).toBe('Hello');\n});\n// No tests for: missing fields, auth failures, duplicate data, invalid types"
+    "id": "bp-019",
+    "topic": "testing",
+    "rule": "Test error cases explicitly",
+    "rationale": "Always test that your services and hooks return appropriate errors for invalid inputs, unauthorized access, and edge cases.",
+    "goodExample": "// Good: explicit error testing\nawait expect(\n  app.service('messages').create({}) // empty data\n).rejects.toThrow(BadRequest)\n\nawait expect(\n  app.service('messages').get('nonexistent-id')\n).rejects.toThrow(NotFound)\n\nawait expect(\n  app.service('protected').find({ provider: 'rest' }) // unauthenticated\n).rejects.toThrow(NotAuthenticated)",
+    "badExample": "// Bad: only testing happy path\nconst result = await app.service('messages').create({ text: 'hello' })\nexpect(result).toBeDefined()\n// Never tests: what if text is missing? What if not authenticated?",
+    "version": "v5",
+    "tags": [
+      "testing",
+      "errors",
+      "validation",
+      "edge-cases"
+    ]
   },
   {
-    "id": "bp-testing-seed-test-data",
-    "topic": "Test Data",
-    "rule": "Use factory functions or fixtures to create test data. Each test should set up the data it needs and clean up afterward.",
-    "rationale": "Shared mutable test data causes tests to depend on execution order, leading to flaky tests that pass individually but fail together.",
-    "goodExample": "const createTestUser = async (app, overrides = {}) => {\n  return app.service('users').create({\n    email: `test-${Date.now()}@example.com`,\n    password: 'secret123',\n    ...overrides\n  });\n};\n\nit('allows owner to update message', async () => {\n  const user = await createTestUser(app);\n  const msg = await app.service('messages').create(\n    { text: 'Hi' }, { user }\n  );\n  const updated = await app.service('messages').patch(\n    msg._id, { text: 'Updated' }, { user }\n  );\n  expect(updated.text).toBe('Updated');\n});",
-    "badExample": "// Shared state across tests — order-dependent, flaky\nlet sharedUser, sharedMessage;\nbeforeAll(async () => {\n  sharedUser = await app.service('users').create({...});\n  sharedMessage = await app.service('messages').create({...});\n});\n// Every test mutates sharedMessage — test B depends on test A's outcome"
+    "id": "bp-020",
+    "topic": "testing",
+    "rule": "Clean up test data between tests",
+    "rationale": "Use beforeEach/afterEach to reset service state. Prevents test pollution and order-dependent failures.",
+    "goodExample": "describe('messages service', () => {\n  let app: Application\n\n  beforeEach(async () => {\n    app = feathers()\n    app.use('messages', new MemoryService())\n    await app.setup()\n  })\n\n  afterEach(async () => {\n    await app.teardown()\n  })\n\n  it('creates a message', async () => {\n    // Each test gets a fresh app\n  })\n})",
+    "badExample": "// Bad: shared state between tests\nconst app = feathers()\napp.use('messages', new MemoryService())\n// Tests depend on each other's data - fragile!",
+    "version": "v5",
+    "tags": [
+      "testing",
+      "cleanup",
+      "beforeEach",
+      "isolation"
+    ]
   }
 ]

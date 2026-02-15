@@ -1,24 +1,26 @@
-export type DocVersion = 'v4' | 'v5' | 'both';
+export type DocVersion = 'v5';
 
 export type KnowledgeCategory =
   | 'core-concepts'
   | 'services'
   | 'hooks'
   | 'authentication'
+  | 'databases'
+  | 'configuration'
   | 'cookbook'
   | 'guides'
   | 'examples';
 
 export interface DocEntry {
-  id: string; // unique id, e.g. "v5-services" or "v4-guides-basics-services"
+  id: string;
   title: string;
-  content: string; // textual or markdown content (trimmed to an ingest limit)
+  content: string;
   version: DocVersion;
-  tokens: string[]; // pre-tokenized keywords for search (BM25 input)
-  category: KnowledgeCategory | string; // category or custom tag
+  tokens: string[];
+  category: KnowledgeCategory | string;
   source?: {
     url?: string;
-    path?: string; // file path in repo if applicable
+    path?: string;
   };
   tags?: string[];
 }
@@ -26,40 +28,45 @@ export interface DocEntry {
 export interface TemplateFragment {
   id: string;
   name: string;
+  code: string;
+  imports: string[];
+  dependencies: string[];
+  featureFlags: string[];
+  version: DocVersion;
   description?: string;
-  fragment: string; // template snippet or prose
-  language?: string; // e.g. 'javascript', 'typescript'
-  version?: DocVersion;
+  language?: string;
   tags?: string[];
 }
 
 export interface CodeSnippet {
   id: string;
-  title: string;
-  description?: string;
+  type: string;
+  useCase: string;
   code: string;
-  language: string;
+  explanation: string;
+  version: DocVersion;
+  language?: string;
   filename?: string;
-  version?: DocVersion;
   tags?: string[];
 }
 
 export interface ErrorPattern {
   id: string;
-  title: string;
-  description?: string;
-  pattern: string; // textual pattern or short regex (stored as string for JSON compatibility)
-  examples?: string[]; // example error messages
-  remediation?: string; // recommended fix
+  pattern: string;
+  cause: string;
+  solution: string;
+  example: string;
   version?: DocVersion;
+  tags?: string[];
 }
 
 export interface BestPractice {
   id: string;
-  title: string;
-  description: string;
-  rationale?: string;
-  examples?: string[];
+  topic: string;
+  rule: string;
+  rationale: string;
+  goodExample: string;
+  badExample: string;
   version?: DocVersion;
   tags?: string[];
 }

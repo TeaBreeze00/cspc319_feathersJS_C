@@ -1,42 +1,87 @@
 [
   {
-    "id": "hook-after-populate-user",
-    "type": "after",
-    "useCase": "Populate the user who created a record",
-    "code": "// v5 after hook: populate user field\nconst populateUser = async (context: HookContext) => {\n  const { result, app } = context;\n  const items = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : [result]);\n\n  for (const item of items) {\n    if (item.userId) {\n      try {\n        item.user = await app.service('users').get(item.userId, { query: { $select: ['_id', 'email', 'name'] } });\n      } catch (e) {\n        item.user = null;\n      }\n    }\n  }\n  return context;\n};\n\n// Usage: after: { all: [populateUser] }",
-    "explanation": "Resolves user references on returned records by looking up the users service. Handles both paginated and non-paginated results.",
-    "version": "v5"
-  },
-  {
-    "id": "hook-after-remove-fields",
+    "id": "snp-006",
     "type": "after",
     "useCase": "Remove sensitive fields from response",
-    "code": "// After hook: remove sensitive fields\nconst removeFields = (...fields: string[]) => async (context: HookContext) => {\n  const sanitize = (item: any) => {\n    for (const field of fields) {\n      delete item[field];\n    }\n  };\n\n  const { result } = context;\n  if (result.data) {\n    result.data.forEach(sanitize);\n  } else if (Array.isArray(result)) {\n    result.forEach(sanitize);\n  } else {\n    sanitize(result);\n  }\n  return context;\n};\n\n// Usage: after: { all: [removeFields('password', 'verifyToken')] }",
-    "explanation": "Strips sensitive fields like passwords or tokens from the API response. Apply as an after-all hook on services containing sensitive data.",
-    "version": "both"
+    "code": "app.service('users').hooks({\n  after: {\n    all: [\n      async (context: HookContext) => {\n        const removePassword = (user: any) => {\n          const { password, ...rest } = user\n          return rest\n        }\n        if (Array.isArray(context.result)) {\n          context.result = context.result.map(removePassword)\n        } else if (context.result.data) {\n          context.result.data = context.result.data.map(removePassword)\n        } else {\n          context.result = removePassword(context.result)\n        }\n      }\n    ]\n  }\n})",
+    "explanation": "Removes password field from user data in responses. Handles both single and paginated results. Prefer resolveExternal for this in v5.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "security",
+      "password",
+      "sanitize"
+    ]
   },
   {
-    "id": "hook-after-format-response",
+    "id": "snp-007",
     "type": "after",
-    "useCase": "Normalize response format for consistency",
-    "code": "// After hook: wrap result in standard envelope\nconst formatResponse = async (context: HookContext) => {\n  const { result, method } = context;\n\n  // Only format for external requests\n  if (context.params.provider) {\n    context.result = {\n      success: true,\n      method,\n      data: result.data || result,\n      ...(result.total !== undefined && {\n        pagination: { total: result.total, limit: result.limit, skip: result.skip }\n      })\n    };\n  }\n  return context;\n};\n\n// Usage: after: { find: [formatResponse] }",
-    "explanation": "Wraps service responses in a consistent envelope with success flag, method name, and pagination info.",
-    "version": "both"
+    "useCase": "Populate associated data",
+    "code": "import { resolve, virtual } from '@feathersjs/schema'\n\nexport const messageResultResolver = resolve<Message, HookContext>({\n  user: virtual(async (message, context) => {\n    return context.app.service('users').get(message.userId)\n  })\n})\n\n// Register as around hook\napp.service('messages').hooks({\n  around: {\n    all: [resolveResult(messageResultResolver)]\n  }\n})",
+    "explanation": "Populates the user field on message results using a virtual resolver. This is the v5 recommended pattern for associations.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "resolver",
+      "populate",
+      "association",
+      "virtual"
+    ]
   },
   {
-    "id": "hook-after-send-notification",
+    "id": "snp-008",
     "type": "after",
-    "useCase": "Send a notification after creating a record",
-    "code": "// After hook: send notification on create\nconst sendNotification = async (context: HookContext) => {\n  const { result, app } = context;\n  const notificationService = app.service('notifications');\n\n  // Notify all subscribers\n  try {\n    await notificationService.create({\n      type: 'new-message',\n      message: `New message from ${result.userId}: ${result.text?.substring(0, 50)}`,\n      createdAt: new Date().toISOString()\n    });\n  } catch (err) {\n    // Log but don't fail the original request\n    console.error('Notification failed:', err.message);\n  }\n  return context;\n};\n\n// Usage: after: { create: [sendNotification] }",
-    "explanation": "Fires a side-effect notification after successful creation. Catches errors to avoid failing the primary operation.",
-    "version": "v5"
+    "useCase": "Log service method calls",
+    "code": "app.hooks({\n  after: {\n    all: [\n      async (context: HookContext) => {\n        console.log(`${context.method} on ${context.path} completed`)\n      }\n    ]\n  }\n})",
+    "explanation": "Application-level hook that logs all successful service method calls.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "logging",
+      "debug",
+      "application"
+    ]
   },
   {
-    "id": "hook-after-log-activity",
+    "id": "snp-020",
     "type": "after",
-    "useCase": "Log API activity for audit trail",
-    "code": "// After hook: audit logging\nconst logActivity = async (context: HookContext) => {\n  const { method, path, params, id } = context;\n  const userId = params.user?._id || 'anonymous';\n\n  console.log(JSON.stringify({\n    timestamp: new Date().toISOString(),\n    service: path,\n    method,\n    id,\n    userId,\n    provider: params.provider || 'internal'\n  }));\n  return context;\n};\n\n// Usage: after: { all: [logActivity] }",
-    "explanation": "Creates structured JSON audit log entries for every service operation. Captures user, method, and service path.",
-    "version": "both"
+    "useCase": "Add computed field to result",
+    "code": "app.service('orders').hooks({\n  after: {\n    all: [\n      async (context: HookContext) => {\n        const addTotal = (order: any) => ({\n          ...order,\n          total: order.items.reduce((sum: number, item: any) => sum + item.price * item.quantity, 0)\n        })\n        if (Array.isArray(context.result?.data)) {\n          context.result.data = context.result.data.map(addTotal)\n        } else if (context.result) {\n          context.result = addTotal(context.result)\n        }\n      }\n    ]\n  }\n})",
+    "explanation": "Adds a computed total field to order results based on line items.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "computed",
+      "transform",
+      "after"
+    ]
+  },
+  {
+    "id": "snp-021",
+    "type": "after",
+    "useCase": "Send notification after create",
+    "code": "app.service('messages').hooks({\n  after: {\n    create: [\n      async (context: HookContext) => {\n        await context.app.service('notifications').create({\n          type: 'new-message',\n          userId: context.result.userId,\n          message: `New message: ${context.result.text.substring(0, 50)}`\n        })\n      }\n    ]\n  }\n})",
+    "explanation": "Sends a notification to the relevant user after a new message is created.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "notification",
+      "create",
+      "after"
+    ]
+  },
+  {
+    "id": "snp-022",
+    "type": "after",
+    "useCase": "Cache results after find",
+    "code": "const cache = new Map<string, { data: any; expires: number }>()\n\napp.service('config').hooks({\n  after: {\n    find: [\n      async (context: HookContext) => {\n        const key = JSON.stringify(context.params.query)\n        cache.set(key, { data: context.result, expires: Date.now() + 60000 })\n      }\n    ]\n  },\n  before: {\n    find: [\n      async (context: HookContext) => {\n        const key = JSON.stringify(context.params.query)\n        const cached = cache.get(key)\n        if (cached && cached.expires > Date.now()) {\n          context.result = cached.data\n        }\n      }\n    ]\n  }\n})",
+    "explanation": "Simple in-memory cache for find results with 60-second TTL.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "cache",
+      "performance",
+      "find"
+    ]
   }
 ]

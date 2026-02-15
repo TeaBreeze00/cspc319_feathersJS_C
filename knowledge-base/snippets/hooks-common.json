@@ -1,50 +1,105 @@
 [
   {
-    "id": "hook-common-disallow-external",
-    "type": "common",
-    "useCase": "Restrict a method to internal calls only",
-    "code": "// Common hook: disallow external access\nconst disallowExternal = async (context: HookContext) => {\n  if (context.params.provider) {\n    throw new Forbidden('This method is not available via external access');\n  }\n  return context;\n};\n\n// v4 equivalent using feathers-hooks-common:\n// const { disallow } = require('feathers-hooks-common');\n// before: { update: [disallow('external')] }\n\n// Usage: before: { update: [disallowExternal] }",
-    "explanation": "Prevents external clients (REST, Socket.io) from calling specific methods. Useful for blocking update or internal-only operations.",
-    "version": "both"
+    "id": "snp-009",
+    "type": "around",
+    "useCase": "Measure method execution time",
+    "code": "app.service('messages').hooks({\n  around: {\n    all: [\n      async (context: HookContext, next: NextFunction) => {\n        const startTime = Date.now()\n        await next()\n        const duration = Date.now() - startTime\n        console.log(`${context.method} on ${context.path} took ${duration}ms`)\n      }\n    ]\n  }\n})",
+    "explanation": "Around hook that wraps a service method to measure and log execution time.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "performance",
+      "timing",
+      "logging",
+      "monitoring"
+    ]
   },
   {
-    "id": "hook-common-rate-limit",
-    "type": "common",
-    "useCase": "Rate-limit service calls per user",
-    "code": "// Common pattern: simple in-memory rate limiter\nconst rateLimit = (maxPerMinute = 60) => {\n  const counts = new Map<string, { count: number; reset: number }>();\n\n  return async (context: HookContext) => {\n    const key = context.params.user?._id || context.params.ip || 'anonymous';\n    const now = Date.now();\n    let entry = counts.get(key);\n\n    if (!entry || now > entry.reset) {\n      entry = { count: 0, reset: now + 60_000 };\n      counts.set(key, entry);\n    }\n\n    entry.count++;\n    if (entry.count > maxPerMinute) {\n      throw new TooManyRequests('Rate limit exceeded. Try again later.');\n    }\n    return context;\n  };\n};\n\n// Usage: before: { all: [rateLimit(100)] }",
-    "explanation": "Simple per-user rate limiter using an in-memory Map. Resets every 60 seconds. Use a Redis-backed solution in production clusters.",
-    "version": "both"
+    "id": "snp-010",
+    "type": "around",
+    "useCase": "Transaction wrapper for Knex",
+    "code": "import { transaction } from '@feathersjs/knex'\n\napp.service('orders').hooks({\n  around: {\n    create: [transaction.start(), transaction.end()],\n  },\n  error: {\n    create: [transaction.rollback()],\n  }\n})",
+    "explanation": "Wraps the create method in a Knex database transaction. Automatically commits on success and rolls back on error.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "transaction",
+      "knex",
+      "sql",
+      "database"
+    ]
   },
   {
-    "id": "hook-common-soft-delete",
-    "type": "common",
-    "useCase": "Implement soft-delete instead of hard removal",
-    "code": "// Common hook: soft delete pattern\nconst softDelete = async (context: HookContext) => {\n  const { method, service, id, params } = context;\n\n  if (method === 'remove') {\n    // Instead of removing, patch with deleted flag\n    context.result = await service.patch(id, {\n      deleted: true,\n      deletedAt: new Date().toISOString()\n    }, params);\n    return context;\n  }\n\n  if (method === 'find') {\n    // Exclude soft-deleted records from finds\n    context.params.query = {\n      ...context.params.query,\n      deleted: { $ne: true }\n    };\n  }\n\n  return context;\n};\n\n// Usage: before: { all: [softDelete] }",
-    "explanation": "Intercepts remove calls and converts them to patches that set a deleted flag. Also filters soft-deleted records from find queries.",
-    "version": "both"
+    "id": "snp-011",
+    "type": "around",
+    "useCase": "Soft delete pattern",
+    "code": "app.service('messages').hooks({\n  around: {\n    remove: [\n      async (context: HookContext, next: NextFunction) => {\n        // Instead of deleting, patch with deletedAt\n        context.result = await context.service.patch(context.id, {\n          deletedAt: Date.now()\n        })\n        // Skip the actual remove by not calling next()\n      }\n    ],\n    find: [\n      async (context: HookContext, next: NextFunction) => {\n        // Filter out soft-deleted records\n        context.params.query = {\n          ...context.params.query,\n          deletedAt: null\n        }\n        await next()\n      }\n    ]\n  }\n})",
+    "explanation": "Implements soft delete by patching a deletedAt field instead of actually removing records. Filters soft-deleted records from find queries.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "soft-delete",
+      "remove",
+      "pattern"
+    ]
   },
   {
-    "id": "hook-common-cache-result",
-    "type": "common",
-    "useCase": "Cache get/find results in memory",
-    "code": "// Common hook: in-memory cache for get/find\nconst cache = (ttlMs = 30_000) => {\n  const store = new Map<string, { data: any; expires: number }>();\n\n  const before = async (context: HookContext) => {\n    if (context.method !== 'find' && context.method !== 'get') return context;\n    const key = JSON.stringify({ path: context.path, method: context.method, id: context.id, query: context.params.query });\n    const cached = store.get(key);\n    if (cached && Date.now() < cached.expires) {\n      context.result = cached.data;\n    }\n    context.params._cacheKey = key;\n    return context;\n  };\n\n  const after = async (context: HookContext) => {\n    const key = context.params._cacheKey;\n    if (key && (context.method === 'find' || context.method === 'get')) {\n      store.set(key, { data: context.result, expires: Date.now() + ttlMs });\n    }\n    return context;\n  };\n\n  return { before, after };\n};\n\n// Usage:\n// const { before: cacheBefore, after: cacheAfter } = cache(60_000);\n// hooks: { before: { find: [cacheBefore] }, after: { find: [cacheAfter] } }",
-    "explanation": "Two-phase cache hook (before checks cache, after stores). Avoids redundant DB reads for frequently accessed data.",
-    "version": "both"
+    "id": "snp-016",
+    "type": "channels",
+    "useCase": "Room-based channel pattern",
+    "code": "app.service('messages').publish('created', (data: Message, context: HookContext) => {\n  return app.channel(`room/${data.roomId}`)\n})\n\n// Join room when user connects\napp.on('login', (authResult: any, { connection }: Params) => {\n  if (connection) {\n    const user = authResult.user\n    user.rooms.forEach((roomId: string) => {\n      app.channel(`room/${roomId}`).join(connection)\n    })\n  }\n})",
+    "explanation": "Room-based real-time messaging pattern using channels. Users join room channels on login; messages are published to the specific room channel.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "channels",
+      "rooms",
+      "real-time",
+      "publish"
+    ]
   },
   {
-    "id": "hook-common-v4-authenticate-all",
-    "type": "common",
-    "useCase": "v4 pattern for authenticating all service methods",
-    "code": "const { authenticate } = require('@feathersjs/authentication').hooks;\nconst { iff, isProvider } = require('feathers-hooks-common');\n\nmodule.exports = {\n  before: {\n    all: [iff(isProvider('external'), authenticate('jwt'))],\n    find: [],\n    get: [],\n    create: [],\n    update: [],\n    patch: [],\n    remove: []\n  },\n  after: { all: [] },\n  error: { all: [] }\n};",
-    "explanation": "v4 pattern using feathers-hooks-common conditionals. Only authenticates external (REST/Socket) requests, allowing internal service-to-service calls without auth.",
-    "version": "v4"
+    "id": "snp-017",
+    "type": "channels",
+    "useCase": "User-specific events",
+    "code": "app.service('notifications').publish((data: any, context: HookContext) => {\n  return app.channel(app.channels).filter(connection =>\n    connection.user?.id === data.userId\n  )\n})",
+    "explanation": "Publishes events only to the specific user the notification belongs to, using channel filtering.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "channels",
+      "filter",
+      "user-specific",
+      "notifications"
+    ]
   },
   {
-    "id": "hook-common-v5-resolve-dispatch",
-    "type": "common",
-    "useCase": "v5 resolver to dispatch different data to real-time events",
-    "code": "import { resolve } from '@feathersjs/schema';\nimport { Type } from '@feathersjs/typebox';\nimport type { HookContext } from '../declarations';\n\n// Define a dispatch schema — what gets sent via events\nconst messageDispatchSchema = Type.Object({\n  _id: Type.String(),\n  text: Type.String(),\n  userId: Type.String(),\n  createdAt: Type.String()\n});\n\nexport const messageDispatchResolver = resolve(messageDispatchSchema, {\n  properties: {}\n});\n\n// Usage in service registration:\n// app.service('messages').hooks({\n//   around: { all: [schemaHooks.resolveDispatch(messageDispatchResolver)] }\n// });",
-    "explanation": "v5 dispatch resolvers control what data is sent via real-time events. This prevents sending sensitive data (like passwords) over WebSockets.",
-    "version": "v5"
+    "id": "snp-027",
+    "type": "around",
+    "useCase": "Cache with invalidation",
+    "code": "const cache = new Map()\n\napp.service('settings').hooks({\n  around: {\n    find: [async (context: HookContext, next: NextFunction) => {\n      const key = 'settings:' + JSON.stringify(context.params.query || {})\n      const cached = cache.get(key)\n      if (cached) { context.result = cached; return }\n      await next()\n      cache.set(key, context.result)\n    }],\n    create: [async (context: HookContext, next: NextFunction) => {\n      await next()\n      cache.clear() // Invalidate on write\n    }],\n    patch: [async (context: HookContext, next: NextFunction) => {\n      await next()\n      cache.clear()\n    }]\n  }\n})",
+    "explanation": "Around hook implementing read-through cache with automatic invalidation on writes.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "cache",
+      "performance",
+      "around"
+    ]
+  },
+  {
+    "id": "snp-028",
+    "type": "around",
+    "useCase": "Request context propagation",
+    "code": "app.hooks({\n  around: {\n    all: [\n      async (context: HookContext, next: NextFunction) => {\n        // Add request ID for tracing\n        context.params.requestId = context.params.requestId ||\n          Math.random().toString(36).substring(2, 15)\n        await next()\n      }\n    ]\n  }\n})",
+    "explanation": "Adds a unique request ID to all service calls for distributed tracing.",
+    "version": "v5",
+    "language": "typescript",
+    "tags": [
+      "tracing",
+      "context",
+      "around",
+      "monitoring"
+    ]
   }
 ]

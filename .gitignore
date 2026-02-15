@@ -4,3 +4,4 @@ coverage/
 *.log
 .env
 .DS_Store
+docs/v5_docs

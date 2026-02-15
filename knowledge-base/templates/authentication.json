@@ -1,47 +1,56 @@
 [
   {
-    "id": "auth-v5-config",
-    "name": "v5 Authentication Configuration",
-    "code": "import { AuthenticationService, JWTStrategy } from '@feathersjs/authentication';\nimport { LocalStrategy } from '@feathersjs/authentication-local';\nimport { OAuthStrategy } from '@feathersjs/authentication-oauth';\nimport type { Application } from './declarations';\n\ndeclare module './declarations' {\n  interface ServiceTypes {\n    authentication: AuthenticationService;\n  }\n}\n\nexport const authentication = (app: Application) => {\n  const authentication = new AuthenticationService(app);\n\n  authentication.register('jwt', new JWTStrategy());\n  authentication.register('local', new LocalStrategy());\n  authentication.register('github', new OAuthStrategy());\n  authentication.register('google', new OAuthStrategy());\n\n  app.use('authentication', authentication);\n};",
-    "imports": ["@feathersjs/authentication", "@feathersjs/authentication-local", "@feathersjs/authentication-oauth"],
-    "dependencies": ["@feathersjs/authentication", "@feathersjs/authentication-local", "@feathersjs/authentication-oauth"],
-    "featureFlags": ["authentication"],
-    "version": "v5"
+    "id": "tpl-authentication",
+    "name": "Authentication Setup",
+    "code": "import { AuthenticationService, JWTStrategy } from '@feathersjs/authentication'\nimport { LocalStrategy } from '@feathersjs/authentication-local'\nimport type { Application } from './declarations'\n\nexport const authentication = (app: Application) => {\n  const authentication = new AuthenticationService(app)\n\n  authentication.register('jwt', new JWTStrategy())\n  authentication.register('local', new LocalStrategy())\n\n  app.use('authentication', authentication)\n}",
+    "imports": [
+      "@feathersjs/authentication",
+      "@feathersjs/authentication-local"
+    ],
+    "dependencies": [
+      "@feathersjs/authentication",
+      "@feathersjs/authentication-local"
+    ],
+    "featureFlags": [
+      "authentication"
+    ],
+    "version": "v5",
+    "description": "JWT + Local authentication setup for FeathersJS v5",
+    "language": "typescript",
+    "tags": [
+      "authentication",
+      "jwt",
+      "local"
+    ]
   },
   {
-    "id": "auth-v5-jwt-strategy",
-    "name": "v5 JWT Strategy",
-    "code": "import { AuthenticationBaseStrategy, AuthenticationResult } from '@feathersjs/authentication';\nimport type { Params } from '@feathersjs/feathers';\n\n// The default JWTStrategy works for most use cases.\n// Custom JWT strategy example with additional validation:\nexport class CustomJWTStrategy extends AuthenticationBaseStrategy {\n  async authenticate(authentication: AuthenticationResult, params: Params) {\n    const { accessToken } = authentication;\n    const config = this.authentication!.configuration;\n\n    // Verify and decode the JWT\n    const payload = await this.authentication!.verifyAccessToken(accessToken, config.jwtOptions);\n\n    // Custom: check additional claims\n    if (payload.aud !== 'my-app') {\n      throw new Error('Invalid audience');\n    }\n\n    return {\n      authentication: { strategy: this.name!, accessToken },\n      ...payload\n    };\n  }\n}",
-    "imports": ["@feathersjs/authentication"],
-    "dependencies": ["@feathersjs/authentication"],
-    "featureFlags": ["jwt"],
-    "version": "v5"
-  },
-  {
-    "id": "auth-v5-local-strategy",
-    "name": "v5 Local Strategy",
-    "code": "import { LocalStrategy } from '@feathersjs/authentication-local';\nimport type { Params } from '@feathersjs/feathers';\n\n// Custom local strategy with additional verification\nexport class MyLocalStrategy extends LocalStrategy {\n  async authenticate(data: { email: string; password: string }, params: Params) {\n    const result = await super.authenticate(data, params);\n\n    // Additional check: is the user verified?\n    if (!result.user.isVerified) {\n      throw new Error('User email has not been verified');\n    }\n\n    return result;\n  }\n\n  async hashPassword(password: string, _params: Params) {\n    // Default uses bcrypt. Override for custom hashing.\n    return super.hashPassword(password, _params);\n  }\n}",
-    "imports": ["@feathersjs/authentication-local", "@feathersjs/feathers"],
-    "dependencies": ["@feathersjs/authentication-local"],
-    "featureFlags": ["local-auth"],
-    "version": "v5"
-  },
-  {
-    "id": "auth-v4-config",
-    "name": "v4 Authentication Configuration",
-    "code": "const { AuthenticationService, JWTStrategy } = require('@feathersjs/authentication');\nconst { LocalStrategy } = require('@feathersjs/authentication-local');\nconst { expressOauth, OAuthStrategy } = require('@feathersjs/authentication-oauth');\n\nmodule.exports = app => {\n  const authentication = new AuthenticationService(app);\n\n  authentication.register('jwt', new JWTStrategy());\n  authentication.register('local', new LocalStrategy());\n  authentication.register('github', new OAuthStrategy());\n\n  app.use('/authentication', authentication);\n  app.configure(expressOauth());\n};",
-    "imports": ["@feathersjs/authentication", "@feathersjs/authentication-local", "@feathersjs/authentication-oauth"],
-    "dependencies": ["@feathersjs/authentication", "@feathersjs/authentication-local", "@feathersjs/authentication-oauth"],
-    "featureFlags": ["authentication"],
-    "version": "v4"
-  },
-  {
-    "id": "auth-v4-default-json",
-    "name": "v4 Authentication default.json config",
-    "code": "{\n  \"host\": \"localhost\",\n  \"port\": 3030,\n  \"public\": \"../public/\",\n  \"paginate\": { \"default\": 10, \"max\": 50 },\n  \"authentication\": {\n    \"entity\": \"user\",\n    \"service\": \"users\",\n    \"secret\": \"YOUR_SECRET_HERE\",\n    \"authStrategies\": [\"jwt\", \"local\"],\n    \"jwtOptions\": {\n      \"header\": { \"typ\": \"access\" },\n      \"audience\": \"https://yourdomain.com\",\n      \"issuer\": \"feathers\",\n      \"algorithm\": \"HS256\",\n      \"expiresIn\": \"1d\"\n    },\n    \"local\": {\n      \"usernameField\": \"email\",\n      \"passwordField\": \"password\"\n    },\n    \"oauth\": {\n      \"redirect\": \"/\",\n      \"github\": {\n        \"key\": \"<github oauth key>\",\n        \"secret\": \"<github oauth secret>\"\n      }\n    }\n  }\n}",
-    "imports": [],
-    "dependencies": [],
-    "featureFlags": ["authentication"],
-    "version": "v4"
+    "id": "tpl-oauth",
+    "name": "OAuth Authentication",
+    "code": "import { AuthenticationService, JWTStrategy } from '@feathersjs/authentication'\nimport { LocalStrategy } from '@feathersjs/authentication-local'\nimport { OAuthStrategy, oauth } from '@feathersjs/authentication-oauth'\nimport type { Application } from './declarations'\n\nexport const authentication = (app: Application) => {\n  const authentication = new AuthenticationService(app)\n\n  authentication.register('jwt', new JWTStrategy())\n  authentication.register('local', new LocalStrategy())\n  authentication.register('google', new OAuthStrategy())\n  authentication.register('github', new OAuthStrategy())\n\n  app.use('authentication', authentication)\n  app.configure(oauth())\n}",
+    "imports": [
+      "@feathersjs/authentication",
+      "@feathersjs/authentication-local",
+      "@feathersjs/authentication-oauth"
+    ],
+    "dependencies": [
+      "@feathersjs/authentication",
+      "@feathersjs/authentication-local",
+      "@feathersjs/authentication-oauth"
+    ],
+    "featureFlags": [
+      "authentication",
+      "oauth"
+    ],
+    "version": "v5",
+    "description": "JWT + Local + OAuth (Google/GitHub) authentication setup",
+    "language": "typescript",
+    "tags": [
+      "authentication",
+      "jwt",
+      "local",
+      "oauth",
+      "google",
+      "github"
+    ]
   }
 ]

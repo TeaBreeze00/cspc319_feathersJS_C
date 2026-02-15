@@ -1,44 +1,86 @@
 [
   {
-    "id": "err-runtime-hook-not-returning",
-    "pattern": "Hook function.*did not return|should return a hook context|hook.*undefined",
-    "cause": "A hook function did not return the context object. All hooks must return the context.",
-    "solution": "Ensure every hook function ends with 'return context;'. For async hooks, make sure the function is async and returns context after awaiting operations.",
-    "example": "Error: A hook function for 'before:create' did not return a hook context"
+    "id": "err-018",
+    "pattern": "MethodNotAllowed: Method .* is not supported",
+    "cause": "Called a service method that is not implemented or not listed in the `methods` option.",
+    "solution": "Implement the missing method on the service, or add it to the `methods` option in `app.use()`. Check spelling of method name.",
+    "example": "app.use(\"myservice\", new MyService(), { methods: [\"find\", \"get\", \"create\", \"myCustomMethod\"] })",
+    "version": "v5",
+    "tags": [
+      "service",
+      "method",
+      "405"
+    ],
+    "category": "runtime"
   },
   {
-    "id": "err-runtime-service-not-found",
-    "pattern": "Can not find service|service.*not.*registered|No service.*found",
-    "cause": "Attempting to call a service that has not been registered with the app.",
-    "solution": "Verify the service name matches exactly (case-sensitive, no leading slash in v5). Check that the service is registered in your services/index file: app.configure(services);",
-    "example": "Error: Can not find service 'messages'. Did you forget to register it?"
+    "id": "err-019",
+    "pattern": "Timeout: Operation timed out",
+    "cause": "A service method or database query took too long to complete.",
+    "solution": "Check database connection. Optimize slow queries. Increase timeout configuration if appropriate. Check for deadlocks.",
+    "example": "app.use(\"messages\", new MessageService(), { timeout: 10000 })",
+    "version": "v5",
+    "tags": [
+      "timeout",
+      "performance",
+      "database"
+    ],
+    "category": "runtime"
   },
   {
-    "id": "err-runtime-method-not-allowed",
-    "pattern": "Method.*not allowed|is not a function|service\\.\\w+ is not a function",
-    "cause": "Calling a service method (find, get, create, etc.) that is not implemented by the service.",
-    "solution": "Implement the missing method in your service class, or if deliberately missing, add a before hook using disallow() to return a 405 error instead of a confusing TypeError.",
-    "example": "TypeError: service.update is not a function"
+    "id": "err-020",
+    "pattern": "NotImplemented: .* is not implemented",
+    "cause": "The service does not implement the called method (find, get, create, etc.).",
+    "solution": "Implement the required method on your service class. Feathers automatically throws NotImplemented for missing standard methods.",
+    "example": "class MyService { async find(params: Params) { return [] } /* implement needed methods */ }",
+    "version": "v5",
+    "tags": [
+      "service",
+      "method",
+      "501"
+    ],
+    "category": "runtime"
   },
   {
-    "id": "err-runtime-invalid-params",
-    "pattern": "Invalid query parameter|Unexpected.*\\$\\w+|invalid.*\\$limit|not allowed",
-    "cause": "The query contains parameters that are not allowed by the service's query schema or sanitization.",
-    "solution": "Check your query against the service's allowed query properties. In v5, ensure your query schema includes the operators you need. Common issue: using $select, $sort, $limit with values that don't match the schema type.",
-    "example": "BadRequest: Invalid query parameter '$populate'"
+    "id": "err-021",
+    "pattern": "NotFound: Service .* not found",
+    "cause": "Tried to access a service that has not been registered with `app.use()`.",
+    "solution": "Check the service path spelling. Ensure the service is registered before it is accessed. Verify import/configuration order.",
+    "example": "app.use(\"messages\", new MessageService()); const svc = app.service(\"messages\"); // path must match exactly",
+    "version": "v5",
+    "tags": [
+      "service",
+      "registration",
+      "404"
+    ],
+    "category": "runtime"
   },
   {
-    "id": "err-runtime-circular-dependency",
-    "pattern": "Maximum call stack size exceeded|circular.*dependency|RangeError",
-    "cause": "A hook or service method triggers itself recursively (e.g., an after:create hook that calls create on the same service).",
-    "solution": "Use params.provider check to prevent hooks from re-triggering: if (context.params.provider) { ... }. Or pass { _skipHooks: true } as a custom param.",
-    "example": "RangeError: Maximum call stack size exceeded"
+    "id": "err-022",
+    "pattern": "Error: .* is not a function",
+    "cause": "Accessing the service object directly instead of through `app.service()`, or calling a method that doesn't exist.",
+    "solution": "Always use `app.service(path)` to access services, not the raw service object. Check method name spelling.",
+    "example": "const svc = app.service(\"messages\"); await svc.find(); // NOT: await rawServiceObj.find()",
+    "version": "v5",
+    "tags": [
+      "service",
+      "usage",
+      "TypeError"
+    ],
+    "category": "runtime"
   },
   {
-    "id": "err-runtime-missing-id",
-    "pattern": "id.*must not be null|missing.*id|id.*required|No id",
-    "cause": "Calling get, patch, update, or remove without providing a valid ID.",
-    "solution": "Ensure you pass a valid ID (string or number) as the first argument: service.get(id). For multi operations, use service.patch(null, data, { query: ... }).",
-    "example": "NotFound: No record found for id 'undefined'"
+    "id": "err-023",
+    "pattern": "Error: Channel .* does not exist",
+    "cause": "Tried to publish or send to a channel that has no connections or hasn't been created.",
+    "solution": "Ensure connections join the channel (e.g., on login). Check channel naming. Channels only exist while they have connections.",
+    "example": "app.on(\"login\", (result, { connection }) => { if (connection) app.channel(\"authenticated\").join(connection) })",
+    "version": "v5",
+    "tags": [
+      "channels",
+      "real-time",
+      "connection"
+    ],
+    "category": "runtime"
   }
 ]
