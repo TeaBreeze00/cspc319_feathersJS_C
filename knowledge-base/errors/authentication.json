@@ -1,0 +1,44 @@
+[
+  {
+    "id": "err-auth-not-authenticated",
+    "pattern": "Not authenticated|NotAuthenticated|401|jwt.*expired|no.*auth.*token",
+    "cause": "No valid authentication token was provided, or the token has expired.",
+    "solution": "Ensure the client sends the JWT in the Authorization header: 'Bearer <token>'. If the token expired, re-authenticate to get a new one. Check your jwtOptions.expiresIn setting in config.",
+    "example": "NotAuthenticated: Not authenticated"
+  },
+  {
+    "id": "err-auth-invalid-credentials",
+    "pattern": "Invalid login|Invalid credentials|password.*incorrect|bad.*credentials",
+    "cause": "The email/password combination does not match any user record.",
+    "solution": "Verify the user exists and the password is correct. Check that the local strategy usernameField matches your user schema (default: 'email'). Ensure passwords are being hashed on create with the local strategy hashPassword hook.",
+    "example": "NotAuthenticated: Invalid login"
+  },
+  {
+    "id": "err-auth-jwt-malformed",
+    "pattern": "jwt malformed|invalid.*signature|JsonWebTokenError|invalid token",
+    "cause": "The JWT token is malformed, tampered with, or signed with a different secret.",
+    "solution": "Re-authenticate to get a fresh token. Verify the authentication secret in config/default.json matches on all server instances. Do not modify the token contents.",
+    "example": "JsonWebTokenError: jwt malformed"
+  },
+  {
+    "id": "err-auth-strategy-not-found",
+    "pattern": "strategy.*not.*found|No auth.*strategy|Unknown authentication strategy",
+    "cause": "The authentication strategy referenced in the request is not registered.",
+    "solution": "Register the strategy in your authentication configuration: authentication.register('jwt', new JWTStrategy()). Check that authStrategies in your config includes the strategy name.",
+    "example": "NotAuthenticated: No authentication strategy 'github' found"
+  },
+  {
+    "id": "err-auth-oauth-callback-error",
+    "pattern": "OAuth.*error|oauth.*callback.*failed|redirect.*error|access_denied",
+    "cause": "OAuth authentication callback failed due to misconfigured redirect URI or denied access.",
+    "solution": "Verify your OAuth provider settings: callback URL must match exactly (including protocol and port). Check that client ID and secret are correct. Ensure the OAuth redirect in config points to your actual host.",
+    "example": "OAuthError: The redirect_uri parameter does not match the registered callback URL"
+  },
+  {
+    "id": "err-auth-forbidden",
+    "pattern": "Forbidden|403|not allowed|insufficient.*permission|not.*authorized",
+    "cause": "The authenticated user does not have permission to perform the requested action.",
+    "solution": "Check your authorization hooks. Ensure the user has the required role or ownership. Common pattern: use an after-authenticate hook that checks params.user.role against the required permission level.",
+    "example": "Forbidden: You do not have the correct permissions"
+  }
+]

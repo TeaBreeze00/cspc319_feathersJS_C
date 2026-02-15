@@ -1,0 +1,44 @@
+[
+  {
+    "id": "err-config-missing-default-json",
+    "pattern": "Cannot find module.*config.*default",
+    "cause": "The config/default.json file is missing or cannot be found by node-config.",
+    "solution": "Create a config/default.json file in your project root with at least: { \"host\": \"localhost\", \"port\": 3030 }. Ensure the NODE_CONFIG_DIR environment variable points to the correct directory.",
+    "example": "Error: Cannot find module '/app/config/default.json'"
+  },
+  {
+    "id": "err-config-invalid-json",
+    "pattern": "Unexpected token.*in JSON at position|JSON\\.parse",
+    "cause": "A configuration JSON file has a syntax error (e.g. trailing comma, missing quotes).",
+    "solution": "Validate your config/*.json files with a JSON linter. Common issues: trailing commas, single quotes instead of double, unquoted keys.",
+    "example": "SyntaxError: Unexpected token } in JSON at position 342"
+  },
+  {
+    "id": "err-config-missing-authentication",
+    "pattern": "No authentication configuration|authentication.*not.*configured|secret.*required",
+    "cause": "The authentication section is missing or incomplete in your configuration.",
+    "solution": "Add an 'authentication' block to config/default.json with at minimum: { \"secret\": \"your-secret\", \"entity\": \"user\", \"service\": \"users\", \"authStrategies\": [\"jwt\", \"local\"] }. Generate a strong secret with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+    "example": "Error: No authentication configuration found"
+  },
+  {
+    "id": "err-config-port-in-use",
+    "pattern": "EADDRINUSE.*:\\d+|address already in use",
+    "cause": "The configured port is already in use by another process.",
+    "solution": "Either change the port in config/default.json, or kill the process using the port: lsof -i :<port> then kill <PID>. For development, check for stale nodemon or node processes.",
+    "example": "Error: listen EADDRINUSE: address already in use :::3030"
+  },
+  {
+    "id": "err-config-missing-env-var",
+    "pattern": "custom-environment-variables.*undefined|process\\.env\\.[A-Z_]+.*undefined",
+    "cause": "A required environment variable referenced in config/custom-environment-variables.json is not set.",
+    "solution": "Set the environment variable before starting the app, or provide a default in config/default.json. Check config/custom-environment-variables.json for all required env vars.",
+    "example": "TypeError: Cannot read property of undefined (reading from custom-environment-variables)"
+  },
+  {
+    "id": "err-config-invalid-adapter",
+    "pattern": "Unknown adapter|adapter.*not.*found|Cannot find module.*feathers-(mongoose|knex|memory|mongodb)",
+    "cause": "A database adapter module is referenced but not installed.",
+    "solution": "Install the required adapter: npm install @feathersjs/mongodb (v5) or npm install feathers-mongoose (v4). Check that the adapter name matches exactly in your service configuration.",
+    "example": "Error: Cannot find module '@feathersjs/mongodb'"
+  }
+]

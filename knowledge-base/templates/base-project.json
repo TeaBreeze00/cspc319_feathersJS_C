@@ -1,0 +1,56 @@
+[
+  {
+    "id": "base-project-v5-package-json",
+    "name": "v5 package.json",
+    "code": "{\n  \"name\": \"my-feathers-app\",\n  \"version\": \"0.0.0\",\n  \"description\": \"\",\n  \"main\": \"src/index.ts\",\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"nodemon -x ts-node src/index.ts\",\n    \"compile\": \"shx rm -rf lib/ && tsc\",\n    \"start\": \"node lib/\",\n    \"mocha\": \"cross-env NODE_ENV=test mocha test/ --recursive --exit --timeout 10000\",\n    \"test\": \"npm run mocha\"\n  },\n  \"dependencies\": {\n    \"@feathersjs/feathers\": \"^5.0.0\",\n    \"@feathersjs/express\": \"^5.0.0\",\n    \"@feathersjs/socketio\": \"^5.0.0\",\n    \"@feathersjs/configuration\": \"^5.0.0\",\n    \"@feathersjs/authentication\": \"^5.0.0\",\n    \"@feathersjs/authentication-local\": \"^5.0.0\",\n    \"@feathersjs/authentication-oauth\": \"^5.0.0\",\n    \"@feathersjs/schema\": \"^5.0.0\",\n    \"@feathersjs/typebox\": \"^5.0.0\"\n  },\n  \"devDependencies\": {\n    \"typescript\": \"^5.0.0\",\n    \"ts-node\": \"^10.9.0\",\n    \"nodemon\": \"^3.0.0\"\n  }\n}",
+    "imports": [],
+    "dependencies": ["@feathersjs/feathers", "@feathersjs/express", "@feathersjs/socketio", "@feathersjs/configuration"],
+    "featureFlags": [],
+    "version": "v5"
+  },
+  {
+    "id": "base-project-v5-app-ts",
+    "name": "v5 app.ts",
+    "code": "import { feathers } from '@feathersjs/feathers';\nimport express, { rest, json, urlencoded, serveStatic, notFound, errorHandler } from '@feathersjs/express';\nimport socketio from '@feathersjs/socketio';\nimport configuration from '@feathersjs/configuration';\nimport type { Application } from './declarations';\nimport { services } from './services/index';\nimport { channels } from './channels';\n\nconst app: Application = express(feathers());\n\n// Load app configuration\napp.configure(configuration());\n// Enable security, CORS, compression, etc.\napp.use(json());\napp.use(urlencoded({ extended: true }));\n// Host the public folder\napp.use('/', serveStatic(app.get('public')));\n\n// Set up Plugins and providers\napp.configure(rest());\napp.configure(socketio());\n\n// Configure services and transports\napp.configure(services);\napp.configure(channels);\n\n// Configure a middleware for 404s and the error handler\napp.use(notFound());\napp.use(errorHandler({ html: false }));\n\nexport { app };",
+    "imports": ["@feathersjs/feathers", "@feathersjs/express", "@feathersjs/socketio", "@feathersjs/configuration"],
+    "dependencies": ["@feathersjs/feathers", "@feathersjs/express", "@feathersjs/socketio"],
+    "featureFlags": [],
+    "version": "v5"
+  },
+  {
+    "id": "base-project-v5-index-ts",
+    "name": "v5 index.ts",
+    "code": "import { app } from './app';\nimport { logger } from './logger';\n\nconst port = app.get('port');\nconst host = app.get('host');\n\nprocess.on('unhandledRejection', (reason) => logger.error('Unhandled Rejection', reason));\n\napp.listen(port).then(() => {\n  logger.info(`Feathers app listening on http://${host}:${port}`);\n});",
+    "imports": [],
+    "dependencies": [],
+    "featureFlags": [],
+    "version": "v5"
+  },
+  {
+    "id": "base-project-v4-package-json",
+    "name": "v4 package.json",
+    "code": "{\n  \"name\": \"my-feathers-app\",\n  \"version\": \"0.0.0\",\n  \"description\": \"My Feathers v4 application\",\n  \"main\": \"src\",\n  \"scripts\": {\n    \"test\": \"npm run lint && npm run mocha\",\n    \"lint\": \"eslint src/. test/. --config .eslintrc.json\",\n    \"dev\": \"nodemon src/\",\n    \"start\": \"node src/\",\n    \"mocha\": \"mocha test/ --recursive --exit --timeout 10000\"\n  },\n  \"dependencies\": {\n    \"@feathersjs/configuration\": \"^4.5.0\",\n    \"@feathersjs/errors\": \"^4.5.0\",\n    \"@feathersjs/express\": \"^4.5.0\",\n    \"@feathersjs/feathers\": \"^4.5.0\",\n    \"@feathersjs/socketio\": \"^4.5.0\",\n    \"@feathersjs/authentication\": \"^4.5.0\",\n    \"@feathersjs/authentication-local\": \"^4.5.0\",\n    \"@feathersjs/authentication-oauth\": \"^4.5.0\"\n  },\n  \"devDependencies\": {\n    \"eslint\": \"^7.0.0\",\n    \"mocha\": \"^9.0.0\",\n    \"nodemon\": \"^2.0.0\"\n  }\n}",
+    "imports": [],
+    "dependencies": ["@feathersjs/feathers", "@feathersjs/express", "@feathersjs/socketio", "@feathersjs/configuration"],
+    "featureFlags": [],
+    "version": "v4"
+  },
+  {
+    "id": "base-project-v4-app-js",
+    "name": "v4 app.js",
+    "code": "const path = require('path');\nconst feathers = require('@feathersjs/feathers');\nconst express = require('@feathersjs/express');\nconst socketio = require('@feathersjs/socketio');\nconst configuration = require('@feathersjs/configuration');\nconst services = require('./services');\nconst channels = require('./channels');\nconst middleware = require('./middleware');\n\nconst app = express(feathers());\n\n// Load app configuration\napp.configure(configuration());\n// Enable security, CORS, compression, etc.\napp.use(express.json());\napp.use(express.urlencoded({ extended: true }));\n// Host the public folder\napp.use('/', express.static(app.get('public')));\n\n// Set up Plugins and providers\napp.configure(express.rest());\napp.configure(socketio());\n\n// Configure middleware\napp.configure(middleware);\n// Set up our services\napp.configure(services);\n// Set up event channels\napp.configure(channels);\n\n// Configure a middleware for 404s and the error handler\napp.use(express.notFound());\napp.use(express.errorHandler());\n\nmodule.exports = app;",
+    "imports": ["@feathersjs/feathers", "@feathersjs/express", "@feathersjs/socketio", "@feathersjs/configuration"],
+    "dependencies": ["@feathersjs/feathers", "@feathersjs/express", "@feathersjs/socketio"],
+    "featureFlags": [],
+    "version": "v4"
+  },
+  {
+    "id": "base-project-v4-index-js",
+    "name": "v4 index.js",
+    "code": "const logger = require('./logger');\nconst app = require('./app');\n\nconst port = app.get('port');\n\nprocess.on('unhandledRejection', (reason, p) => logger.error('Unhandled Rejection at: Promise ', p, reason));\n\napp.listen(port).then(() => {\n  logger.info('Feathers application started on http://%s:%d', app.get('host'), port);\n});",
+    "imports": [],
+    "dependencies": [],
+    "featureFlags": [],
+    "version": "v4"
+  }
+]

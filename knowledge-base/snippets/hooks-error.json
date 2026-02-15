@@ -1,0 +1,42 @@
+[
+  {
+    "id": "hook-error-log-and-rethrow",
+    "type": "error",
+    "useCase": "Log the full error with context and re-throw",
+    "code": "// Error hook: structured error logging\nconst logError = async (context: HookContext) => {\n  const { error, path, method, params } = context;\n  console.error(JSON.stringify({\n    timestamp: new Date().toISOString(),\n    service: path,\n    method,\n    provider: params.provider || 'internal',\n    error: {\n      name: error.name,\n      message: error.message,\n      code: error.code,\n      className: error.className,\n      stack: error.stack?.split('\\n').slice(0, 3).join('\\n')\n    }\n  }));\n  return context;\n};\n\n// Usage: error: { all: [logError] }",
+    "explanation": "Logs structured error information including service path, method, and truncated stack trace. Does not swallow the error — it continues to propagate.",
+    "version": "both"
+  },
+  {
+    "id": "hook-error-not-found-fallback",
+    "type": "error",
+    "useCase": "Convert generic errors to proper Feathers NotFound",
+    "code": "import { NotFound } from '@feathersjs/errors';\n\n// Error hook: convert to NotFound for get/remove on missing records\nconst notFoundFallback = async (context: HookContext) => {\n  const { error, method, id } = context;\n  if ((method === 'get' || method === 'remove') && error.code === 404) {\n    throw new NotFound(`Record ${id} not found`);\n  }\n  return context;\n};\n\n// Usage: error: { all: [notFoundFallback] }",
+    "explanation": "Ensures that missing record errors are consistently returned as proper Feathers NotFound errors with a clear message.",
+    "version": "both"
+  },
+  {
+    "id": "hook-error-validation-handler",
+    "type": "error",
+    "useCase": "Format validation errors into a user-friendly response",
+    "code": "import { BadRequest } from '@feathersjs/errors';\n\n// Error hook: format Ajv / schema validation errors\nconst handleValidationErrors = async (context: HookContext) => {\n  const { error } = context;\n  if (error.errors && Array.isArray(error.errors)) {\n    // Schema / Ajv validation error array\n    const messages = error.errors.map((e: any) => `${e.instancePath || '/'}: ${e.message}`).join('; ');\n    throw new BadRequest('Validation failed: ' + messages, { errors: error.errors });\n  }\n  return context;\n};\n\n// Usage: error: { all: [handleValidationErrors] }",
+    "explanation": "Catches Ajv or TypeBox schema validation errors and reformats them into a clean BadRequest with itemized field errors.",
+    "version": "v5"
+  },
+  {
+    "id": "hook-error-retry-database",
+    "type": "error",
+    "useCase": "Retry database operations on transient failures",
+    "code": "// Error hook: retry on transient DB errors\nconst retryOnTransient = (maxRetries = 3) => {\n  return async (context: HookContext) => {\n    const { error } = context;\n    const transientCodes = ['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'EPIPE'];\n\n    if (transientCodes.includes(error.code) || error.message?.includes('connection')) {\n      const retryCount = context.params._retryCount || 0;\n      if (retryCount < maxRetries) {\n        context.params._retryCount = retryCount + 1;\n        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);\n        await new Promise(r => setTimeout(r, delay));\n\n        // Re-execute the service call\n        const service = context.app.service(context.path);\n        context.result = await service[context.method](\n          ...[context.id, context.data, context.params].filter(Boolean)\n        );\n        return context;\n      }\n    }\n    return context;\n  };\n};\n\n// Usage: error: { all: [retryOnTransient(3)] }",
+    "explanation": "Retries database operations with exponential backoff when transient network/connection errors are detected. Configurable retry count.",
+    "version": "both"
+  },
+  {
+    "id": "hook-error-graceful-timeout",
+    "type": "error",
+    "useCase": "Handle timeout errors gracefully",
+    "code": "import { GeneralError } from '@feathersjs/errors';\n\n// Error hook: handle timeouts\nconst handleTimeout = async (context: HookContext) => {\n  const { error } = context;\n  if (error.code === 'ETIMEDOUT' || error.message?.includes('timeout')) {\n    throw new GeneralError('The operation timed out. Please try again later.', {\n      originalError: error.message\n    });\n  }\n  return context;\n};\n\n// Usage: error: { all: [handleTimeout] }",
+    "explanation": "Catches timeout errors and re-throws them as user-friendly GeneralError messages.",
+    "version": "both"
+  }
+]

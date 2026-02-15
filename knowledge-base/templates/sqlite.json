@@ -1,0 +1,38 @@
+[
+  {
+    "id": "sqlite-v5-knex-connection",
+    "name": "v5 SQLite Knex Connection",
+    "code": "import knex from 'knex';\nimport type { Knex } from 'knex';\nimport type { Application } from './declarations';\n\ndeclare module './declarations' {\n  interface Configuration {\n    sqliteClient: Knex;\n  }\n}\n\nexport const sqlite = (app: Application) => {\n  const config = app.get('sqlite');\n  const db = knex({\n    client: 'better-sqlite3',\n    connection: { filename: config },\n    useNullAsDefault: true\n  });\n\n  app.set('sqliteClient', db);\n};",
+    "imports": ["knex"],
+    "dependencies": ["knex", "better-sqlite3", "@feathersjs/knex"],
+    "featureFlags": ["sqlite"],
+    "version": "v5"
+  },
+  {
+    "id": "sqlite-v5-default-json",
+    "name": "v5 SQLite Configuration (default.json)",
+    "code": "{\n  \"host\": \"localhost\",\n  \"port\": 3030,\n  \"public\": \"./public/\",\n  \"paginate\": { \"default\": 10, \"max\": 50 },\n  \"sqlite\": \"./data/app.sqlite\"\n}",
+    "imports": [],
+    "dependencies": [],
+    "featureFlags": ["sqlite"],
+    "version": "v5"
+  },
+  {
+    "id": "sqlite-v4-knex-connection",
+    "name": "v4 SQLite Knex Connection",
+    "code": "const knex = require('knex');\n\nmodule.exports = function (app) {\n  const db = knex({\n    client: 'sqlite3',\n    connection: {\n      filename: app.get('sqlite')\n    },\n    useNullAsDefault: true\n  });\n\n  app.set('knexClient', db);\n};",
+    "imports": ["knex"],
+    "dependencies": ["knex", "sqlite3", "feathers-knex"],
+    "featureFlags": ["sqlite"],
+    "version": "v4"
+  },
+  {
+    "id": "sqlite-v4-default-json",
+    "name": "v4 SQLite Configuration (default.json)",
+    "code": "{\n  \"host\": \"localhost\",\n  \"port\": 3030,\n  \"public\": \"../public/\",\n  \"paginate\": { \"default\": 10, \"max\": 50 },\n  \"sqlite\": \"./data/app.db\"\n}",
+    "imports": [],
+    "dependencies": [],
+    "featureFlags": ["sqlite"],
+    "version": "v4"
+  }
+]

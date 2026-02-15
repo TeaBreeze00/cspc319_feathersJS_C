@@ -1,0 +1,42 @@
+[
+  {
+    "id": "hook-after-populate-user",
+    "type": "after",
+    "useCase": "Populate the user who created a record",
+    "code": "// v5 after hook: populate user field\nconst populateUser = async (context: HookContext) => {\n  const { result, app } = context;\n  const items = Array.isArray(result.data) ? result.data : (Array.isArray(result) ? result : [result]);\n\n  for (const item of items) {\n    if (item.userId) {\n      try {\n        item.user = await app.service('users').get(item.userId, { query: { $select: ['_id', 'email', 'name'] } });\n      } catch (e) {\n        item.user = null;\n      }\n    }\n  }\n  return context;\n};\n\n// Usage: after: { all: [populateUser] }",
+    "explanation": "Resolves user references on returned records by looking up the users service. Handles both paginated and non-paginated results.",
+    "version": "v5"
+  },
+  {
+    "id": "hook-after-remove-fields",
+    "type": "after",
+    "useCase": "Remove sensitive fields from response",
+    "code": "// After hook: remove sensitive fields\nconst removeFields = (...fields: string[]) => async (context: HookContext) => {\n  const sanitize = (item: any) => {\n    for (const field of fields) {\n      delete item[field];\n    }\n  };\n\n  const { result } = context;\n  if (result.data) {\n    result.data.forEach(sanitize);\n  } else if (Array.isArray(result)) {\n    result.forEach(sanitize);\n  } else {\n    sanitize(result);\n  }\n  return context;\n};\n\n// Usage: after: { all: [removeFields('password', 'verifyToken')] }",
+    "explanation": "Strips sensitive fields like passwords or tokens from the API response. Apply as an after-all hook on services containing sensitive data.",
+    "version": "both"
+  },
+  {
+    "id": "hook-after-format-response",
+    "type": "after",
+    "useCase": "Normalize response format for consistency",
+    "code": "// After hook: wrap result in standard envelope\nconst formatResponse = async (context: HookContext) => {\n  const { result, method } = context;\n\n  // Only format for external requests\n  if (context.params.provider) {\n    context.result = {\n      success: true,\n      method,\n      data: result.data || result,\n      ...(result.total !== undefined && {\n        pagination: { total: result.total, limit: result.limit, skip: result.skip }\n      })\n    };\n  }\n  return context;\n};\n\n// Usage: after: { find: [formatResponse] }",
+    "explanation": "Wraps service responses in a consistent envelope with success flag, method name, and pagination info.",
+    "version": "both"
+  },
+  {
+    "id": "hook-after-send-notification",
+    "type": "after",
+    "useCase": "Send a notification after creating a record",
+    "code": "// After hook: send notification on create\nconst sendNotification = async (context: HookContext) => {\n  const { result, app } = context;\n  const notificationService = app.service('notifications');\n\n  // Notify all subscribers\n  try {\n    await notificationService.create({\n      type: 'new-message',\n      message: `New message from ${result.userId}: ${result.text?.substring(0, 50)}`,\n      createdAt: new Date().toISOString()\n    });\n  } catch (err) {\n    // Log but don't fail the original request\n    console.error('Notification failed:', err.message);\n  }\n  return context;\n};\n\n// Usage: after: { create: [sendNotification] }",
+    "explanation": "Fires a side-effect notification after successful creation. Catches errors to avoid failing the primary operation.",
+    "version": "v5"
+  },
+  {
+    "id": "hook-after-log-activity",
+    "type": "after",
+    "useCase": "Log API activity for audit trail",
+    "code": "// After hook: audit logging\nconst logActivity = async (context: HookContext) => {\n  const { method, path, params, id } = context;\n  const userId = params.user?._id || 'anonymous';\n\n  console.log(JSON.stringify({\n    timestamp: new Date().toISOString(),\n    service: path,\n    method,\n    id,\n    userId,\n    provider: params.provider || 'internal'\n  }));\n  return context;\n};\n\n// Usage: after: { all: [logActivity] }",
+    "explanation": "Creates structured JSON audit log entries for every service operation. Captures user, method, and service path.",
+    "version": "both"
+  }
+]

@@ -1,0 +1,38 @@
+[
+  {
+    "id": "mongodb-v5-connection",
+    "name": "v5 MongoDB Connection",
+    "code": "import { MongoClient } from 'mongodb';\nimport type { Application } from './declarations';\n\nexport const mongodb = (app: Application) => {\n  const connection = app.get('mongodb');\n  const database = new URL(connection).pathname.substring(1);\n\n  const mongoClient = MongoClient.connect(connection).then((client) => client.db(database));\n\n  app.set('mongodbClient', mongoClient);\n};",
+    "imports": ["mongodb"],
+    "dependencies": ["mongodb", "@feathersjs/mongodb"],
+    "featureFlags": ["mongodb"],
+    "version": "v5"
+  },
+  {
+    "id": "mongodb-v5-service",
+    "name": "v5 MongoDB Service",
+    "code": "import { MongoDBService } from '@feathersjs/mongodb';\nimport type { Application } from '../../declarations';\nimport type { Message, MessageData, MessagePatch, MessageQuery } from './messages.schema';\n\nexport interface MessageParams {\n  query?: MessageQuery;\n}\n\nexport class MessageService extends MongoDBService<Message, MessageData, MessageParams, MessagePatch> {}\n\nexport const messages = (app: Application) => {\n  app.use('messages', new MessageService({\n    paginate: app.get('paginate'),\n    Model: app.get('mongodbClient').then((db: any) => db.collection('messages')),\n    multi: ['remove']\n  }));\n};",
+    "imports": ["@feathersjs/mongodb"],
+    "dependencies": ["@feathersjs/mongodb"],
+    "featureFlags": ["mongodb"],
+    "version": "v5"
+  },
+  {
+    "id": "mongodb-v4-connection",
+    "name": "v4 MongoDB/Mongoose Connection",
+    "code": "const mongoose = require('mongoose');\n\nmodule.exports = function (app) {\n  mongoose.connect(app.get('mongodb'), {\n    useNewUrlParser: true,\n    useUnifiedTopology: true,\n    useCreateIndex: true\n  });\n\n  mongoose.Promise = global.Promise;\n\n  app.set('mongooseClient', mongoose);\n};",
+    "imports": ["mongoose"],
+    "dependencies": ["mongoose", "feathers-mongoose"],
+    "featureFlags": ["mongodb"],
+    "version": "v4"
+  },
+  {
+    "id": "mongodb-v4-model",
+    "name": "v4 Mongoose Model",
+    "code": "const mongoose = require('mongoose');\nconst Schema = mongoose.Schema;\n\nconst messagesSchema = new Schema({\n  text: { type: String, required: true, maxlength: 400 },\n  userId: { type: Schema.Types.ObjectId, ref: 'users' },\n  createdAt: { type: Date, default: Date.now },\n  updatedAt: { type: Date, default: Date.now }\n}, {\n  timestamps: true\n});\n\nconst messagesModel = mongoose.model('messages', messagesSchema);\n\nmodule.exports = messagesModel;",
+    "imports": ["mongoose"],
+    "dependencies": ["mongoose"],
+    "featureFlags": ["mongodb"],
+    "version": "v4"
+  }
+]

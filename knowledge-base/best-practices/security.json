@@ -1,0 +1,42 @@
+[
+  {
+    "id": "bp-security-always-authenticate",
+    "topic": "Authentication",
+    "rule": "Always authenticate external requests. Use the authenticate hook on every service that handles sensitive data.",
+    "rationale": "Unauthenticated endpoints are the most common source of data breaches. Even read-only services should verify the user's identity.",
+    "goodExample": "before: {\n  all: [authenticate('jwt')],\n  find: [],\n  get: []\n}",
+    "badExample": "before: {\n  all: [],\n  create: [authenticate('jwt')]\n  // find and get are wide open!\n}"
+  },
+  {
+    "id": "bp-security-validate-input",
+    "topic": "Input Validation",
+    "rule": "Validate and sanitize all user input in before hooks. Never trust client-submitted data.",
+    "rationale": "Unvalidated input leads to injection attacks, corrupt data, and unexpected behavior. Validation should happen before any database operation.",
+    "goodExample": "before: {\n  create: [\n    authenticate('jwt'),\n    schemaHooks.validateData(messageDataValidator),\n    schemaHooks.resolveData(messageDataResolver)\n  ]\n}",
+    "badExample": "before: {\n  create: [\n    authenticate('jwt')\n    // No validation — raw user data goes straight to database\n  ]\n}"
+  },
+  {
+    "id": "bp-security-restrict-queries",
+    "topic": "Query Restriction",
+    "rule": "Restrict allowable query parameters to prevent unauthorized data access.",
+    "rationale": "Without query restrictions, attackers can craft queries like { $limit: 999999 } or use operators like $regex to probe data.",
+    "goodExample": "// v5: Use schema validators for queries\nconst messageQueryValidator = queryValidator.compile(\n  querySyntax(Type.Pick(messageSchema, ['_id', 'text', 'userId']))\n);\nbefore: { find: [schemaHooks.validateQuery(messageQueryValidator)] }",
+    "badExample": "// No query validation — clients can query ANY field with ANY operator\nbefore: { find: [] }"
+  },
+  {
+    "id": "bp-security-protect-fields",
+    "topic": "Field Protection",
+    "rule": "Use resolvers or after hooks to remove sensitive fields (password, tokens) from API responses.",
+    "rationale": "Accidentally exposing password hashes or auth tokens in API responses is a critical security vulnerability.",
+    "goodExample": "// v5 resolver\nconst userExternalResolver = resolve(userSchema, {\n  password: async () => undefined,\n  verifyToken: async () => undefined\n});\n// Applied: around: { all: [schemaHooks.resolveExternal(userExternalResolver)] }",
+    "badExample": "// No field protection — user objects include password hash in ALL responses:\n// GET /users/1 → { email: 'a@b.com', password: '$2b$10$...' }"
+  },
+  {
+    "id": "bp-security-use-channels",
+    "topic": "Real-time Event Security",
+    "rule": "Configure channels to control which clients receive real-time events. Never broadcast everything to all connections.",
+    "rationale": "Without proper channels, user A can receive real-time events about user B's private data, including create/update/remove events.",
+    "goodExample": "// channels.ts\napp.on('connection', (connection) => {\n  app.channel('anonymous').join(connection);\n});\napp.on('login', (authResult, { connection }) => {\n  if (connection) {\n    app.channel('anonymous').leave(connection);\n    app.channel('authenticated').join(connection);\n    app.channel(`user/${connection.user._id}`).join(connection);\n  }\n});\napp.publish((data, context) => {\n  return app.channel('authenticated');\n});",
+    "badExample": "// Broadcasts ALL events to ALL connected clients:\napp.publish(() => app.channel('anonymous'));"
+  }
+]

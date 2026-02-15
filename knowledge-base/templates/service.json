@@ -1,0 +1,56 @@
+[
+  {
+    "id": "service-v5-class",
+    "name": "v5 Service Class",
+    "code": "import { Id, NullableId, Params, ServiceInterface } from '@feathersjs/feathers';\nimport type { Application } from '../../declarations';\n\nexport interface MessageData {\n  text: string;\n  userId?: string;\n  createdAt?: string;\n}\n\nexport class MessageService implements ServiceInterface<MessageData> {\n  app: Application;\n\n  constructor(app: Application) {\n    this.app = app;\n  }\n\n  async find(params?: Params): Promise<MessageData[]> {\n    return [];\n  }\n\n  async get(id: Id, params?: Params): Promise<MessageData> {\n    throw new Error(`Message ${id} not found`);\n  }\n\n  async create(data: MessageData, params?: Params): Promise<MessageData> {\n    return { ...data, createdAt: new Date().toISOString() };\n  }\n\n  async patch(id: NullableId, data: Partial<MessageData>, params?: Params): Promise<MessageData> {\n    throw new Error('Not implemented');\n  }\n\n  async remove(id: NullableId, params?: Params): Promise<MessageData> {\n    throw new Error('Not implemented');\n  }\n}",
+    "imports": ["@feathersjs/feathers"],
+    "dependencies": ["@feathersjs/feathers"],
+    "featureFlags": [],
+    "version": "v5"
+  },
+  {
+    "id": "service-v5-hooks",
+    "name": "v5 Service Hooks File",
+    "code": "import { HookContext } from '../../declarations';\n\nexport const messageHooks = {\n  before: {\n    all: [],\n    find: [],\n    get: [],\n    create: [\n      async (context: HookContext) => {\n        const { data } = context;\n        if (!data.text) {\n          throw new Error('A message must have a text');\n        }\n        context.data = {\n          text: data.text.substring(0, 400),\n          userId: context.params.user?._id,\n          createdAt: new Date().toISOString()\n        };\n        return context;\n      }\n    ],\n    patch: [],\n    remove: []\n  },\n  after: { all: [] },\n  error: { all: [] }\n};",
+    "imports": [],
+    "dependencies": [],
+    "featureFlags": [],
+    "version": "v5"
+  },
+  {
+    "id": "service-v5-schema",
+    "name": "v5 Service Schema (TypeBox)",
+    "code": "import { Type, Static, querySyntax } from '@feathersjs/typebox';\nimport type { HookContext } from '../../declarations';\nimport { dataValidator, queryValidator } from '../../validators';\n\nexport const messageSchema = Type.Object(\n  {\n    _id: Type.String(),\n    text: Type.String(),\n    userId: Type.String(),\n    createdAt: Type.String({ format: 'date-time' })\n  },\n  { $id: 'Message', additionalProperties: false }\n);\n\nexport type Message = Static<typeof messageSchema>;\n\nexport const messageDataSchema = Type.Pick(messageSchema, ['text']);\nexport type MessageData = Static<typeof messageDataSchema>;\n\nexport const messagePatchSchema = Type.Partial(messageDataSchema);\nexport type MessagePatch = Static<typeof messagePatchSchema>;\n\nexport const messageQuerySchema = Type.Intersect(\n  [querySyntax(Type.Pick(messageSchema, ['_id', 'text', 'userId', 'createdAt']))],\n  { additionalProperties: false }\n);\nexport type MessageQuery = Static<typeof messageQuerySchema>;\n\nexport const messageQueryValidator = queryValidator.compile(messageQuerySchema);\nexport const messageDataValidator = dataValidator.compile(messageDataSchema);\nexport const messagePatchValidator = dataValidator.compile(messagePatchSchema);",
+    "imports": ["@feathersjs/typebox"],
+    "dependencies": ["@feathersjs/typebox"],
+    "featureFlags": ["schemas"],
+    "version": "v5"
+  },
+  {
+    "id": "service-v5-test",
+    "name": "v5 Service Test",
+    "code": "import assert from 'assert';\nimport { app } from '../../src/app';\n\ndescribe('messages service', () => {\n  it('registered the service', () => {\n    const service = app.service('messages');\n    assert.ok(service, 'Registered the service');\n  });\n\n  it('creates a message', async () => {\n    const message = await app.service('messages').create({\n      text: 'Hello world'\n    });\n    assert.ok(message._id);\n    assert.strictEqual(message.text, 'Hello world');\n  });\n\n  it('finds messages', async () => {\n    const messages = await app.service('messages').find();\n    assert.ok(Array.isArray(messages.data || messages));\n  });\n});",
+    "imports": [],
+    "dependencies": [],
+    "featureFlags": [],
+    "version": "v5"
+  },
+  {
+    "id": "service-v4-class",
+    "name": "v4 Service Class",
+    "code": "const { Service } = require('feathers-memory');\n\nclass Messages extends Service {\n  constructor(options, app) {\n    super(options);\n    this.app = app;\n  }\n\n  create(data, params) {\n    const messageData = {\n      text: data.text.substring(0, 400),\n      userId: params.user ? params.user._id : undefined,\n      createdAt: new Date().toISOString()\n    };\n    return super.create(messageData, params);\n  }\n}\n\nmodule.exports = function (app) {\n  app.use('/messages', new Messages({ paginate: app.get('paginate') }, app));\n  const service = app.service('messages');\n  service.hooks(require('./messages.hooks'));\n};",
+    "imports": ["feathers-memory"],
+    "dependencies": ["feathers-memory"],
+    "featureFlags": [],
+    "version": "v4"
+  },
+  {
+    "id": "service-v4-hooks",
+    "name": "v4 Service Hooks File",
+    "code": "const { authenticate } = require('@feathersjs/authentication').hooks;\nconst { disallow, iff } = require('feathers-hooks-common');\n\nmodule.exports = {\n  before: {\n    all: [authenticate('jwt')],\n    find: [],\n    get: [],\n    create: [\n      async context => {\n        const { data } = context;\n        if (!data.text) {\n          throw new Error('A message must have a text');\n        }\n        context.data = {\n          text: data.text.substring(0, 400),\n          userId: context.params.user._id,\n          createdAt: new Date().toISOString()\n        };\n        return context;\n      }\n    ],\n    update: [disallow('external')],\n    patch: [],\n    remove: []\n  },\n  after: { all: [] },\n  error: { all: [] }\n};",
+    "imports": ["@feathersjs/authentication", "feathers-hooks-common"],
+    "dependencies": ["@feathersjs/authentication", "feathers-hooks-common"],
+    "featureFlags": [],
+    "version": "v4"
+  }
+]

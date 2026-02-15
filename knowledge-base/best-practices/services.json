@@ -1,0 +1,42 @@
+[
+  {
+    "id": "bp-services-single-responsibility",
+    "topic": "Service Design",
+    "rule": "Each service should represent a single resource or entity. Avoid God services that handle multiple unrelated resources.",
+    "rationale": "Single-responsibility services are easier to test, scale, and maintain. They also map cleanly to REST endpoints and real-time event channels.",
+    "goodExample": "app.use('messages', new MessageService({ Model, paginate }));\napp.use('users', new UserService({ Model, paginate }));",
+    "badExample": "app.use('api', new GodService()); // handles messages, users, auth, files..."
+  },
+  {
+    "id": "bp-services-use-paginate",
+    "topic": "Pagination",
+    "rule": "Always enable pagination on services that could return large datasets.",
+    "rationale": "Without pagination, a find() call on a large collection returns ALL records, causing memory spikes, slow responses, and potential crashes.",
+    "goodExample": "app.use('messages', new MongoDBService({\n  Model: db.collection('messages'),\n  paginate: { default: 10, max: 50 }\n}));",
+    "badExample": "app.use('messages', new MongoDBService({\n  Model: db.collection('messages')\n  // No paginate option — find() returns everything!\n}));"
+  },
+  {
+    "id": "bp-services-custom-methods",
+    "topic": "Custom Methods",
+    "rule": "In v5, use custom methods for operations that don't fit standard CRUD. In v4, use hooks to extend behavior.",
+    "rationale": "Custom methods keep the service interface clean and explicit. Overloading create() to handle multiple unrelated operations leads to confusing code.",
+    "goodExample": "// v5 custom method\nclass PaymentService {\n  async create(data) { /* normal payment creation */ }\n  async refund(data) { /* separate refund logic */ }\n}\napp.use('payments', new PaymentService(), { methods: ['find', 'get', 'create', 'refund'] });",
+    "badExample": "// Overloading create\nasync create(data) {\n  if (data.action === 'refund') { /* refund logic */ }\n  else if (data.action === 'charge') { /* charge logic */ }\n  else { /* default create */ }\n}"
+  },
+  {
+    "id": "bp-services-separate-internal-external",
+    "topic": "Internal vs External Access",
+    "rule": "Use params.provider to distinguish between internal and external calls. Apply stricter rules to external requests.",
+    "rationale": "Internal service-to-service calls are trusted. External calls from REST or WebSocket clients need authentication, validation and rate limiting.",
+    "goodExample": "before: {\n  all: [\n    iff(isProvider('external'), authenticate('jwt'), validateQuery)\n  ]\n}",
+    "badExample": "before: {\n  all: [authenticate('jwt')]\n  // This blocks internal service calls too!\n}"
+  },
+  {
+    "id": "bp-services-idiomatic-errors",
+    "topic": "Error Handling",
+    "rule": "Throw Feathers error classes (BadRequest, NotFound, etc.) instead of generic Error.",
+    "rationale": "Feathers errors include proper HTTP status codes and are formatted correctly by the error handler. Generic errors produce unhelpful 500 responses.",
+    "goodExample": "import { BadRequest, NotFound } from '@feathersjs/errors';\n\nif (!data.text) throw new BadRequest('Message text is required');\nif (!record) throw new NotFound(`Message ${id} not found`);",
+    "badExample": "if (!data.text) throw new Error('Message text is required');\nif (!record) throw new Error('Not found');\n// Both produce generic 500 Internal Server Error"
+  }
+]

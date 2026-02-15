@@ -1,0 +1,42 @@
+[
+  {
+    "id": "bp-hooks-order-matters",
+    "topic": "Hook Ordering",
+    "rule": "Place authentication hooks before data validation hooks. Place validation before data transformation.",
+    "rationale": "If validation runs before auth, unauthenticated users can trigger validation errors that leak schema information. Auth should always be the first gate.",
+    "goodExample": "before: { create: [authenticate('jwt'), validateData, transformData, setTimestamp] }",
+    "badExample": "before: { create: [validateData, authenticate('jwt'), transformData] }"
+  },
+  {
+    "id": "bp-hooks-return-context",
+    "topic": "Hook Return Value",
+    "rule": "Always return the context object from every hook function.",
+    "rationale": "Feathers relies on the returned context to pass data through the hook chain. Forgetting to return context causes silent failures and undefined results.",
+    "goodExample": "const myHook = async (context) => {\n  context.data.updatedAt = new Date();\n  return context;\n};",
+    "badExample": "const myHook = async (context) => {\n  context.data.updatedAt = new Date();\n  // Missing return context!\n};"
+  },
+  {
+    "id": "bp-hooks-keep-small",
+    "topic": "Hook Granularity",
+    "rule": "Keep hooks small and focused. Each hook should do exactly one thing.",
+    "rationale": "Small hooks are reusable across services, easier to test, and simpler to reason about. A monolithic hook that validates, transforms, and logs is hard to maintain.",
+    "goodExample": "before: { create: [validateText, sanitizeHtml, setUserId, setTimestamp] }",
+    "badExample": "before: { create: [async (ctx) => { /* 50 lines of validation, transformation, logging */ }] }"
+  },
+  {
+    "id": "bp-hooks-async-errors",
+    "topic": "Async Error Handling",
+    "rule": "Always use try/catch in async hooks that call external services, or let Feathers error hooks handle failures.",
+    "rationale": "Unhandled rejections in hooks crash the process. Wrapping external calls ensures graceful error handling and proper Feathers error responses.",
+    "goodExample": "const notifyHook = async (context) => {\n  try {\n    await context.app.service('notifications').create({ ... });\n  } catch (err) {\n    console.error('Notification failed:', err.message);\n  }\n  return context;\n};",
+    "badExample": "const notifyHook = async (context) => {\n  await context.app.service('notifications').create({ ... });\n  // If this throws, the entire create operation fails\n  return context;\n};"
+  },
+  {
+    "id": "bp-hooks-avoid-provider-in-after",
+    "topic": "Provider Check in After Hooks",
+    "rule": "Use context.params.provider to differentiate between external and internal calls when needed in after hooks.",
+    "rationale": "After hooks that modify responses should typically only affect external API responses, not internal service-to-service calls which may rely on the raw data.",
+    "goodExample": "const formatResponse = async (context) => {\n  if (context.params.provider) {\n    context.result = { success: true, data: context.result };\n  }\n  return context;\n};",
+    "badExample": "const formatResponse = async (context) => {\n  // Wraps ALL results including internal calls!\n  context.result = { success: true, data: context.result };\n  return context;\n};"
+  }
+]

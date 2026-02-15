@@ -1,0 +1,34 @@
+[
+  {
+    "id": "service-custom-v5-email",
+    "type": "custom",
+    "useCase": "Custom service wrapping an email provider",
+    "code": "import type { Id, Params, ServiceInterface } from '@feathersjs/feathers';\nimport type { Application } from '../../declarations';\n\ninterface EmailData {\n  to: string;\n  subject: string;\n  body: string;\n  html?: string;\n}\n\nexport class EmailService implements ServiceInterface {\n  app: Application;\n\n  constructor(app: Application) {\n    this.app = app;\n  }\n\n  async create(data: EmailData, _params?: Params) {\n    // Replace with your email provider (SendGrid, SES, etc.)\n    const config = this.app.get('email');\n    console.log(`Sending email to ${data.to}: ${data.subject}`);\n    // await sendgrid.send({ from: config.from, ...data });\n    return { ...data, status: 'sent', sentAt: new Date().toISOString() };\n  }\n\n  async find(_params?: Params) { return []; }\n  async get(id: Id) { throw new Error('Not implemented'); }\n}\n\nexport const email = (app: Application) => {\n  app.use('email', new EmailService(app));\n};",
+    "explanation": "Custom service that wraps an email sending API. Only implements create (for sending) and find. Demonstrates how to build non-database services.",
+    "version": "v5"
+  },
+  {
+    "id": "service-custom-v5-external-api",
+    "type": "custom",
+    "useCase": "Custom service proxying an external REST API",
+    "code": "import type { Id, Params, ServiceInterface } from '@feathersjs/feathers';\nimport type { Application } from '../../declarations';\n\ninterface WeatherResult {\n  city: string;\n  temp: number;\n  description: string;\n}\n\nexport class WeatherService implements ServiceInterface<WeatherResult> {\n  app: Application;\n\n  constructor(app: Application) {\n    this.app = app;\n  }\n\n  async get(id: Id, _params?: Params): Promise<WeatherResult> {\n    // In production, use fetch/axios to call external API\n    // const res = await fetch(`https://api.weather.com/v1/city/${id}`);\n    return {\n      city: String(id),\n      temp: 22,\n      description: 'Sunny'\n    };\n  }\n\n  async find(params?: Params): Promise<WeatherResult[]> {\n    const city = params?.query?.city || 'London';\n    return [await this.get(city)];\n  }\n}\n\nexport const weather = (app: Application) => {\n  app.use('weather', new WeatherService(app));\n};",
+    "explanation": "Proxies an external API (weather service) as a Feathers service. Shows how to adapt external APIs to the Feathers service interface.",
+    "version": "v5"
+  },
+  {
+    "id": "service-custom-v4-email",
+    "type": "custom",
+    "useCase": "v4 custom service wrapping an email provider",
+    "code": "class EmailService {\n  constructor(app) {\n    this.app = app;\n  }\n\n  async create(data, params) {\n    const config = this.app.get('email');\n    console.log('Sending email to ' + data.to + ': ' + data.subject);\n    // await transporter.sendMail({ from: config.from, to: data.to, subject: data.subject, html: data.html });\n    return Object.assign({}, data, { status: 'sent', sentAt: new Date().toISOString() });\n  }\n\n  async find(params) { return []; }\n  async get(id, params) { throw new Error('Not implemented'); }\n  async setup(app) { this.app = app; }\n}\n\nmodule.exports = function (app) {\n  app.use('/email', new EmailService(app));\n};",
+    "explanation": "v4 custom service for sending emails. Uses CommonJS module.exports pattern and class-based service.",
+    "version": "v4"
+  },
+  {
+    "id": "service-custom-v5-file-upload",
+    "type": "custom",
+    "useCase": "Custom service for file uploads with Express middleware",
+    "code": "import multer from 'multer';\nimport type { Application } from '../../declarations';\nimport { ServiceInterface, Params } from '@feathersjs/feathers';\n\nconst upload = multer({ dest: 'uploads/', limits: { fileSize: 5 * 1024 * 1024 } });\n\ninterface UploadResult {\n  id: string;\n  filename: string;\n  mimetype: string;\n  size: number;\n}\n\nexport class UploadService implements ServiceInterface<UploadResult> {\n  async create(data: any, params?: Params): Promise<UploadResult> {\n    const file = params?.file;\n    if (!file) throw new Error('No file uploaded');\n    return {\n      id: file.filename,\n      filename: file.originalname,\n      mimetype: file.mimetype,\n      size: file.size\n    };\n  }\n\n  async find() { return []; }\n}\n\nexport const uploads = (app: Application) => {\n  // Register multer middleware before the service\n  app.use('uploads',\n    upload.single('file'),\n    (req: any, _res: any, next: any) => { req.feathers.file = req.file; next(); },\n    new UploadService()\n  );\n};",
+    "explanation": "Combines Express multer middleware with a Feathers service for file uploads. Passes the uploaded file through params.file.",
+    "version": "v5"
+  }
+]

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "service-pattern-soft-delete",
+    "type": "pattern",
+    "useCase": "Soft delete pattern with automatic filtering",
+    "code": "import type { Application } from '../../declarations';\nimport { KnexService } from '@feathersjs/knex';\nimport type { KnexAdapterParams } from '@feathersjs/knex';\n\n// Extend service to override remove\nexport class SoftDeleteService<T = any> extends KnexService<T> {\n  async remove(id: any, params?: KnexAdapterParams) {\n    // Patch instead of delete\n    return this.patch(id, { deleted: true, deletedAt: new Date().toISOString() } as any, params);\n  }\n\n  async find(params?: KnexAdapterParams) {\n    // Automatically exclude soft-deleted records\n    params = params || {};\n    params.query = { ...params.query, deleted: { $ne: true } };\n    return super.find(params);\n  }\n\n  async get(id: any, params?: KnexAdapterParams) {\n    const result = await super.get(id, params);\n    if ((result as any).deleted) {\n      throw new Error('Record has been deleted');\n    }\n    return result;\n  }\n}",
+    "explanation": "Extends a Knex service to implement soft-delete. Remove patches with a deleted flag, find/get exclude deleted records.",
+    "version": "v5"
+  },
+  {
+    "id": "service-pattern-audit-log",
+    "type": "pattern",
+    "useCase": "Audit logging for all service operations",
+    "code": "import type { HookContext } from '../../declarations';\n\n// Audit log service stores all change events\nconst auditLog = async (context: HookContext) => {\n  const { method, path, id, data, result, params } = context;\n  const userId = params.user?._id || 'system';\n\n  try {\n    await context.app.service('audit-logs').create({\n      service: path,\n      method,\n      recordId: id || result?._id,\n      userId,\n      before: method === 'patch' || method === 'update' ? JSON.stringify(data) : undefined,\n      after: JSON.stringify(result),\n      timestamp: new Date().toISOString(),\n      ip: params.ip\n    });\n  } catch (err) {\n    // Don't fail the original operation\n    console.error('Audit log failed:', (err as Error).message);\n  }\n  return context;\n};\n\n// Usage: after: { create: [auditLog], patch: [auditLog], update: [auditLog], remove: [auditLog] }",
+    "explanation": "After-hook that records all mutations to an audit-logs service. Captures who, what, when, and the before/after state.",
+    "version": "v5"
+  },
+  {
+    "id": "service-pattern-cache-v5",
+    "type": "pattern",
+    "useCase": "In-memory caching with TTL for frequently read services",
+    "code": "import type { Application } from '../../declarations';\nimport { MemoryService } from '@feathersjs/memory';\n\ninterface CacheEntry<T> {\n  data: T;\n  expires: number;\n}\n\nexport class CachedService<T = any> {\n  private cache = new Map<string, CacheEntry<T>>();\n  private ttl: number;\n  private inner: any;\n\n  constructor(inner: any, ttlMs = 30_000) {\n    this.inner = inner;\n    this.ttl = ttlMs;\n  }\n\n  async get(id: any, params?: any): Promise<T> {\n    const key = `get:${id}`;\n    const cached = this.cache.get(key);\n    if (cached && Date.now() < cached.expires) return cached.data;\n\n    const result = await this.inner.get(id, params);\n    this.cache.set(key, { data: result, expires: Date.now() + this.ttl });\n    return result;\n  }\n\n  // Invalidate cache on mutation\n  async create(data: any, params?: any) {\n    this.cache.clear();\n    return this.inner.create(data, params);\n  }\n\n  async patch(id: any, data: any, params?: any) {\n    this.cache.delete(`get:${id}`);\n    return this.inner.patch(id, data, params);\n  }\n}",
+    "explanation": "Wrapper that adds TTL caching to any Feathers service. Caches get results and invalidates on mutations.",
+    "version": "v5"
+  },
+  {
+    "id": "service-pattern-multi-tenancy",
+    "type": "pattern",
+    "useCase": "Multi-tenancy pattern using query scoping",
+    "code": "// Before hook: scope all queries to the current tenant\nconst scopeToTenant = async (context: HookContext) => {\n  const { params } = context;\n  const tenantId = params.user?.tenantId;\n\n  if (!tenantId && params.provider) {\n    throw new Forbidden('No tenant context');\n  }\n\n  if (tenantId) {\n    // Scope queries\n    if (context.method === 'find') {\n      context.params.query = { ...context.params.query, tenantId };\n    }\n    // Stamp data\n    if (context.data) {\n      context.data.tenantId = tenantId;\n    }\n    // Scope get/patch/remove\n    if (context.id) {\n      context.params.query = { ...context.params.query, tenantId };\n    }\n  }\n  return context;\n};\n\n// Usage: before: { all: [authenticate('jwt'), scopeToTenant] }",
+    "explanation": "Automatically scopes all service operations to the current user's tenant. Ensures data isolation between tenants.",
+    "version": "both"
+  },
+  {
+    "id": "service-pattern-v4-pagination",
+    "type": "pattern",
+    "useCase": "v4 custom pagination with metadata",
+    "code": "// v4 after hook: add pagination metadata\nmodule.exports = async function addPaginationMeta(context) {\n  const { result, params } = context;\n\n  if (result.total !== undefined) {\n    const limit = result.limit || 10;\n    const skip = result.skip || 0;\n    const page = Math.floor(skip / limit) + 1;\n    const totalPages = Math.ceil(result.total / limit);\n\n    result.pagination = {\n      page,\n      totalPages,\n      hasNext: page < totalPages,\n      hasPrev: page > 1\n    };\n  }\n\n  return context;\n};\n\n// Usage: after: { find: [addPaginationMeta] }",
+    "explanation": "Adds computed pagination metadata (page number, totalPages, hasNext/hasPrev) to paginated results.",
+    "version": "v4"
+  }
+]

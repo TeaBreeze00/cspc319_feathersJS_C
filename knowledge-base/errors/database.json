@@ -1,0 +1,44 @@
+[
+  {
+    "id": "err-db-connection-refused",
+    "pattern": "ECONNREFUSED|Connection refused|connect ECONNREFUSED",
+    "cause": "The database server is not running or not accepting connections on the configured host/port.",
+    "solution": "Verify the database server is running: for MongoDB, run 'mongod --dbpath /data/db'; for PostgreSQL, check 'pg_isready'. Verify the connection string in your config matches the actual host and port.",
+    "example": "Error: connect ECONNREFUSED 127.0.0.1:27017"
+  },
+  {
+    "id": "err-db-auth-failed",
+    "pattern": "Authentication failed|auth.*fail|password.*incorrect|Access denied",
+    "cause": "Database authentication credentials are incorrect.",
+    "solution": "Check the username, password, and database name in your connection string. For MongoDB, verify the authSource parameter. For PostgreSQL, check pg_hba.conf permissions.",
+    "example": "MongoServerError: Authentication failed for user 'admin'"
+  },
+  {
+    "id": "err-db-duplicate-key",
+    "pattern": "duplicate key|E11000|unique.*constraint|unique.*violation|already exists",
+    "cause": "Attempting to insert a document with a value that violates a unique index or constraint.",
+    "solution": "Check if the record already exists before creating. Add proper unique field validation in a before hook. For upsert patterns, use patch with query instead of create.",
+    "example": "MongoServerError: E11000 duplicate key error collection: app.users index: email_1 dup key: { email: \"test@test.com\" }"
+  },
+  {
+    "id": "err-db-table-not-found",
+    "pattern": "relation.*does not exist|no such table|ER_NO_SUCH_TABLE|table.*not found",
+    "cause": "The database table or collection does not exist. Migrations may not have run.",
+    "solution": "Run pending migrations: npx knex migrate:latest. For MongoDB, collections are created automatically on first insert. For SQL, verify your migration files are correct.",
+    "example": "error: relation \"messages\" does not exist"
+  },
+  {
+    "id": "err-db-timeout",
+    "pattern": "ETIMEDOUT|connection.*timed.*out|MongoNetworkTimeoutError|query.*timeout",
+    "cause": "Database query or connection attempt exceeded the timeout threshold.",
+    "solution": "Check network connectivity to the database server. Increase timeout values in your connection config. For slow queries, add appropriate indexes. Monitor connection pool exhaustion.",
+    "example": "MongoNetworkTimeoutError: connection timed out"
+  },
+  {
+    "id": "err-db-migration-failed",
+    "pattern": "migration.*failed|knex.*migrate|already.*migration|migration.*lock",
+    "cause": "A database migration failed or the migration lock table is stuck.",
+    "solution": "Check the migration file for errors. If the lock table is stuck, manually clear it: await knex('knex_migrations_lock').update({ is_locked: 0 }). Roll back the failed migration and fix it.",
+    "example": "Error: Migration 20230101_create_messages.ts failed"
+  }
+]

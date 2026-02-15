@@ -35,13 +35,34 @@ const V4_DOCS = [
   { url: 'https://crow.docs.feathersjs.com/api/authentication/client.html', category: 'authentication' },
   
   // Databases
-  { url: 'https://crow.docs.feathersjs.com/api/databases/common.html', category: 'services' },
-  { url: 'https://crow.docs.feathersjs.com/api/databases/querying.html', category: 'services' },
+  { url: 'https://crow.docs.feathersjs.com/api/databases/adapters.html', category: 'databases' },
+  { url: 'https://crow.docs.feathersjs.com/api/databases/common.html', category: 'databases' },
+  { url: 'https://crow.docs.feathersjs.com/api/databases/querying.html', category: 'databases' },
   
   // Key guides
   { url: 'https://crow.docs.feathersjs.com/guides/basics/services.html', category: 'services' },
   { url: 'https://crow.docs.feathersjs.com/guides/basics/hooks.html', category: 'hooks' },
   { url: 'https://crow.docs.feathersjs.com/guides/basics/authentication.html', category: 'authentication' },
+  
+  // Additional hook-related pages
+  { url: 'https://crow.docs.feathersjs.com/api/authentication/hook.html', category: 'hooks' },
+  { url: 'https://crow.docs.feathersjs.com/cookbook/express/file-uploading.html', category: 'hooks' },
+  { url: 'https://crow.docs.feathersjs.com/guides/security.html', category: 'hooks' },
+  { url: 'https://crow.docs.feathersjs.com/api/authentication/', category: 'hooks' },
+
+  // Additional service-related pages (REST/Socket client usage)
+  { url: 'https://crow.docs.feathersjs.com/api/client/rest.html', category: 'services' },
+  { url: 'https://crow.docs.feathersjs.com/api/client/socketio.html', category: 'services' },
+  { url: 'https://crow.docs.feathersjs.com/api/client/primus.html', category: 'services' },
+  { url: 'https://crow.docs.feathersjs.com/guides/basics/setup.html', category: 'guides' },
+  { url: 'https://crow.docs.feathersjs.com/guides/basics/starting.html', category: 'guides' },
+  { url: 'https://crow.docs.feathersjs.com/guides/basics/generator.html', category: 'guides' },
+  { url: 'https://crow.docs.feathersjs.com/guides/basics/frontend.html', category: 'guides' },
+  { url: 'https://crow.docs.feathersjs.com/guides/basics/testing.html', category: 'guides' },
+  { url: 'https://crow.docs.feathersjs.com/api/socketio.html', category: 'core-concepts' },
+  { url: 'https://crow.docs.feathersjs.com/api/primus.html', category: 'core-concepts' },
+  { url: 'https://crow.docs.feathersjs.com/api/authentication/strategy.html', category: 'authentication' },
+  { url: 'https://crow.docs.feathersjs.com/guides/migrating.html', category: 'guides' },
 ];
 
 /**
@@ -191,17 +212,18 @@ async function main() {
   console.log(`✓ Fetched ${entries.length} v4 docs`);
   
   // Load existing v5 docs and merge
-  const categories = ['core-concepts', 'services', 'hooks', 'authentication'];
+  // Derive all categories from entries dynamically
+  const allCategories = [...new Set(entries.map(e => e.category))];
   const docsDir = path.join(__dirname, '..', 'knowledge-base', 'docs');
   
-  for (const category of categories) {
+  for (const category of allCategories) {
     const filePath = path.join(docsDir, `${category}.json`);
     
-    // Load existing entries (v5)
+    // Load existing entries and keep only non-v4 entries
     let existingEntries = [];
     try {
       const content = await fs.readFile(filePath, 'utf-8');
-      existingEntries = JSON.parse(content);
+      existingEntries = JSON.parse(content).filter(e => e.version !== 'v4');
     } catch (error) {
       // File doesn't exist yet, that's OK
     }

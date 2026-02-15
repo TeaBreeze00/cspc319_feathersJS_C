@@ -1,0 +1,50 @@
+[
+  {
+    "id": "hook-before-validate-required-fields",
+    "type": "before",
+    "useCase": "Validate that required fields exist before create/update",
+    "code": "// v5 before hook: validate required fields\nconst validateRequired = (...fields: string[]) => async (context: HookContext) => {\n  const { data } = context;\n  for (const field of fields) {\n    if (data[field] === undefined || data[field] === null || data[field] === '') {\n      throw new BadRequest(`'${field}' is required`);\n    }\n  }\n  return context;\n};\n\n// Usage: app.service('messages').hooks({ before: { create: [validateRequired('text', 'userId')] } });",
+    "explanation": "Validates that required fields are present in the data before creating or updating a record. Throws a BadRequest error if any field is missing.",
+    "version": "v5"
+  },
+  {
+    "id": "hook-before-authenticate",
+    "type": "before",
+    "useCase": "Authenticate a request using JWT",
+    "code": "// v5 before hook: authenticate\nimport { authenticate } from '@feathersjs/authentication';\n\n// Usage:\nexport const messageHooks = {\n  before: {\n    all: [authenticate('jwt')],\n    find: [],\n    get: [],\n    create: [],\n    patch: [],\n    remove: []\n  }\n};",
+    "explanation": "Uses the built-in authenticate hook to verify JWT tokens on all methods. Place it as the first hook in the 'all' array.",
+    "version": "v5"
+  },
+  {
+    "id": "hook-before-set-timestamp",
+    "type": "before",
+    "useCase": "Automatically set createdAt/updatedAt timestamps",
+    "code": "// v5 before hook: set timestamps\nconst setTimestamp = (field: string) => async (context: HookContext) => {\n  context.data[field] = new Date().toISOString();\n  return context;\n};\n\n// Usage:\nexport const messageHooks = {\n  before: {\n    create: [setTimestamp('createdAt'), setTimestamp('updatedAt')],\n    patch: [setTimestamp('updatedAt')],\n    update: [setTimestamp('updatedAt')]\n  }\n};",
+    "explanation": "Sets timestamp fields automatically. Use on create for createdAt, and on patch/update for updatedAt.",
+    "version": "v5"
+  },
+  {
+    "id": "hook-before-sanitize-html",
+    "type": "before",
+    "useCase": "Sanitize user input to prevent XSS",
+    "code": "// Before hook: sanitize string fields\nconst sanitize = (str: string) => str.replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nconst sanitizeFields = (...fields: string[]) => async (context: HookContext) => {\n  const { data } = context;\n  for (const field of fields) {\n    if (typeof data[field] === 'string') {\n      data[field] = sanitize(data[field]);\n    }\n  }\n  return context;\n};\n\n// Usage: before: { create: [sanitizeFields('text', 'title')] }",
+    "explanation": "Escapes HTML entities in string fields to prevent XSS attacks. Apply to any user-submitted text data.",
+    "version": "both"
+  },
+  {
+    "id": "hook-before-set-user",
+    "type": "before",
+    "useCase": "Set the current user ID on created records",
+    "code": "// v5 before hook: set current user on data\nconst setUser = async (context: HookContext) => {\n  const { user } = context.params;\n  if (user) {\n    context.data.userId = user._id;\n  }\n  return context;\n};\n\n// Usage: before: { create: [authenticate('jwt'), setUser] }",
+    "explanation": "After authentication, automatically stamps the current user's ID onto the data being created.",
+    "version": "v5"
+  },
+  {
+    "id": "hook-before-limit-query",
+    "type": "before",
+    "useCase": "Limit query results for external requests",
+    "code": "// Before hook: enforce query limits\nconst limitQuery = (maxLimit = 50) => async (context: HookContext) => {\n  if (context.params.provider) {\n    // External request — enforce limits\n    context.params.query = context.params.query || {};\n    const limit = context.params.query.$limit;\n    if (!limit || limit > maxLimit) {\n      context.params.query.$limit = maxLimit;\n    }\n  }\n  return context;\n};\n\n// Usage: before: { find: [limitQuery(25)] }",
+    "explanation": "Prevents external clients from requesting too many records. Sets a max $limit on find queries.",
+    "version": "both"
+  }
+]

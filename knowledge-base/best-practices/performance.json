@@ -1,0 +1,42 @@
+[
+  {
+    "id": "bp-performance-use-pagination",
+    "topic": "Pagination",
+    "rule": "Always enable pagination with sensible defaults and max limits. Never allow unbounded queries.",
+    "rationale": "Without pagination, a single find() call can return millions of records, exhausting memory, crashing the server, and creating denial-of-service conditions.",
+    "goodExample": "// Service registration with pagination\napp.use('messages', new MongoDBService({\n  Model: db.collection('messages'),\n  paginate: {\n    default: 10,\n    max: 50\n  }\n}));\n\n// Result: { total: 1523, limit: 10, skip: 0, data: [...10 items] }",
+    "badExample": "// No pagination — returns ALL records\napp.use('messages', new MongoDBService({\n  Model: db.collection('messages')\n  // paginate not set!\n}));\n\n// Result: [...1,523 items loaded into memory at once]"
+  },
+  {
+    "id": "bp-performance-select-fields",
+    "topic": "Query Optimization",
+    "rule": "Use $select to retrieve only the fields needed. Avoid fetching entire documents when only a few fields are required.",
+    "rationale": "Selecting specific fields reduces data transfer, memory usage, and database load — especially with large documents containing embedded arrays or text fields.",
+    "goodExample": "// Only fetch what the UI needs\nconst users = await app.service('users').find({\n  query: {\n    $select: ['_id', 'email', 'name', 'avatar'],\n    $limit: 20\n  }\n});\n\n// In hooks — strip unnecessary fields for internal calls\ncontext.params.query.$select = ['_id', 'role'];",
+    "badExample": "// Fetches ALL fields including large profile blobs, activity logs, etc.\nconst users = await app.service('users').find({\n  query: { $limit: 20 }\n});\n// Each user object: { _id, email, name, avatar, bio, activityLog: [...1000 items], preferences: {...} }"
+  },
+  {
+    "id": "bp-performance-batch-operations",
+    "topic": "Batch Processing",
+    "rule": "Use multi: true for bulk create/patch/remove operations instead of looping single operations.",
+    "rationale": "Individual database calls in a loop create N round-trips. Batch operations reduce this to a single round-trip, dramatically improving throughput.",
+    "goodExample": "// Bulk create — single database operation\nawait app.service('messages').create([\n  { text: 'Message 1' },\n  { text: 'Message 2' },\n  { text: 'Message 3' }\n]);\n\n// Bulk patch — single query\nawait app.service('messages').patch(\n  null,\n  { archived: true },\n  { query: { createdAt: { $lt: cutoffDate } } }\n);",
+    "badExample": "// N individual database calls in a loop — very slow\nfor (const msg of messages) {\n  await app.service('messages').create(msg);\n}\n\n// N individual patches — N round-trips\nfor (const id of messageIds) {\n  await app.service('messages').patch(id, { archived: true });\n}"
+  },
+  {
+    "id": "bp-performance-index-queries",
+    "topic": "Database Indexing",
+    "rule": "Create database indexes for fields that are frequently queried, sorted, or used in lookups.",
+    "rationale": "Without indexes, every query performs a full collection scan. As data grows, unindexed queries become exponentially slower.",
+    "goodExample": "// MongoDB — create indexes in service setup\nclass MessageService extends MongoDBService {\n  async setup(app, path) {\n    await super.setup(app, path);\n    const collection = await this.getModel();\n    await collection.createIndex({ userId: 1, createdAt: -1 });\n    await collection.createIndex({ roomId: 1 });\n  }\n}\n\n// Knex migration — add index for PostgreSQL/SQLite\nexports.up = (knex) =>\n  knex.schema.alterTable('messages', (table) => {\n    table.index(['user_id', 'created_at']);\n  });",
+    "badExample": "// No indexes — full table scan on every query\n// As table grows past 10K rows, queries take seconds:\nawait app.service('messages').find({\n  query: { userId: '123', $sort: { createdAt: -1 } }\n});\n// ↑ Without index: scans ALL rows, sorts in memory"
+  },
+  {
+    "id": "bp-performance-lightweight-hooks",
+    "topic": "Hook Efficiency",
+    "rule": "Keep hooks lightweight and avoid unnecessary async operations. Move heavy processing to background jobs or after the response.",
+    "rationale": "Every hook runs on every matching request. Heavy hooks (HTTP calls, complex calculations) directly increase response latency for all users.",
+    "goodExample": "// Lightweight before hook — just sets a field\nconst setTimestamp = (name) => (context) => {\n  context.data[name] = new Date();\n  return context;\n};\n\n// Heavy work done asynchronously AFTER response\nconst queueNotification = async (context) => {\n  // Fire and forget — don't await\n  app.service('jobs').create({\n    type: 'send-notification',\n    data: { messageId: context.result._id }\n  }).catch(err => logger.error(err));\n  return context;\n};\nbefore: { create: [setTimestamp('createdAt')] },\nafter: { create: [queueNotification] }",
+    "badExample": "// Heavy synchronous hook blocks EVERY request\nconst beforeCreate = async (context) => {\n  // Calls external API on every create — adds 500ms+ latency\n  const result = await fetch('https://api.spam-check.com', {\n    method: 'POST',\n    body: JSON.stringify(context.data)\n  });\n  const analysis = await result.json();\n  // Sends email synchronously — another 200ms\n  await sendEmail(admin, 'New message created');\n  return context;\n};"
+  }
+]
