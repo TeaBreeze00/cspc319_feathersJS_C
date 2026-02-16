@@ -158,9 +158,3 @@ Before your hosting session:
 - [ ] Print or display these tasks for testers
 - [ ] Have a notebook ready to take observation notes
 - [ ] Prepare bug report template for documenting issues found
-
-Would you like me to:
-1. Create a printable markdown file with these tasks?
-2. Create a simple test script that testers can run?
-3. Set up any additional preparation materials?
-
