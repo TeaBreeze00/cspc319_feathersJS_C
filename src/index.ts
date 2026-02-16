@@ -1,6 +1,7 @@
 import { McpServer, ToolRegistry, listToolsHandler } from './protocol';
 import { ToolHandlerRegistry, ParameterValidator, ErrorHandler, Router } from './routing';
 import { callToolHandler } from './protocol/handlers/callTool';
+import { SearchDocsTool, GetTemplateTool, GenerateServiceTool } from './tools';
 
 // Protocol-level registry (metadata + implementations)
 const registry = new ToolRegistry();
@@ -11,6 +12,33 @@ const validator = new ParameterValidator();
 const errorHandler = new ErrorHandler();
 const router = new Router(routingRegistry, validator, errorHandler);
 
+// Create tool instances
+const searchDocsTool = new SearchDocsTool();
+const getTemplateTool = new GetTemplateTool();
+const generateServiceTool = new GenerateServiceTool();
+
+// Register tools with protocol registry (metadata + handler for MCP)
+registry.register(searchDocsTool.register());
+registry.register(getTemplateTool.register());
+registry.register(generateServiceTool.register());
+
+// Register tools with routing registry (handler + schema for routing layer)
+routingRegistry.register(
+  'search_docs',
+  (params: unknown) => searchDocsTool.execute(params),
+  searchDocsTool.inputSchema
+);
+routingRegistry.register(
+  'get_feathers_template',
+  (params: unknown) => getTemplateTool.execute(params),
+  getTemplateTool.inputSchema
+);
+routingRegistry.register(
+  'generate_service',
+  (params: unknown) => generateServiceTool.execute(params),
+  generateServiceTool.inputSchema
+);
+
 // Create protocol handlers wired to routing
 const listHandler = listToolsHandler(registry);
 const callHandler = callToolHandler(router);
@@ -19,28 +47,27 @@ const callHandler = callToolHandler(router);
 const server = new McpServer(registry);
 
 async function startServer() {
-	try {
-		await server.start();
-		console.error('feathers-mcp-server started');
-	} catch (err) {
-		console.error('Failed to start MCP server:', err instanceof Error ? err.message : err);
-		process.exitCode = 1;
-	}
+  try {
+    await server.start();
+    console.error('feathers-mcp-server started');
+  } catch (err) {
+    console.error('Failed to start MCP server:', err instanceof Error ? err.message : err);
+    process.exitCode = 1;
+  }
 }
 
 startServer();
 
 async function shutdown(signal: string) {
-	try {
-		console.error(`Received ${signal}, shutting down`);
-		await server.stop();
-		process.exit(0);
-	} catch (err) {
-		console.error('Error during shutdown:', err instanceof Error ? err.message : err);
-		process.exit(1);
-	}
+  try {
+    console.error(`Received ${signal}, shutting down`);
+    await server.stop();
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err instanceof Error ? err.message : err);
+    process.exit(1);
+  }
 }
 
 process.on('SIGINT', () => void shutdown('SIGINT'));
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
-
