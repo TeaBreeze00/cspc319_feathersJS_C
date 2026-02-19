@@ -595,4 +595,12 @@ If a query fails, record the following in [BUG_REPORT.md](./BUG_REPORT.md):
 
 ---
 
+## 📝 To start the front end
+
+1. **From the project root:**
+2. **cd ui && node server.js**
+3. **Then open: http://localhost:4000**
+
+---
+
 *All expected outputs in this document were verified against the live MCP server build on the current `main` branch.*
