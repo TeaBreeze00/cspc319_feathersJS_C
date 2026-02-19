@@ -439,4 +439,3 @@ Output JSON: `knowledge-base/`
 2. Align `package.json` scripts and `bin` metadata with onboarding docs.
 3. Reconcile roadmap docs with current implementation status (or gate roadmap sections clearly as future work).
 4. Add compile/validation tests for generated service outputs to catch template/codegen regressions.
-
