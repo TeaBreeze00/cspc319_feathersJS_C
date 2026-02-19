@@ -1,0 +1,1802 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FeathersJS MCP — Testing UI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+      id="hljs-theme"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/typescript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
+
+    <style>
+      /* ── Reset & Base ─────────────────────────────────────────── */
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --c-bg: #f0f4ff;
+        --c-surface: #ffffff;
+        --c-border: #e2e8f0;
+        --c-border-m: #cbd5e1;
+        --c-text: #1e293b;
+        --c-text-2: #475569;
+        --c-text-3: #94a3b8;
+
+        --c-primary: #6c63ff;
+        --c-primary-h: #5a52e0;
+        --c-primary-l: #eef0ff;
+
+        --c-green: #16a34a;
+        --c-green-l: #dcfce7;
+        --c-blue: #0284c7;
+        --c-blue-l: #e0f2fe;
+        --c-amber: #d97706;
+        --c-amber-l: #fef3c7;
+        --c-red: #dc2626;
+        --c-red-l: #fee2e2;
+        --c-purple: #7c3aed;
+        --c-purple-l: #ede9fe;
+        --c-teal: #0d9488;
+        --c-teal-l: #ccfbf1;
+
+        --radius-sm: 6px;
+        --radius-md: 10px;
+        --radius-lg: 14px;
+        --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.05);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
+        --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.07);
+
+        --font-sans: 'Inter', system-ui, sans-serif;
+        --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      }
+
+      html {
+        font-size: 15px;
+      }
+
+      body {
+        font-family: var(--font-sans);
+        background: var(--c-bg);
+        color: var(--c-text);
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+
+      /* ── Header ───────────────────────────────────────────────── */
+      .app-header {
+        background: var(--c-surface);
+        border-bottom: 1px solid var(--c-border);
+        padding: 0 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 60px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .app-logo {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--c-text);
+        text-decoration: none;
+      }
+
+      .app-logo .logo-icon {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, var(--c-primary), #8b5cf6);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        color: #fff;
+        flex-shrink: 0;
+      }
+
+      .app-logo .logo-sub {
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: var(--c-text-3);
+        margin-top: 1px;
+      }
+
+      .header-status {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--c-text-2);
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--c-text-3);
+        transition: background 0.3s;
+      }
+      .status-dot.online {
+        background: var(--c-green);
+        box-shadow: 0 0 0 3px var(--c-green-l);
+      }
+      .status-dot.offline {
+        background: var(--c-red);
+      }
+
+      /* ── Main Layout ──────────────────────────────────────────── */
+      .app-body {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 28px 20px 60px;
+      }
+
+      /* ── Tool Tabs ────────────────────────────────────────────── */
+      .tool-tabs {
+        display: flex;
+        gap: 4px;
+        background: var(--c-surface);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-lg);
+        padding: 5px;
+        box-shadow: var(--shadow-sm);
+        margin-bottom: 24px;
+      }
+
+      .tool-tab {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 10px 12px;
+        border-radius: var(--radius-md);
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        font-family: var(--font-sans);
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--c-text-2);
+        transition:
+          background 0.15s,
+          color 0.15s;
+        white-space: nowrap;
+      }
+
+      .tool-tab:hover:not(.active) {
+        background: var(--c-bg);
+        color: var(--c-text);
+      }
+
+      .tool-tab.active {
+        background: var(--c-primary);
+        color: #fff;
+        box-shadow: var(--shadow-sm);
+      }
+
+      .tool-tab .tab-icon {
+        font-size: 1rem;
+        flex-shrink: 0;
+      }
+
+      /* ── Card ─────────────────────────────────────────────────── */
+      .card {
+        background: var(--c-surface);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+        margin-bottom: 20px;
+      }
+
+      .card-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid var(--c-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .card-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--c-text);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .card-body {
+        padding: 20px;
+      }
+
+      /* ── Form Elements ────────────────────────────────────────── */
+      .form-group {
+        margin-bottom: 18px;
+      }
+      .form-group:last-child {
+        margin-bottom: 0;
+      }
+
+      label {
+        display: block;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--c-text-2);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .label-hint {
+        font-size: 0.78rem;
+        font-weight: 400;
+        text-transform: none;
+        letter-spacing: 0;
+        color: var(--c-text-3);
+        margin-left: 6px;
+      }
+
+      input[type='text'],
+      input[type='number'],
+      select,
+      textarea {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid var(--c-border-m);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-sans);
+        font-size: 0.9rem;
+        color: var(--c-text);
+        background: var(--c-surface);
+        outline: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+        appearance: none;
+      }
+
+      select {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 10px center;
+        padding-right: 32px;
+      }
+
+      input[type='text']:focus,
+      input[type='number']:focus,
+      select:focus,
+      textarea:focus {
+        border-color: var(--c-primary);
+        box-shadow: 0 0 0 3px rgba(108, 99, 255, 0.15);
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+      }
+
+      .toggle-label {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        cursor: pointer;
+        user-select: none;
+        font-size: 0.88rem;
+        font-weight: 500;
+        color: var(--c-text);
+      }
+
+      .toggle-label input[type='checkbox'] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--c-primary);
+        cursor: pointer;
+        flex-shrink: 0;
+      }
+
+      .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      /* ── Buttons ──────────────────────────────────────────────── */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 10px 20px;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-family: var(--font-sans);
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          transform 0.1s,
+          box-shadow 0.15s;
+        text-decoration: none;
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .btn-primary {
+        background: var(--c-primary);
+        color: #fff;
+        box-shadow: 0 2px 6px rgba(108, 99, 255, 0.35);
+      }
+      .btn-primary:hover {
+        background: var(--c-primary-h);
+        box-shadow: 0 4px 12px rgba(108, 99, 255, 0.4);
+      }
+
+      .btn-ghost {
+        background: var(--c-bg);
+        color: var(--c-text-2);
+        border: 1px solid var(--c-border);
+      }
+      .btn-ghost:hover {
+        background: #e8ecf5;
+      }
+
+      .btn-sm {
+        padding: 5px 11px;
+        font-size: 0.78rem;
+        border-radius: 5px;
+      }
+
+      .btn-danger-ghost {
+        background: transparent;
+        color: var(--c-red);
+        border: 1px solid #fecaca;
+        font-size: 0.8rem;
+        padding: 4px 9px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-family: var(--font-sans);
+        font-weight: 500;
+        transition: background 0.15s;
+      }
+      .btn-danger-ghost:hover {
+        background: var(--c-red-l);
+      }
+
+      .btn-add-field {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        background: var(--c-primary-l);
+        color: var(--c-primary);
+        border: 1px dashed var(--c-primary);
+        border-radius: var(--radius-sm);
+        padding: 8px 14px;
+        font-family: var(--font-sans);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        width: 100%;
+        justify-content: center;
+        transition: background 0.15s;
+      }
+      .btn-add-field:hover {
+        background: #e5e3ff;
+      }
+
+      .form-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding-top: 4px;
+        flex-wrap: wrap;
+      }
+
+      .btn-example {
+        background: transparent;
+        color: var(--c-primary);
+        border: none;
+        font-size: 0.82rem;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: var(--font-sans);
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        padding: 0;
+      }
+      .btn-example:hover {
+        color: var(--c-primary-h);
+      }
+
+      /* ── Fields Table ─────────────────────────────────────────── */
+      .fields-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .field-row {
+        display: grid;
+        grid-template-columns: 1fr 130px 80px 36px;
+        gap: 8px;
+        align-items: center;
+        background: var(--c-bg);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-sm);
+        padding: 8px 10px;
+      }
+
+      .field-row input,
+      .field-row select {
+        font-size: 0.85rem;
+        padding: 6px 8px;
+        background: var(--c-surface);
+      }
+
+      .field-row select {
+        padding-right: 26px;
+      }
+
+      .field-required-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--c-text-2);
+      }
+
+      .field-required-wrap input[type='checkbox'] {
+        width: 15px;
+        height: 15px;
+        accent-color: var(--c-primary);
+        cursor: pointer;
+      }
+
+      .fields-header {
+        display: grid;
+        grid-template-columns: 1fr 130px 80px 36px;
+        gap: 8px;
+        padding: 0 10px 4px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--c-text-3);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      /* ── Loading ──────────────────────────────────────────────── */
+      .loading-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 48px 20px;
+        text-align: center;
+      }
+
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid var(--c-border);
+        border-top-color: var(--c-primary);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .loading-state p {
+        font-size: 0.9rem;
+        color: var(--c-text-2);
+        font-weight: 500;
+      }
+
+      /* ── Results Panel ────────────────────────────────────────── */
+      #results-panel {
+        animation: fadeIn 0.3s ease;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Error Banner ─────────────────────────────────────────── */
+      .error-banner {
+        background: var(--c-red-l);
+        border: 1px solid #fecaca;
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .error-banner .err-icon {
+        font-size: 1.1rem;
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+
+      .error-banner .err-title {
+        font-weight: 600;
+        color: var(--c-red);
+        font-size: 0.88rem;
+        margin-bottom: 3px;
+      }
+
+      .error-banner .err-msg {
+        font-size: 0.85rem;
+        color: #7f1d1d;
+      }
+
+      /* ── Badges ───────────────────────────────────────────────── */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 20px;
+        font-size: 0.74rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        flex-shrink: 0;
+      }
+
+      .badge-green {
+        background: var(--c-green-l);
+        color: var(--c-green);
+      }
+      .badge-blue {
+        background: var(--c-blue-l);
+        color: var(--c-blue);
+      }
+      .badge-purple {
+        background: var(--c-purple-l);
+        color: var(--c-purple);
+      }
+      .badge-amber {
+        background: var(--c-amber-l);
+        color: var(--c-amber);
+      }
+      .badge-red {
+        background: var(--c-red-l);
+        color: var(--c-red);
+      }
+      .badge-teal {
+        background: var(--c-teal-l);
+        color: var(--c-teal);
+      }
+      .badge-grey {
+        background: #f1f5f9;
+        color: var(--c-text-2);
+      }
+      .badge-primary {
+        background: var(--c-primary-l);
+        color: var(--c-primary);
+      }
+
+      /* ── Chip list ────────────────────────────────────────────── */
+      .chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-top: 8px;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        background: var(--c-bg);
+        border: 1px solid var(--c-border);
+        border-radius: 20px;
+        padding: 3px 10px;
+        font-size: 0.8rem;
+        font-weight: 500;
+        color: var(--c-text-2);
+        font-family: var(--font-mono);
+      }
+
+      /* ── Search Result Card ───────────────────────────────────── */
+      .result-meta {
+        font-size: 0.85rem;
+        color: var(--c-text-2);
+        margin-bottom: 16px;
+      }
+
+      .result-meta strong {
+        color: var(--c-text);
+      }
+
+      .doc-card {
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        margin-bottom: 12px;
+        transition: box-shadow 0.15s;
+      }
+
+      .doc-card:hover {
+        box-shadow: var(--shadow-md);
+      }
+
+      .doc-card-header {
+        padding: 14px 16px;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--c-border);
+      }
+
+      .doc-card-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--c-text);
+        flex: 1;
+      }
+
+      .doc-card-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        flex-shrink: 0;
+      }
+
+      .doc-card-body {
+        padding: 12px 16px;
+      }
+
+      .score-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+
+      .score-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--c-text-3);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+      }
+
+      .score-bar-wrap {
+        flex: 1;
+        height: 6px;
+        background: var(--c-border);
+        border-radius: 3px;
+        overflow: hidden;
+      }
+
+      .score-bar-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.4s ease;
+      }
+
+      .score-val {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--c-text-2);
+        white-space: nowrap;
+        min-width: 36px;
+        text-align: right;
+      }
+
+      .doc-source {
+        font-size: 0.78rem;
+        color: var(--c-text-3);
+        font-family: var(--font-mono);
+        margin-bottom: 10px;
+      }
+
+      .doc-snippet {
+        font-size: 0.85rem;
+        color: var(--c-text-2);
+        line-height: 1.7;
+        border-left: 3px solid var(--c-border-m);
+        padding-left: 12px;
+      }
+
+      /* ── Template / Service result ────────────────────────────── */
+      .summary-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 20px;
+      }
+
+      .summary-item {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        background: var(--c-bg);
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-sm);
+        padding: 10px 14px;
+        min-width: 120px;
+      }
+
+      .summary-item .si-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--c-text-3);
+      }
+
+      .summary-item .si-value {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--c-text);
+      }
+
+      /* ── File Tabs ────────────────────────────────────────────── */
+      .file-tabs-wrap {
+        margin-bottom: 4px;
+      }
+
+      .file-tabs-nav {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid var(--c-border);
+        overflow-x: auto;
+      }
+
+      .file-tab-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 9px 14px;
+        border: none;
+        background: transparent;
+        font-family: var(--font-sans);
+        font-size: 0.82rem;
+        font-weight: 500;
+        color: var(--c-text-2);
+        cursor: pointer;
+        white-space: nowrap;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        transition:
+          color 0.15s,
+          border-color 0.15s;
+      }
+
+      .file-tab-btn:hover {
+        color: var(--c-text);
+      }
+      .file-tab-btn.active {
+        color: var(--c-primary);
+        border-bottom-color: var(--c-primary);
+      }
+
+      .file-tab-type {
+        font-size: 0.68rem;
+        font-weight: 600;
+        padding: 1px 5px;
+        border-radius: 3px;
+      }
+
+      .file-tab-panel {
+        display: none;
+      }
+      .file-tab-panel.active {
+        display: block;
+      }
+
+      .code-wrap {
+        position: relative;
+      }
+
+      .copy-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: var(--c-surface);
+        border: 1px solid var(--c-border);
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--c-text-2);
+        cursor: pointer;
+        font-family: var(--font-sans);
+        transition:
+          background 0.15s,
+          color 0.15s;
+        z-index: 10;
+      }
+      .copy-btn:hover {
+        background: var(--c-primary);
+        color: #fff;
+        border-color: var(--c-primary);
+      }
+      .copy-btn.copied {
+        background: var(--c-green);
+        color: #fff;
+        border-color: var(--c-green);
+      }
+
+      .code-block {
+        background: #f8fafc;
+        border: 1px solid var(--c-border);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+      }
+
+      .code-block .file-path-bar {
+        background: #f1f5f9;
+        border-bottom: 1px solid var(--c-border);
+        padding: 7px 14px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--c-text-2);
+        font-family: var(--font-mono);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .code-block pre {
+        margin: 0;
+        overflow-x: auto;
+      }
+
+      .code-block code.hljs {
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        line-height: 1.65;
+        padding: 16px;
+        background: transparent;
+        display: block;
+      }
+
+      /* ── Empty / Placeholder ──────────────────────────────────── */
+      .placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 48px 20px;
+        text-align: center;
+        color: var(--c-text-3);
+      }
+
+      .placeholder .ph-icon {
+        font-size: 2.5rem;
+      }
+      .placeholder .ph-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--c-text-2);
+      }
+      .placeholder .ph-sub {
+        font-size: 0.85rem;
+      }
+
+      /* ── Toast ────────────────────────────────────────────────── */
+      .toast-wrap {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 1000;
+        pointer-events: none;
+      }
+
+      .toast {
+        background: var(--c-text);
+        color: #fff;
+        border-radius: var(--radius-sm);
+        padding: 10px 16px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        box-shadow: var(--shadow-lg);
+        animation: slideUp 0.25s ease;
+        pointer-events: all;
+      }
+
+      @keyframes slideUp {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Section headings inside results ─────────────────────── */
+      .result-section-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--c-text-3);
+        margin: 20px 0 10px;
+      }
+
+      .result-section-title:first-child {
+        margin-top: 0;
+      }
+
+      /* ── Field type colours ───────────────────────────────────── */
+      .ftype-string {
+        background: var(--c-blue-l);
+        color: var(--c-blue);
+      }
+      .ftype-number {
+        background: var(--c-amber-l);
+        color: var(--c-amber);
+      }
+      .ftype-boolean {
+        background: var(--c-green-l);
+        color: var(--c-green);
+      }
+      .ftype-date {
+        background: var(--c-purple-l);
+        color: var(--c-purple);
+      }
+      .ftype-objectid {
+        background: var(--c-teal-l);
+        color: var(--c-teal);
+      }
+      .ftype-array {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+      .ftype-object {
+        background: #fef3c7;
+        color: #92400e;
+      }
+
+      /* ── Fields Summary ───────────────────────────────────────── */
+      .fields-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+        margin-bottom: 16px;
+      }
+
+      .field-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        border: 1px solid var(--c-border);
+        background: var(--c-bg);
+        border-radius: 20px;
+        padding: 3px 9px;
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--c-text-2);
+      }
+
+      .field-pill .fp-type {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 3px;
+        font-family: var(--font-mono);
+      }
+
+      .field-pill .fp-req {
+        color: var(--c-red);
+        font-weight: 700;
+        font-size: 0.8rem;
+      }
+
+      /* ── Responsive ───────────────────────────────────────────── */
+      @media (max-width: 600px) {
+        .form-row {
+          grid-template-columns: 1fr;
+        }
+        .field-row {
+          grid-template-columns: 1fr 110px 70px 32px;
+        }
+        .tool-tab span:not(.tab-icon) {
+          display: none;
+        }
+        .app-body {
+          padding: 16px 12px 48px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="app-header">
+      <a class="app-logo" href="#">
+        <div class="logo-icon">🪶</div>
+        <div>
+          <div>FeathersJS MCP</div>
+          <div class="logo-sub">Peer Testing Interface</div>
+        </div>
+      </a>
+      <div class="header-status">
+        <div class="status-dot" id="status-dot"></div>
+        <span id="status-text">Checking server…</span>
+      </div>
+    </header>
+
+    <!-- Main -->
+    <main class="app-body">
+      <!-- Tool selector tabs -->
+      <div class="tool-tabs" role="tablist">
+        <button
+          class="tool-tab active"
+          data-tool="search_docs"
+          onclick="switchTool('search_docs')"
+          role="tab"
+        >
+          <span class="tab-icon">🔍</span>
+          <span>Search Docs</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="get_feathers_template"
+          onclick="switchTool('get_feathers_template')"
+          role="tab"
+        >
+          <span class="tab-icon">📦</span>
+          <span>Get Template</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="generate_service"
+          onclick="switchTool('generate_service')"
+          role="tab"
+        >
+          <span class="tab-icon">⚙️</span>
+          <span>Generate Service</span>
+        </button>
+      </div>
+
+      <!-- ── Tool Panel: search_docs ─────────────────────────── -->
+      <div id="panel-search_docs" class="tool-panel">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🔍 Search Documentation</div>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="sd-query"
+                >Query <span class="label-hint">What do you want to find?</span></label
+              >
+              <input
+                type="text"
+                id="sd-query"
+                placeholder="e.g. hooks, authentication, real-time events…"
+              />
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="sd-limit">Max Results</label>
+                <input type="number" id="sd-limit" value="3" min="1" max="10" />
+              </div>
+              <div class="form-group">
+                <label for="sd-version">Version Filter</label>
+                <select id="sd-version">
+                  <option value="v5" selected>v5 (default)</option>
+                  <option value="v4">v4</option>
+                  <option value="both">Both v4 + v5</option>
+                  <option value="all">All</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runSearchDocs()">
+                <span>▶</span> Run Search
+              </button>
+              <button class="btn-example" onclick="exampleSearchDocs()">
+                Try example → "hooks"
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-search_docs"></div>
+      </div>
+
+      <!-- ── Tool Panel: get_feathers_template ──────────────── -->
+      <div id="panel-get_feathers_template" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📦 Get Project Template</div>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="gt-database">Database Adapter</label>
+              <select id="gt-database">
+                <option value="mongodb" selected>MongoDB</option>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="sqlite">SQLite</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Options</label>
+              <div class="toggle-row">
+                <label class="toggle-label">
+                  <input type="checkbox" id="gt-auth" checked />
+                  Include Authentication
+                </label>
+                <label class="toggle-label">
+                  <input type="checkbox" id="gt-ts" checked />
+                  TypeScript
+                </label>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runGetTemplate()">
+                <span>▶</span> Generate Template
+              </button>
+              <button class="btn-example" onclick="exampleGetTemplate()">
+                Try example → MongoDB + Auth + TypeScript
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-get_feathers_template"></div>
+      </div>
+
+      <!-- ── Tool Panel: generate_service ───────────────────── -->
+      <div id="panel-generate_service" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⚙️ Generate Service</div>
+          </div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="gs-name">Service Name</label>
+                <input type="text" id="gs-name" placeholder="e.g. products, users, messages" />
+              </div>
+              <div class="form-group">
+                <label for="gs-database">Database Adapter</label>
+                <select id="gs-database">
+                  <option value="mongodb" selected>MongoDB</option>
+                  <option value="postgresql">PostgreSQL</option>
+                  <option value="sqlite">SQLite</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Fields <span class="label-hint">Define the service schema fields</span></label>
+              <div class="fields-header">
+                <span>Field Name</span><span>Type</span
+                ><span style="text-align: center">Required</span><span></span>
+              </div>
+              <div class="fields-list" id="fields-list"></div>
+              <button class="btn-add-field" onclick="addField()">＋ Add Field</button>
+            </div>
+
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runGenerateService()">
+                <span>▶</span> Generate Service
+              </button>
+              <button class="btn-example" onclick="exampleGenerateService()">
+                Try example → products (4 fields)
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-generate_service"></div>
+      </div>
+    </main>
+
+    <!-- Toast container -->
+    <div class="toast-wrap" id="toast-wrap"></div>
+
+    <script>
+      // ── Helpers ──────────────────────────────────────────────────────────────
+
+      function $(id) {
+        return document.getElementById(id);
+      }
+
+      function toast(msg, duration = 2500) {
+        const wrap = $('toast-wrap');
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.textContent = msg;
+        wrap.appendChild(el);
+        setTimeout(() => el.remove(), duration);
+      }
+
+      function copyToClipboard(text, btn) {
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            const orig = btn.textContent;
+            btn.textContent = '✓ Copied!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+              btn.textContent = orig;
+              btn.classList.remove('copied');
+            }, 2000);
+          })
+          .catch(() => toast('Copy failed – try manually selecting the text.'));
+      }
+
+      function scoreColor(s) {
+        if (s >= 0.85) return '#16A34A';
+        if (s >= 0.6) return '#D97706';
+        return '#DC2626';
+      }
+
+      const CATEGORY_BADGE = {
+        hooks: 'badge-purple',
+        authentication: 'badge-green',
+        services: 'badge-blue',
+        'core-concepts': 'badge-teal',
+        client: 'badge-amber',
+        default: 'badge-grey',
+      };
+
+      function categoryBadge(cat) {
+        const cls = CATEGORY_BADGE[cat] || CATEGORY_BADGE.default;
+        return `<span class="badge ${cls}">${cat}</span>`;
+      }
+
+      const TYPE_COLOR = {
+        string: 'ftype-string',
+        number: 'ftype-number',
+        boolean: 'ftype-boolean',
+        date: 'ftype-date',
+        objectId: 'ftype-objectid',
+        array: 'ftype-array',
+        object: 'ftype-object',
+      };
+
+      const FILE_TYPE_BADGE = {
+        schema: { cls: 'badge-purple', label: 'Schema' },
+        service: { cls: 'badge-blue', label: 'Service' },
+        hooks: { cls: 'badge-amber', label: 'Hooks' },
+        test: { cls: 'badge-green', label: 'Test' },
+      };
+
+      function fileTypeBadge(type) {
+        const b = FILE_TYPE_BADGE[type] || { cls: 'badge-grey', label: type };
+        return `<span class="badge ${b.cls} file-tab-type">${b.label}</span>`;
+      }
+
+      // ── Health check ─────────────────────────────────────────────────────────
+
+      async function checkHealth() {
+        try {
+          const r = await fetch('/api/health');
+          const data = await r.json();
+          const dot = $('status-dot');
+          const txt = $('status-text');
+          if (data.ok) {
+            dot.className = 'status-dot online';
+            txt.textContent = 'MCP server ready';
+          } else {
+            dot.className = 'status-dot offline';
+            txt.textContent = 'Build not found — run npm run build';
+          }
+        } catch {
+          $('status-dot').className = 'status-dot offline';
+          $('status-text').textContent = 'UI server offline';
+        }
+      }
+
+      checkHealth();
+
+      // ── Tab switching ─────────────────────────────────────────────────────────
+
+      function switchTool(toolName) {
+        document.querySelectorAll('.tool-panel').forEach((p) => (p.style.display = 'none'));
+        document.querySelectorAll('.tool-tab').forEach((t) => t.classList.remove('active'));
+        $(`panel-${toolName}`).style.display = 'block';
+        document.querySelector(`[data-tool="${toolName}"]`).classList.add('active');
+      }
+
+      // ── Loading / error helpers ───────────────────────────────────────────────
+
+      function showLoading(panelId, msg = 'Running tool…') {
+        $(panelId).innerHTML = `
+      <div class="card">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>${msg}</p>
+        </div>
+      </div>`;
+      }
+
+      function showError(panelId, message) {
+        $(panelId).innerHTML = `
+      <div class="error-banner">
+        <div class="err-icon">⚠️</div>
+        <div>
+          <div class="err-title">Tool Error</div>
+          <div class="err-msg">${escHtml(message)}</div>
+        </div>
+      </div>`;
+      }
+
+      function escHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      // ── API call wrapper ──────────────────────────────────────────────────────
+
+      async function callTool(tool, args) {
+        const resp = await fetch('/api/call', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tool, args }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({ error: resp.statusText }));
+          throw new Error(err.error || resp.statusText);
+        }
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.error || 'Unknown server error');
+        return data.result;
+      }
+
+      // ── Parse MCP content ─────────────────────────────────────────────────────
+      // The MCP server wraps all tool output in { content: [{ type:"text", text:"..." }] }
+      // The text field itself is JSON-stringified. This unwraps both layers.
+
+      function parseMCPResult(result) {
+        if (result && result.isError && result.content && result.content[0]) {
+          throw new Error(result.content[0].text);
+        }
+        if (result && result.content && result.content[0] && result.content[0].text) {
+          try {
+            return JSON.parse(result.content[0].text);
+          } catch {
+            return result.content[0].text;
+          }
+        }
+        return result;
+      }
+
+      // ── Code block builder ────────────────────────────────────────────────────
+
+      function buildCodeBlock(filePath, content, language = 'typescript') {
+        const highlighted = hljs.highlight(content, { language, ignoreIllegals: true }).value;
+        const id = 'cb-' + Math.random().toString(36).slice(2);
+        return `
+      <div class="code-block">
+        <div class="file-path-bar">📄 ${escHtml(filePath)}</div>
+        <div class="code-wrap">
+          <button class="copy-btn" onclick="copyToClipboard(document.getElementById('${id}').innerText, this)">Copy</button>
+          <pre><code id="${id}" class="hljs language-${language}">${highlighted}</code></pre>
+        </div>
+      </div>`;
+      }
+
+      // ── File tabs builder ─────────────────────────────────────────────────────
+
+      function buildFileTabs(files) {
+        const entries = Object.values(files);
+        if (entries.length === 0) return '<p style="color:var(--c-text-3)">No files generated.</p>';
+
+        const tabId = 'ft-' + Math.random().toString(36).slice(2);
+
+        const tabs = entries
+          .map((f, i) => {
+            const name = f.path.split('/').pop();
+            const typeBadge = f.type ? fileTypeBadge(f.type) : '';
+            return `<button class="file-tab-btn ${i === 0 ? 'active' : ''}"
+        onclick="activateFileTab('${tabId}', ${i})">${typeBadge} ${escHtml(name)}</button>`;
+          })
+          .join('');
+
+        const panels = entries
+          .map((f, i) => {
+            const lang = f.path.endsWith('.ts')
+              ? 'typescript'
+              : f.path.endsWith('.js')
+                ? 'javascript'
+                : 'typescript';
+            return `<div class="file-tab-panel ${i === 0 ? 'active' : ''}" data-tab-panel="${tabId}-${i}">
+        ${buildCodeBlock(f.path, f.content || '', lang)}
+      </div>`;
+          })
+          .join('');
+
+        return `
+      <div class="file-tabs-wrap" data-tabgroup="${tabId}">
+        <div class="file-tabs-nav">${tabs}</div>
+        ${panels}
+      </div>`;
+      }
+
+      function activateFileTab(tabId, index) {
+        const group = document.querySelector(`[data-tabgroup="${tabId}"]`);
+        group
+          .querySelectorAll('.file-tab-btn')
+          .forEach((b, i) => b.classList.toggle('active', i === index));
+        group
+          .querySelectorAll('.file-tab-panel')
+          .forEach((p, i) => p.classList.toggle('active', i === index));
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 1 — search_docs
+      // ════════════════════════════════════════════════════════════════
+
+      async function runSearchDocs() {
+        const query = $('sd-query').value.trim();
+        const limit = parseInt($('sd-limit').value, 10) || 3;
+        const version = $('sd-version').value;
+        const panel = $('results-search_docs');
+
+        if (!query) {
+          toast('Please enter a search query.');
+          $('sd-query').focus();
+          return;
+        }
+
+        showLoading('results-search_docs', `Searching for "${query}"…`);
+
+        try {
+          const raw = await callTool('search_docs', { query, limit, version });
+          const parsed = parseMCPResult(raw);
+          renderSearchResults(panel, parsed, query);
+        } catch (err) {
+          showError('results-search_docs', err.message);
+        }
+      }
+
+      function renderSearchResults(panel, data, query) {
+        const results = data.results || [];
+        const version = data.version || 'v5';
+
+        if (results.length === 0) {
+          panel.innerHTML = `
+        <div class="card"><div class="card-body">
+          <div class="placeholder">
+            <div class="ph-icon">🔍</div>
+            <div class="ph-title">No results found</div>
+            <div class="ph-sub">Try a different query or version filter.</div>
+          </div>
+        </div></div>`;
+          return;
+        }
+
+        const cards = results
+          .map((r, idx) => {
+            const pct = Math.round(r.score * 100);
+            const color = scoreColor(r.score);
+            const src = r.source && r.source.path ? r.source.path : '';
+            return `
+        <div class="doc-card">
+          <div class="doc-card-header">
+            <div class="doc-card-title">${escHtml(r.title)}</div>
+            <div class="doc-card-meta">
+              ${categoryBadge(r.category)}
+              <span class="badge badge-grey">${r.version}</span>
+            </div>
+          </div>
+          <div class="doc-card-body">
+            <div class="score-row">
+              <span class="score-label">Relevance</span>
+              <div class="score-bar-wrap">
+                <div class="score-bar-fill" style="width:${pct}%;background:${color}"></div>
+              </div>
+              <span class="score-val" style="color:${color}">${pct}%</span>
+            </div>
+            ${src ? `<div class="doc-source">📁 ${escHtml(src)}</div>` : ''}
+            <div class="doc-snippet">${escHtml(r.snippet || '').replace(/\n/g, '<br>')}</div>
+          </div>
+        </div>`;
+          })
+          .join('');
+
+        panel.innerHTML = `
+      <div id="results-panel">
+        <div class="result-meta">
+          Found <strong>${results.length}</strong> result${results.length !== 1 ? 's' : ''}
+          for <strong>"${escHtml(query)}"</strong>
+          &nbsp;·&nbsp; version: <strong>${version}</strong>
+        </div>
+        ${cards}
+      </div>`;
+      }
+
+      function exampleSearchDocs() {
+        $('sd-query').value = 'hooks';
+        $('sd-limit').value = '3';
+        $('sd-version').value = 'v5';
+        runSearchDocs();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 2 — get_feathers_template
+      // ════════════════════════════════════════════════════════════════
+
+      async function runGetTemplate() {
+        const database = $('gt-database').value;
+        const auth = $('gt-auth').checked;
+        const typescript = $('gt-ts').checked;
+        const panel = $('results-get_feathers_template');
+
+        showLoading('results-get_feathers_template', 'Generating project template…');
+
+        try {
+          const raw = await callTool('get_feathers_template', { database, auth, typescript });
+          const parsed = parseMCPResult(raw);
+          renderTemplateResult(panel, parsed);
+        } catch (err) {
+          showError('results-get_feathers_template', err.message);
+        }
+      }
+
+      function renderTemplateResult(panel, data) {
+        const deps = data.dependencies || [];
+        const flags = data.featureFlags || [];
+        const files = data.files || {};
+
+        const depChips = deps.map((d) => `<span class="chip">${escHtml(d)}</span>`).join('');
+        const flagChips = flags
+          .map((f) => `<span class="badge badge-primary">${escHtml(f)}</span>`)
+          .join(' ');
+
+        const dbColor = { mongodb: 'badge-green', postgresql: 'badge-blue', sqlite: 'badge-amber' };
+        const dbBadge = `<span class="badge ${dbColor[data.database] || 'badge-grey'}">${data.database}</span>`;
+
+        panel.innerHTML = `
+      <div id="results-panel">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">✅ Template Generated</div>
+          </div>
+          <div class="card-body">
+            <div class="summary-grid">
+              <div class="summary-item">
+                <span class="si-label">Database</span>
+                <span class="si-value">${escHtml(data.database)}</span>
+              </div>
+              <div class="summary-item">
+                <span class="si-label">Auth</span>
+                <span class="si-value">${data.auth ? '✅ Yes' : '❌ No'}</span>
+              </div>
+              <div class="summary-item">
+                <span class="si-label">TypeScript</span>
+                <span class="si-value">${data.typescript ? '✅ Yes' : '❌ No'}</span>
+              </div>
+              <div class="summary-item">
+                <span class="si-label">Version</span>
+                <span class="si-value">${escHtml(data.version || 'v5')}</span>
+              </div>
+            </div>
+
+            ${
+              flags.length
+                ? `
+              <div class="result-section-title">Feature Flags</div>
+              <div class="chip-list" style="margin-bottom:16px">${flagChips}</div>`
+                : ''
+            }
+
+            ${
+              deps.length
+                ? `
+              <div class="result-section-title">Dependencies</div>
+              <div class="chip-list">${depChips}</div>`
+                : ''
+            }
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📁 Generated Files</div>
+          </div>
+          <div class="card-body">
+            ${buildFileTabs(files)}
+          </div>
+        </div>
+      </div>`;
+      }
+
+      function exampleGetTemplate() {
+        $('gt-database').value = 'mongodb';
+        $('gt-auth').checked = true;
+        $('gt-ts').checked = true;
+        runGetTemplate();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 3 — generate_service
+      // ════════════════════════════════════════════════════════════════
+
+      // ── Field builder ─────────────────────────────────────────────
+
+      const FIELD_TYPES = ['string', 'number', 'boolean', 'date', 'objectId', 'array', 'object'];
+
+      function addField(name = '', type = 'string', required = false) {
+        const list = $('fields-list');
+        const row = document.createElement('div');
+        row.className = 'field-row';
+        row.innerHTML = `
+      <input type="text" class="field-name" placeholder="fieldName" value="${escHtml(name)}" />
+      <select class="field-type">
+        ${FIELD_TYPES.map(
+          (t) => `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`
+        ).join('')}
+      </select>
+      <div class="field-required-wrap">
+        <input type="checkbox" class="field-required" ${required ? 'checked' : ''} />
+        <span>Req.</span>
+      </div>
+      <button class="btn-danger-ghost" onclick="this.closest('.field-row').remove()">✕</button>`;
+        list.appendChild(row);
+      }
+
+      function getFields() {
+        return Array.from(document.querySelectorAll('.field-row'))
+          .map((row) => ({
+            name: row.querySelector('.field-name').value.trim(),
+            type: row.querySelector('.field-type').value,
+            required: row.querySelector('.field-required').checked,
+          }))
+          .filter((f) => f.name);
+      }
+
+      // Seed one empty field on load
+      addField();
+
+      async function runGenerateService() {
+        const name = $('gs-name').value.trim();
+        const database = $('gs-database').value;
+        const fields = getFields();
+        const panel = $('results-generate_service');
+
+        if (!name) {
+          toast('Please enter a service name.');
+          $('gs-name').focus();
+          return;
+        }
+        if (fields.length === 0) {
+          toast('Please add at least one field.');
+          return;
+        }
+
+        showLoading('results-generate_service', `Generating "${name}" service…`);
+
+        try {
+          const raw = await callTool('generate_service', { name, database, fields });
+          const parsed = parseMCPResult(raw);
+          renderServiceResult(panel, parsed);
+        } catch (err) {
+          showError('results-generate_service', err.message);
+        }
+      }
+
+      function renderServiceResult(panel, data) {
+        const files = data.files || {};
+        const fields = getFields();
+
+        const dbColor = { mongodb: 'badge-green', postgresql: 'badge-blue', sqlite: 'badge-amber' };
+        const dbBadge = `<span class="badge ${dbColor[data.database] || 'badge-grey'}">${data.database}</span>`;
+
+        const fieldPills = fields
+          .map((f) => {
+            const tc = TYPE_COLOR[f.type] || 'badge-grey';
+            return `<div class="field-pill">
+        ${escHtml(f.name)}
+        <span class="fp-type ${tc}">${f.type}</span>
+        ${f.required ? '<span class="fp-req" title="required">*</span>' : ''}
+      </div>`;
+          })
+          .join('');
+
+        panel.innerHTML = `
+      <div id="results-panel">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">✅ Service Generated</div>
+          </div>
+          <div class="card-body">
+            <div class="summary-grid">
+              <div class="summary-item">
+                <span class="si-label">Service</span>
+                <span class="si-value">${escHtml(data.name)}</span>
+              </div>
+              <div class="summary-item">
+                <span class="si-label">Database</span>
+                <span class="si-value">${escHtml(data.database)}</span>
+              </div>
+              <div class="summary-item">
+                <span class="si-label">Fields</span>
+                <span class="si-value">${data.fieldCount ?? fields.length}</span>
+              </div>
+              <div class="summary-item">
+                <span class="si-label">Files</span>
+                <span class="si-value">${Object.keys(files).length}</span>
+              </div>
+            </div>
+
+            <div class="result-section-title">Schema Fields</div>
+            <div class="fields-summary">${fieldPills}</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📁 Generated Files</div>
+            <span style="font-size:0.78rem;color:var(--c-text-3)">Click a tab to view each file</span>
+          </div>
+          <div class="card-body">
+            ${buildFileTabs(files)}
+          </div>
+        </div>
+      </div>`;
+      }
+
+      function exampleGenerateService() {
+        $('gs-name').value = 'products';
+        $('gs-database').value = 'mongodb';
+        $('fields-list').innerHTML = '';
+        addField('name', 'string', true);
+        addField('price', 'number', true);
+        addField('description', 'string', false);
+        addField('inStock', 'boolean', false);
+        runGenerateService();
+      }
+    </script>
+  </body>
+</html>

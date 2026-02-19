@@ -1,0 +1,12 @@
+{
+  "name": "feathers-mcp-ui",
+  "version": "1.0.0",
+  "description": "Peer testing UI for FeathersJS MCP Server",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
