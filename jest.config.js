@@ -4,12 +4,14 @@ module.exports = {
   collectCoverage: true,
   coverageDirectory: 'coverage',
   transform: {
-    '^.+\\.ts$': 'ts-jest'
+    '^.+\\.ts$': 'ts-jest',
   },
   testMatch: ['**/tests/**/*.test.ts', '**/?(*.)+(spec|test).ts'],
+  testPathIgnorePatterns: ['/node_modules/', '/feathers/', '/docs/', '/dist/'],
+  coveragePathIgnorePatterns: ['/node_modules/', '/feathers/', '/docs/', '/dist/'],
   coverageThreshold: {
     global: {
-      lines: 80
-    }
-  }
+      lines: 80,
+    },
+  },
 };

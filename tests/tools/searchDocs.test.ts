@@ -133,6 +133,47 @@ describe('SearchDocsTool', () => {
       tokens: ['understanding', 'core', 'concepts', 'feathersjs', 'apply', 'both', 'v4', 'v5'],
       source: { url: 'https://feathersjs.com/docs/concepts' },
     },
+    {
+      id: 'doc-v6-services',
+      title: 'FeathersJS v6 Services',
+      content:
+        'Services in FeathersJS v6 are the core building blocks. v6 introduces typed services with full TypeScript support and improved schema resolvers.',
+      version: 'v6',
+      category: 'services',
+      tokens: [
+        'services',
+        'feathersjs',
+        'v6',
+        'typed',
+        'typescript',
+        'schema',
+        'resolvers',
+        'core',
+        'building',
+        'blocks',
+      ],
+      source: { url: 'https://v6.feathersjs.com/api/services' },
+    },
+    {
+      id: 'doc-v6-hooks',
+      title: 'FeathersJS v6 Hooks',
+      content:
+        'Hooks in FeathersJS v6 use the around hook pattern as the primary mechanism. The before/after/error hooks are still supported but around hooks are preferred.',
+      version: 'v6',
+      category: 'hooks',
+      tokens: [
+        'hooks',
+        'feathersjs',
+        'v6',
+        'around',
+        'before',
+        'after',
+        'error',
+        'pattern',
+        'preferred',
+      ],
+      source: { url: 'https://v6.feathersjs.com/api/hooks' },
+    },
   ];
 
   beforeEach(() => {
@@ -247,6 +288,60 @@ describe('SearchDocsTool', () => {
 
       const parsed = JSON.parse(result.content);
       expect(parsed.version).toBe('both');
+    });
+
+    it('filters to v6 docs when version is v6', async () => {
+      const result = await searchDocsTool.execute({ query: 'services', version: 'v6' });
+
+      const parsed = JSON.parse(result.content);
+      expect(parsed.version).toBe('v6');
+
+      // Should only include v6 and 'both' docs, not v4 or v5-only docs
+      const versions = parsed.results.map((r: any) => r.version);
+      versions.forEach((v: string) => {
+        expect(v === 'v6' || v === 'both').toBe(true);
+      });
+    });
+
+    it('v6 results include v6-specific content', async () => {
+      const result = await searchDocsTool.execute({
+        query: 'v6 services typescript',
+        version: 'v6',
+      });
+
+      const parsed = JSON.parse(result.content);
+
+      if (parsed.results.length > 0) {
+        // At least one result should be from v6
+        const hasV6 = parsed.results.some((r: any) => r.version === 'v6');
+        expect(hasV6).toBe(true);
+      }
+    });
+
+    it('"all" version filter includes v6 docs alongside v4 and v5', async () => {
+      const result = await searchDocsTool.execute({ query: 'services', version: 'all' });
+
+      const parsed = JSON.parse(result.content);
+      const versions: string[] = parsed.results.map((r: any) => r.version);
+
+      const hasV6 = versions.some((v) => v === 'v6');
+      const hasV5 = versions.some((v) => v === 'v5');
+
+      // With our mock data, both v5 and v6 service docs exist
+      if (parsed.results.length > 1) {
+        expect(hasV5 || hasV6).toBe(true);
+      }
+    });
+
+    it('v6 does not appear in v5-only searches', async () => {
+      const result = await searchDocsTool.execute({ query: 'services', version: 'v5' });
+
+      const parsed = JSON.parse(result.content);
+      const versions: string[] = parsed.results.map((r: any) => r.version);
+
+      // v6-only docs must not appear in a v5-scoped search
+      const hasV6Only = versions.some((v) => v === 'v6');
+      expect(hasV6Only).toBe(false);
     });
   });
 

@@ -9,7 +9,8 @@
     "lint": "eslint 'src/**/*.ts'",
     "format": "prettier --write src/ tests/",
     "prepare": "npm run build",
-    "generate:embeddings": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/generate-embeddings.ts"
+    "generate:embeddings": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/generate-embeddings.ts",
+    "ingest:v6": "node scripts/ingest-v6-docs.js"
   },
   "author": "",
   "license": "MIT",

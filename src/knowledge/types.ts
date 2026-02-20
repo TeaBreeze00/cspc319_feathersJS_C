@@ -1,4 +1,4 @@
-export type DocVersion = 'v4' | 'v5' | 'both';
+export type DocVersion = 'v4' | 'v5' | 'v6' | 'both';
 
 export type KnowledgeCategory =
   | 'core-concepts'

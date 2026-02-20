@@ -48,7 +48,7 @@ interface SearchDocsParams {
  * Input:
  *   - query:   string (required)  — free-text search query
  *   - limit:   number (optional)  — max results to return (default 5, max 50)
- *   - version: string (optional)  — 'v4' | 'v5' | 'both' | 'all' (default 'v5')
+ *   - version: string (optional)  — 'v4' | 'v5' | 'v6' | 'both' | 'all' (default 'v5')
  */
 export class SearchDocsTool extends BaseTool {
   name = 'search_docs';
@@ -71,9 +71,9 @@ export class SearchDocsTool extends BaseTool {
       },
       version: {
         type: 'string',
-        enum: ['v4', 'v5', 'both', 'all'],
+        enum: ['v4', 'v5', 'v6', 'both', 'all'],
         description:
-          'Documentation version filter. Default is v5. Use both/all to search all versions.',
+          'Documentation version filter. Default is v5. Use both/all to search all versions. Use v6 for the latest Feathers v6 docs.',
       },
     },
     required: ['query'],
@@ -151,7 +151,7 @@ export class SearchDocsTool extends BaseTool {
     let version: SearchVersion = 'v5';
     if (typeof obj['version'] === 'string') {
       const v = obj['version'] as SearchVersion;
-      if (v === 'v4' || v === 'v5' || v === 'both' || v === 'all') {
+      if (v === 'v4' || v === 'v5' || v === 'v6' || v === 'both' || v === 'all') {
         version = v;
       }
     }
@@ -182,6 +182,23 @@ export class SearchDocsTool extends BaseTool {
     if (filter === 'all' || filter === 'both') return true;
     if (docVersion === 'both') return true;
     return docVersion === filter;
+  }
+
+  /**
+   * Return the human-readable label for a version filter, used in result metadata.
+   */
+  private versionLabel(version: SearchVersion): string {
+    switch (version) {
+      case 'v4':
+        return 'FeathersJS v4';
+      case 'v5':
+        return 'FeathersJS v5';
+      case 'v6':
+        return 'FeathersJS v6';
+      case 'both':
+      case 'all':
+        return 'All versions';
+    }
   }
 
   /**
