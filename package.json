@@ -8,7 +8,8 @@
     "test": "jest --coverage",
     "lint": "eslint 'src/**/*.ts'",
     "format": "prettier --write src/ tests/",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "generate:embeddings": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/generate-embeddings.ts"
   },
   "author": "",
   "license": "MIT",
@@ -29,6 +30,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.26.0",
+    "@xenova/transformers": "^2.17.2",
     "ajv": "^8.18.0"
   }
 }

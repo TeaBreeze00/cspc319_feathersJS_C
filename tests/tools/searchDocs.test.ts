@@ -13,6 +13,44 @@ jest.mock('../../src/knowledge', () => {
   };
 });
 
+// Mock vectorSearch so the ML model is never loaded in Jest (CJS mode cannot
+// import the ESM @xenova/transformers package).  The mock does simple
+// case-insensitive substring matching so the tests remain meaningful.
+jest.mock('../../src/tools/search/vectorSearch', () => {
+  return {
+    vectorSearch: {
+      search: jest
+        .fn()
+        .mockImplementation(
+          async (query: string, docs: DocEntry[], limit = 10, _minScore = 0.15) => {
+            if (!query || query.trim().length === 0) return [];
+            const q = query.toLowerCase();
+            const scored = docs
+              .map((doc) => {
+                const text = `${doc.title} ${doc.content}`.toLowerCase();
+                // Count how many query words appear in the document text
+                const words = q.split(/\s+/).filter(Boolean);
+                const hits = words.filter((w) => text.includes(w)).length;
+                return { id: doc.id, score: hits / words.length };
+              })
+              .filter((r) => r.score > 0)
+              .sort((a, b) => b.score - a.score)
+              .slice(0, limit);
+
+            if (scored.length === 0) return [];
+
+            // Normalise scores so the top result = 1.0
+            const max = scored[0].score;
+            return scored.map((r) => ({
+              id: r.id,
+              score: Math.round((r.score / max) * 1_000_000) / 1_000_000,
+            }));
+          }
+        ),
+    },
+  };
+});
+
 describe('SearchDocsTool', () => {
   let searchDocsTool: SearchDocsTool;
   let mockLoader: jest.Mocked<KnowledgeLoader>;
