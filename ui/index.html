@@ -1131,9 +1131,10 @@
                 <label for="sd-version">Version Filter</label>
                 <select id="sd-version">
                   <option value="v5" selected>v5 (default)</option>
+                  <option value="v6">v6 (latest)</option>
                   <option value="v4">v4</option>
                   <option value="both">Both v4 + v5</option>
-                  <option value="all">All</option>
+                  <option value="all">All versions</option>
                 </select>
               </div>
             </div>
@@ -1289,6 +1290,17 @@
       function categoryBadge(cat) {
         const cls = CATEGORY_BADGE[cat] || CATEGORY_BADGE.default;
         return `<span class="badge ${cls}">${cat}</span>`;
+      }
+
+      const VERSION_BADGE = {
+        v6: 'badge-teal',
+        v5: 'badge-blue',
+        v4: 'badge-amber',
+        both: 'badge-purple',
+      };
+      function versionBadge(ver) {
+        const cls = VERSION_BADGE[ver] || 'badge-grey';
+        return `<span class="badge ${cls}">${ver}</span>`;
       }
 
       const TYPE_COLOR = {
@@ -1527,7 +1539,7 @@
             <div class="doc-card-title">${escHtml(r.title)}</div>
             <div class="doc-card-meta">
               ${categoryBadge(r.category)}
-              <span class="badge badge-grey">${r.version}</span>
+              ${versionBadge(r.version)}
             </div>
           </div>
           <div class="doc-card-body">
