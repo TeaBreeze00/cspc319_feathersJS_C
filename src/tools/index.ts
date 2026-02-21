@@ -20,5 +20,7 @@ export { GetHookExampleTool } from './getHookExample';
 export { TroubleshootErrorTool } from './troubleshootError';
 export { GetBestPracticesTool } from './getBestPractices';
 export { ExplainConceptTool } from './explainConcept';
+export { SuggestAlternativesTool } from './suggestAlternatives';
+export { ListToolsTool } from './listTools';
 
 export * from './types';

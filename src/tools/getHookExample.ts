@@ -38,23 +38,26 @@ export class GetHookExampleTool extends BaseTool {
     required: ['hookType']
   };
 
-  async execute(params: GetHookExampleParams) {
-    const { hookType, version = 'v5' } = params;
+  async execute(params: unknown) {
+    const { hookType, version = 'v5' } = params as GetHookExampleParams;
 
-    const matches = (hookBestPractices as HookBestPractice[]).filter(
-      bp =>
-        bp.topic === 'hooks' &&
-        bp.version === version &&
-        bp.tags.includes(hookType)
+    const versionPractices = (hookBestPractices as HookBestPractice[]).filter(
+      (bp) => bp.topic === 'hooks' && bp.version === version
     );
 
-    if (matches.length === 0) {
+    const matches = versionPractices.filter((bp) => bp.tags.includes(hookType));
+
+    if (versionPractices.length === 0) {
       return {
         content: `No hook examples found for type "${hookType}" in version "${version}".`
       };
     }
 
-    const best = matches[0];
+    const best = matches.length > 0 ? matches[0] : versionPractices[0];
+    const fallbackNote =
+      matches.length === 0
+        ? `\nNote: No exact "${hookType}" tagged example found; showing closest "${version}" hook practice.\n`
+        : '';
 
     return {
       content: `
@@ -62,6 +65,7 @@ Rule: ${best.rule}
 
 Why:
 ${best.rationale}
+${fallbackNote}
 
 Good Example:
 ${best.goodExample}

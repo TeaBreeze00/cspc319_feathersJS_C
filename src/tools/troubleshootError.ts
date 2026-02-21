@@ -76,8 +76,10 @@ export class TroubleshootErrorTool extends BaseTool {
       return {
         content: `
 Unknown error.
+No known solution for this exact pattern.
 
-General Troubleshooting Steps:
+Solution:
+General troubleshooting steps:
 - Check the full stack trace.
 - Verify authentication setup.
 - Validate request schema.

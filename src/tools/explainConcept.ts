@@ -107,7 +107,7 @@ Try:
 Concept: ${best.title}
 Version: ${best.version}
 
-Explanation:
+Definition:
 ${best.content}
 
 ${related ? `Related Concepts:\n${related}` : ''}
