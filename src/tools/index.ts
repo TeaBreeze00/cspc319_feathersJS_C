@@ -16,5 +16,9 @@ export { BaseTool } from './baseTool';
 export { SearchDocsTool } from './searchDocs';
 export { GetTemplateTool } from './getTemplate';
 export { GenerateServiceTool } from './generateService';
+export { GetHookExampleTool } from './getHookExample';
+export { TroubleshootErrorTool } from './troubleshootError';
+export { GetBestPracticesTool } from './getBestPractices';
+export { ExplainConceptTool } from './explainConcept';
 
 export * from './types';

@@ -15,7 +15,9 @@
     "forceConsistentCasingInFileNames": true,
     "downlevelIteration": true,
     "outDir": "dist",
-    "rootDir": "src"
+    "rootDir": "src",
+    "resolveJsonModule": true,
+    "moduleResolution": "node"
   },
   "include": [
     "src",
@@ -25,5 +27,6 @@
     "node_modules",
     "dist",
     "tests"
-  ]
+  ],
+
 }
