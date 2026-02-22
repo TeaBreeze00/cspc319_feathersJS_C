@@ -16,9 +16,21 @@ jest.mock('../../src/knowledge', () => {
   };
 });
 
+// Mock vector search module
+jest.mock('../../src/tools/search/vectorSearch', () => ({
+  vectorSearch: {
+    search: jest.fn(),
+  },
+}));
+
+import * as vectorSearchModule from '../../src/tools/search/vectorSearch';
+
 describe('GetTemplateTool', () => {
   let getTemplateTool: GetTemplateTool;
   let mockLoader: jest.Mocked<KnowledgeLoader>;
+  const mockVectorSearch = vectorSearchModule.vectorSearch as jest.Mocked<
+    typeof vectorSearchModule.vectorSearch
+  >;
 
   const mockTemplateFragments: TemplateFragment[] = [
     {
@@ -140,6 +152,15 @@ export const authentication = (app: any) => {
 
     mockLoader = new KnowledgeLoader() as jest.Mocked<KnowledgeLoader>;
     mockLoader.load = jest.fn().mockResolvedValue(mockTemplateFragments);
+
+    // Mock vector search to return relevant template fragments
+    mockVectorSearch.search.mockImplementation(async (query: string, docs: any[]) => {
+      // Return the first 3 docs with high scores
+      return docs.slice(0, 3).map((doc, index) => ({
+        id: doc.id,
+        score: 0.95 - index * 0.05,
+      }));
+    });
 
     getTemplateTool = new GetTemplateTool(mockLoader);
   });

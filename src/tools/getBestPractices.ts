@@ -1,14 +1,9 @@
 import { BaseTool } from './baseTool';
 import { JsonSchema, ToolResult } from '../protocol/types';
-import { ToolRegistration,ToolHandler } from '../protocol/types';
-
-
-// Import your best-practice knowledge files
-import hookPractices from '../../knowledge-base/best-practices/hooks.json';
-import servicePractices from '../../knowledge-base/best-practices/services.json';
-import securityPractices from '../../knowledge-base/best-practices/security.json';
-import testingPractices from '../../knowledge-base/best-practices/testing.json';
-import performancePractices from '../../knowledge-base/best-practices/performance.json';
+import { ToolRegistration, ToolHandler } from '../protocol/types';
+import { KnowledgeLoader } from '../knowledge';
+import { DocEntry, BestPractice } from '../knowledge/types';
+import { vectorSearch } from './search/vectorSearch';
 
 type Topic = 'hooks' | 'services' | 'security' | 'testing' | 'performance';
 
@@ -17,17 +12,16 @@ interface GetBestPracticesParams {
   context?: string;
 }
 
-interface BestPractice {
-  id: string;
-  topic: string;
-  rule: string;
-  rationale: string;
-  goodExample: string;
-  badExample: string;
-  version: string;
-  tags: string[];
-}
-
+/**
+ * GetBestPracticesTool
+ *
+ * Retrieves FeathersJS best practices using semantic search.
+ * Now uses vector embeddings to rank practices by relevance to the user's
+ * context, providing more accurate and contextual recommendations.
+ *
+ * When context is provided, uses vector search to find the most relevant
+ * practices. Without context, returns the top practices for the topic.
+ */
 export class GetBestPracticesTool extends BaseTool {
   name = 'get_best_practices';
 
@@ -39,97 +33,201 @@ export class GetBestPracticesTool extends BaseTool {
     properties: {
       topic: {
         type: 'string',
-        enum: ['hooks', 'services', 'security', 'testing', 'performance']
+        enum: ['hooks', 'services', 'security', 'testing', 'performance'],
+        description: 'The topic area for best practices',
       },
       context: {
-        type: 'string'
-      }
+        type: 'string',
+        description:
+          'Optional context to filter practices (e.g., "authentication", "validation", "error handling")',
+      },
     },
-    required: ['topic']
+    required: ['topic'],
   };
 
+  private loader: KnowledgeLoader;
+
+  constructor(loader?: KnowledgeLoader) {
+    super();
+    this.loader = loader ?? new KnowledgeLoader();
+  }
+
   async execute(params: unknown): Promise<ToolResult> {
-    const { topic, context } = params as GetBestPracticesParams;
-
-    const practices = this.getPracticesForTopic(topic);
-
-    if (!practices || practices.length === 0) {
+    // Safely handle null/undefined params
+    if (!params || typeof params !== 'object') {
       return {
-        content: `No best practices found for topic "${topic}".`
+        content: 'Please provide a topic (hooks, services, security, testing, or performance).',
+        metadata: {
+          tool: this.name,
+          success: false,
+        },
       };
     }
 
-    const ranked = context
-      ? this.rankByContext(practices, context)
-      : practices;
+    const { topic, context } = params as GetBestPracticesParams;
 
-    const topPractices = ranked.slice(0, 3);
+    if (!topic || typeof topic !== 'string') {
+      return {
+        content: 'Please provide a topic (hooks, services, security, testing, or performance).',
+        metadata: {
+          tool: this.name,
+          success: false,
+        },
+      };
+    }
 
-    const formatted = topPractices
-      .map(bp => this.formatPractice(bp))
-      .join('\n\n----------------------------------------\n\n');
+    // Load best practices from knowledge base
+    const allPractices = await this.loader.load<BestPractice>('best-practices');
+
+    if (allPractices.length === 0) {
+      return {
+        content: `No best practices found. Please ensure best practices have been loaded into the knowledge base.`,
+        metadata: {
+          tool: this.name,
+          topic,
+          success: false,
+        },
+      };
+    }
+
+    // Convert BestPractice to DocEntry format for vector search
+    const topicPracticesAsDocEntries: DocEntry[] = allPractices
+      .filter((p) => p.topic === topic)
+      .map((p) => this.bestPracticeToDocEntry(p));
+
+    if (topicPracticesAsDocEntries.length === 0) {
+      return {
+        content: `No best practices found for topic "${topic}".`,
+        metadata: {
+          tool: this.name,
+          topic,
+          success: false,
+        },
+      };
+    }
+
+    // If context is provided, use vector search for semantic ranking
+    let rankedPractices: Array<{ practice: BestPractice; score?: number }>;
+    let usedVectorSearch = false;
+
+    if (context && typeof context === 'string' && context.trim().length > 0) {
+      usedVectorSearch = true;
+      const searchResults = await vectorSearch.search(context, topicPracticesAsDocEntries, 5, 0.05);
+
+      const practiceMap = new Map<string, BestPractice>(allPractices.map((p) => [p.id, p]));
+
+      rankedPractices = searchResults
+        .map((result) => ({
+          practice: practiceMap.get(result.id)!,
+          score: result.score,
+        }))
+        .filter((entry) => entry.practice !== undefined);
+    } else {
+      // No context - return top 3 practices
+      rankedPractices = allPractices
+        .filter((p) => p.topic === topic)
+        .slice(0, 3)
+        .map((practice) => ({ practice }));
+    }
+
+    if (rankedPractices.length === 0) {
+      return {
+        content: `No best practices found matching the context "${context}" for topic "${topic}".`,
+        metadata: {
+          tool: this.name,
+          topic,
+          context,
+          success: false,
+        },
+      };
+    }
+
+    // Format the results
+    const formatted = rankedPractices
+      .map(({ practice, score }) => this.formatPractice(practice, score))
+      .join('\n\n' + '='.repeat(80) + '\n\n');
 
     return {
-      content: formatted
+      content: formatted,
+      metadata: {
+        tool: this.name,
+        topic,
+        context,
+        count: rankedPractices.length,
+        usedVectorSearch,
+        success: true,
+      },
     };
   }
 
-  private getPracticesForTopic(topic: Topic): BestPractice[] {
-    switch (topic) {
-      case 'hooks':
-        return hookPractices as BestPractice[];
-      case 'services':
-        return servicePractices as BestPractice[];
-      case 'security':
-        return securityPractices as BestPractice[];
-      case 'testing':
-        return testingPractices as BestPractice[];
-      case 'performance':
-        return performancePractices as BestPractice[];
-      default:
-        return [];
+  /**
+   * Convert BestPractice to DocEntry format for vector search
+   */
+  private bestPracticeToDocEntry(practice: BestPractice): DocEntry {
+    // Combine rule, rationale, and examples into content
+    const content = `${practice.rule}\n\n${practice.rationale}\n\nGood Example:\n${practice.goodExample}\n\nBad Example:\n${practice.badExample}`;
+
+    return {
+      id: practice.id,
+      title: practice.rule,
+      content,
+      version: (practice.version || 'v6') as 'v5' | 'v6' | 'both',
+      tokens: [],
+      category: practice.topic,
+      tags: practice.tags,
+      embedding: undefined,
+    };
+  }
+
+  /**
+   * Format a single best practice for display
+   */
+  private formatPractice(practice: BestPractice, score?: number): string {
+    const parts: string[] = [];
+
+    // Rule
+    parts.push(`Best Practice: ${practice.rule}`);
+
+    // Relevance score (if available from vector search)
+    if (score !== undefined) {
+      parts.push(`Relevance Score: ${(score * 100).toFixed(1)}%`);
     }
+
+    parts.push('');
+
+    // Rationale
+    parts.push('Why:');
+    parts.push(practice.rationale);
+    parts.push('');
+
+    // Good example
+    parts.push('Good Example:');
+    parts.push(practice.goodExample);
+    parts.push('');
+
+    // Bad example
+    parts.push('Bad Example:');
+    parts.push(practice.badExample);
+
+    // Tags (if available)
+    if (practice.tags && practice.tags.length > 0) {
+      parts.push('');
+      parts.push(`Tags: ${practice.tags.join(', ')}`);
+    }
+
+    // Version
+    if (practice.version) {
+      parts.push(`Version: ${practice.version}`);
+    }
+
+    return parts.join('\n');
   }
 
-  private rankByContext(practices: BestPractice[], context: string): BestPractice[] {
-    const lowerContext = context.toLowerCase();
-
-    return practices
-      .map(practice => {
-        let score = 0;
-
-        if (practice.rule.toLowerCase().includes(lowerContext)) score += 3;
-        if (practice.rationale.toLowerCase().includes(lowerContext)) score += 2;
-        if (practice.tags.some(tag => lowerContext.includes(tag.toLowerCase()))) score += 2;
-
-        return { practice, score };
-      })
-      .sort((a, b) => b.score - a.score)
-      .map(entry => entry.practice);
-  }
-
-  private formatPractice(bp: BestPractice): string {
-    return `
-Rule:
-${bp.rule}
-
-Why:
-${bp.rationale}
-
-Good Example:
-${bp.goodExample}
-
-Bad Example:
-${bp.badExample}
-    `.trim();
-  }
-   register(): ToolRegistration {
+  register(): ToolRegistration {
     const handler: ToolHandler = async (params: unknown) => {
-      // cast params safely
-      const typedParams = params as GetBestPracticesParams;
-      return this.execute(typedParams);
+      return this.execute(params);
     };
-  
+
     return {
       name: this.name,
       description: this.description,
@@ -137,5 +235,6 @@ ${bp.badExample}
       handler,
     };
   }
-  
 }
+
+export default GetBestPracticesTool;

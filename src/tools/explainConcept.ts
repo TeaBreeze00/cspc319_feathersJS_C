@@ -1,50 +1,31 @@
 import { BaseTool } from './baseTool';
 import { JsonSchema, ToolResult } from '../protocol/types';
 import { ToolRegistration, ToolHandler } from '../protocol/types';
-
-import fs from 'fs';
-import path from 'path';
+import { KnowledgeLoader } from '../knowledge';
+import { DocEntry } from '../knowledge/types';
+import { vectorSearch } from './search/vectorSearch';
 
 interface ExplainConceptParams {
   concept: string;
 }
 
-interface DocEntry {
-  id: string;
+interface ConceptExplanation {
+  concept: string;
   title: string;
-  content: string;
   version: string;
-  tokens?: string[];
-  tags?: string[];
-  category?: string;
+  definition: string;
+  relatedConcepts: string[];
 }
 
-// We'll dynamically load JSON files from knowledge-base/docs/v5 and /v6
-// to avoid static imports that can fail when files are generated/absent.
-
-function loadJsonFiles(dir: string): DocEntry[] {
-  if (!fs.existsSync(dir)) return [];
-
-  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
-  const entries: DocEntry[] = [];
-
-  for (const file of files) {
-    try {
-      const raw = fs.readFileSync(path.join(dir, file), 'utf8');
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        entries.push(...parsed);
-      }
-    } catch (err) {
-      // Ignore malformed or unreadable files
-      // eslint-disable-next-line no-console
-      console.warn(`Warning: could not load ${file} from ${dir}: ${err}`);
-    }
-  }
-
-  return entries;
-}
-
+/**
+ * ExplainConceptTool
+ *
+ * Provides clear explanations of FeathersJS concepts using semantic search.
+ * Now uses the same vector search infrastructure as SearchDocsTool for
+ * better quality and consistency.
+ *
+ * Returns a focused explanation of a single concept plus related topics.
+ */
 export class ExplainConceptTool extends BaseTool {
   name = 'explain_concept';
 
@@ -54,39 +35,70 @@ export class ExplainConceptTool extends BaseTool {
   inputSchema: JsonSchema = {
     type: 'object',
     properties: {
-      concept: { type: 'string' },
+      concept: {
+        type: 'string',
+        description:
+          'The FeathersJS concept to explain (e.g., "hooks", "services", "authentication")',
+      },
     },
     required: ['concept'],
   };
 
-  private docs: DocEntry[];
+  private loader: KnowledgeLoader;
 
-  constructor() {
+  constructor(loader?: KnowledgeLoader) {
     super();
-
-    // Combine ALL knowledge base docs into one searchable array by
-    // loading any JSON files present under knowledge-base/docs/v5/ and /v6/.
-    const kbBase = path.join(__dirname, '..', '..', 'knowledge-base', 'docs');
-    const v5dir = path.join(kbBase, 'v5');
-    const v6dir = path.join(kbBase, 'v6');
-
-    this.docs = [...loadJsonFiles(v5dir), ...loadJsonFiles(v6dir)];
+    this.loader = loader ?? new KnowledgeLoader();
   }
 
   async execute(params: unknown): Promise<ToolResult> {
+    // Safely handle null/undefined params
+    if (!params || typeof params !== 'object') {
+      return {
+        content: 'Please provide a concept to explain.',
+        metadata: {
+          tool: this.name,
+          success: false,
+        },
+      };
+    }
+
     const { concept } = params as ExplainConceptParams;
 
-    const query = concept.toLowerCase();
+    if (!concept || typeof concept !== 'string' || concept.trim().length === 0) {
+      return {
+        content: 'Please provide a concept to explain.',
+        metadata: {
+          tool: this.name,
+          success: false,
+        },
+      };
+    }
 
-    const matches = this.docs
-      .map((doc) => ({
-        doc,
-        score: this.scoreDoc(doc, query),
-      }))
-      .filter((entry) => entry.score > 0)
-      .sort((a, b) => b.score - a.score);
+    const query = concept.trim();
 
-    if (matches.length === 0) {
+    // Load all docs from the knowledge base
+    const allDocs = await this.loader.load<DocEntry>('docs');
+
+    if (allDocs.length === 0) {
+      return {
+        content: `
+Concept "${concept}" not found in documentation.
+
+The knowledge base appears to be empty. Please ensure documentation has been loaded.
+        `.trim(),
+        metadata: {
+          tool: this.name,
+          success: false,
+        },
+      };
+    }
+
+    // Use vector search to find the most relevant docs
+    // Request top 5 to get the best match + related concepts
+    const results = await vectorSearch.search(query, allDocs, 5, 0.1);
+
+    if (results.length === 0) {
       return {
         content: `
 Concept "${concept}" not found in documentation.
@@ -94,54 +106,103 @@ Concept "${concept}" not found in documentation.
 Try:
 - Checking spelling
 - Using a broader term
-- Searching related topics like "services", "hooks", or "authentication"
+- Searching related topics like "services", "hooks", "authentication", or "schemas"
         `.trim(),
+        metadata: {
+          tool: this.name,
+          query: concept,
+          success: false,
+        },
       };
     }
 
-    const best = matches[0].doc;
+    // Map results back to full doc entries
+    const docMap = new Map<string, DocEntry>(allDocs.map((d) => [d.id, d]));
+    const bestMatch = docMap.get(results[0].id);
 
-    // Pick up to 3 related concepts
-    const related = matches
-      .slice(1, 4)
-      .map((m) => `- ${m.doc.title}`)
-      .join('\n');
+    if (!bestMatch) {
+      return {
+        content: `Error: Unable to retrieve documentation for "${concept}".`,
+        metadata: {
+          tool: this.name,
+          success: false,
+        },
+      };
+    }
+
+    // Build the explanation
+    const explanation = this.buildExplanation(
+      concept,
+      bestMatch,
+      results
+        .slice(1)
+        .map((r) => docMap.get(r.id))
+        .filter((d): d is DocEntry => d !== undefined)
+    );
 
     return {
-      content: `
-Concept: ${best.title}
-Version: ${best.version}
-
-Definition:
-${best.content}
-
-${related ? `Related Concepts:\n${related}` : ''}
-      `.trim(),
+      content: this.formatExplanation(explanation),
+      metadata: {
+        tool: this.name,
+        query: concept,
+        bestMatchId: bestMatch.id,
+        score: results[0].score,
+        relatedCount: explanation.relatedConcepts.length,
+        success: true,
+      },
     };
   }
 
-  private scoreDoc(doc: DocEntry, query: string): number {
-    let score = 0;
+  /**
+   * Build a structured explanation object from the best match and related docs
+   */
+  private buildExplanation(
+    query: string,
+    bestMatch: DocEntry,
+    relatedDocs: DocEntry[]
+  ): ConceptExplanation {
+    // Extract related concept titles
+    const relatedConcepts = relatedDocs.map((doc) => doc.title);
 
-    // Strong match in title
-    if (doc.title.toLowerCase().includes(query)) score += 6;
-
-    // Match in tokens
-    if (doc.tokens?.some((t) => t.toLowerCase().includes(query))) score += 4;
-
-    // Match in tags
-    if (doc.tags?.some((t) => t.toLowerCase().includes(query))) score += 3;
-
-    // Weak match in content
-    if (doc.content.toLowerCase().includes(query)) score += 1;
-
-    return score;
+    return {
+      concept: query,
+      title: bestMatch.title,
+      version: bestMatch.version as string,
+      definition: bestMatch.content,
+      relatedConcepts,
+    };
   }
+
+  /**
+   * Format the explanation as human-readable text
+   */
+  private formatExplanation(explanation: ConceptExplanation): string {
+    const parts: string[] = [];
+
+    // Header
+    parts.push(`Concept: ${explanation.title}`);
+    parts.push(`Version: ${explanation.version}`);
+    parts.push('');
+
+    // Definition
+    parts.push('Definition:');
+    parts.push(explanation.definition);
+
+    // Related concepts (if any)
+    if (explanation.relatedConcepts.length > 0) {
+      parts.push('');
+      parts.push('Related Concepts:');
+      explanation.relatedConcepts.forEach((concept) => {
+        parts.push(`- ${concept}`);
+      });
+    }
+
+    return parts.join('\n');
+  }
+
   register(): ToolRegistration {
     const handler: ToolHandler = async (params: unknown) => {
-      // cast params safely
-      const typedParams = params as ExplainConceptParams;
-      return this.execute(typedParams);
+      return this.execute(params);
     };
 
     return {
@@ -152,3 +213,5 @@ ${related ? `Related Concepts:\n${related}` : ''}
     };
   }
 }
+
+export default ExplainConceptTool;

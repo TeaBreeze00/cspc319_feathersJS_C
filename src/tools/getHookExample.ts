@@ -1,8 +1,10 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { BaseTool } from './baseTool';
 import { ToolResult } from './types';
 import { JsonSchema } from '../protocol/types';
+import { ToolRegistration, ToolHandler } from '../protocol/types';
+import { KnowledgeLoader } from '../knowledge';
+import { DocEntry } from '../knowledge/types';
+import { vectorSearch } from './search/vectorSearch';
 
 interface GetHookExampleParams {
   hookType: 'before' | 'after' | 'error';
@@ -10,17 +12,24 @@ interface GetHookExampleParams {
   version?: string;
 }
 
-interface HookSnippet {
-  id: string;
+interface HookSnippet extends DocEntry {
   type: 'before' | 'after' | 'error';
   useCase: string;
   code: string;
   explanation: string;
-  version: string;
   language?: string;
-  tags?: string[];
 }
 
+/**
+ * GetHookExampleTool
+ *
+ * Retrieves FeathersJS hook examples using semantic search.
+ * Now uses vector embeddings to find the most relevant hook examples
+ * based on the user's use case, providing more accurate recommendations.
+ *
+ * When a use case is provided, uses vector search to find semantically
+ * similar examples. Without a use case, returns a default example.
+ */
 export class GetHookExampleTool extends BaseTool {
   name = 'get_hook_example';
   description = 'Retrieve example FeathersJS hook best practices';
@@ -31,77 +40,173 @@ export class GetHookExampleTool extends BaseTool {
       hookType: {
         type: 'string',
         enum: ['before', 'after', 'error'],
+        description: 'The type of hook to retrieve examples for',
       },
-      useCase: { type: 'string' },
-      version: { type: 'string', enum: ['v5', 'v6'] },
+      useCase: {
+        type: 'string',
+        description:
+          'Optional description of your use case (e.g., "validate email", "add timestamp", "log errors")',
+      },
+      version: {
+        type: 'string',
+        enum: ['v5', 'v6'],
+        description: 'FeathersJS version (default: v6)',
+      },
     },
     required: ['hookType'],
   };
 
-  async execute(params: unknown): Promise<ToolResult> {
-    const { hookType, useCase, version = 'v6' } = params as GetHookExampleParams;
-    const snippets = this.loadSnippets(hookType);
+  private loader: KnowledgeLoader;
 
-    const versioned = snippets.filter((s) => s.version === version || s.version === 'both');
-    if (versioned.length === 0) {
+  constructor(loader?: KnowledgeLoader) {
+    super();
+    this.loader = loader ?? new KnowledgeLoader();
+  }
+
+  async execute(params: unknown): Promise<ToolResult> {
+    // Safely handle null/undefined params
+    if (!params || typeof params !== 'object') {
       return {
-        content: `No hook examples found for type "${hookType}" in version "${version}".`,
+        content: JSON.stringify(
+          {
+            error: 'Please provide a hookType (before, after, or error)',
+          },
+          null,
+          2
+        ),
+        metadata: {
+          tool: this.name,
+          success: false,
+        },
       };
     }
 
-    const match = this.selectBest(versioned, useCase);
-    return {
-      content: JSON.stringify(
-        {
-          hookType,
-          useCase: match.useCase,
-          version: match.version,
-          code: match.code,
-          explanation: match.explanation,
+    const { hookType, useCase, version = 'v6' } = params as GetHookExampleParams;
+
+    if (!hookType || typeof hookType !== 'string') {
+      return {
+        content: JSON.stringify(
+          {
+            error: 'Please provide a hookType (before, after, or error)',
+          },
+          null,
+          2
+        ),
+        metadata: {
+          tool: this.name,
+          success: false,
         },
-        null,
-        2
-      ),
+      };
+    }
+
+    // Load all hook snippets from knowledge base
+    const allSnippets = await this.loader.load<HookSnippet>('snippets');
+
+    if (allSnippets.length === 0) {
+      return {
+        content: JSON.stringify(
+          {
+            error: 'No hook examples found. Please ensure hook snippets have been loaded.',
+          },
+          null,
+          2
+        ),
+        metadata: {
+          tool: this.name,
+          success: false,
+        },
+      };
+    }
+
+    // Filter by hook type and version
+    const filteredSnippets = allSnippets.filter(
+      (s) => s.type === hookType && (s.version === version || s.version === 'both' || !s.version)
+    );
+
+    if (filteredSnippets.length === 0) {
+      return {
+        content: JSON.stringify(
+          {
+            error: `No hook examples found for type "${hookType}" in version "${version}".`,
+          },
+          null,
+          2
+        ),
+        metadata: {
+          tool: this.name,
+          hookType,
+          version,
+          success: false,
+        },
+      };
+    }
+
+    // Select the best match
+    let selectedSnippet: HookSnippet;
+    let relevanceScore: number | undefined;
+
+    if (useCase && useCase.trim().length > 0) {
+      // Use vector search to find the most relevant example
+      const searchResults = await vectorSearch.search(useCase, filteredSnippets, 1, 0.05);
+
+      if (searchResults.length > 0) {
+        const snippetMap = new Map<string, HookSnippet>(filteredSnippets.map((s) => [s.id, s]));
+        const match = snippetMap.get(searchResults[0].id);
+
+        if (match) {
+          selectedSnippet = match;
+          relevanceScore = searchResults[0].score;
+        } else {
+          // Fallback to first snippet if match not found
+          selectedSnippet = filteredSnippets[0];
+        }
+      } else {
+        // No semantic match found, return first snippet
+        selectedSnippet = filteredSnippets[0];
+      }
+    } else {
+      // No use case provided, return the first snippet
+      selectedSnippet = filteredSnippets[0];
+    }
+
+    // Build the response
+    const response = {
+      hookType: selectedSnippet.type,
+      useCase: selectedSnippet.useCase,
+      version: selectedSnippet.version || version,
+      code: selectedSnippet.code,
+      explanation: selectedSnippet.explanation,
+      language: selectedSnippet.language || 'typescript',
+      ...(relevanceScore !== undefined && { relevanceScore: relevanceScore }),
+    };
+
+    return {
+      content: JSON.stringify(response, null, 2),
+      metadata: {
+        tool: this.name,
+        hookType,
+        useCase,
+        version,
+        snippetId: selectedSnippet.id,
+        usedVectorSearch: !!useCase,
+        relevanceScore,
+        success: true,
+      },
     };
   }
 
-  private loadSnippets(hookType: 'before' | 'after' | 'error'): HookSnippet[] {
-    const basePath = path.resolve(process.cwd(), 'knowledge-base', 'snippets');
-    const files = [`hooks-${hookType}.json`, 'hooks-common.json'];
+  register(): ToolRegistration {
+    const handler: ToolHandler = async (params: unknown) => {
+      return this.execute(params);
+    };
 
-    const all: HookSnippet[] = [];
-    for (const file of files) {
-      const fullPath = path.join(basePath, file);
-      if (!fs.existsSync(fullPath)) {
-        continue;
-      }
-      const raw = fs.readFileSync(fullPath, 'utf8');
-      const parsed = JSON.parse(raw) as HookSnippet[];
-      all.push(...parsed);
-    }
-
-    return all.filter((s) => s.type === hookType);
-  }
-
-  private selectBest(snippets: HookSnippet[], useCase?: string): HookSnippet {
-    if (!useCase) {
-      return snippets[0];
-    }
-
-    const query = useCase.toLowerCase();
-    const scored = snippets.map((s) => ({
-      score: this.scoreSnippet(s, query),
-      snippet: s,
-    }));
-    scored.sort((a, b) => b.score - a.score);
-    return scored[0].snippet;
-  }
-
-  private scoreSnippet(snippet: HookSnippet, query: string): number {
-    let score = 0;
-    if (snippet.useCase.toLowerCase().includes(query)) score += 5;
-    if (snippet.explanation.toLowerCase().includes(query)) score += 2;
-    if (snippet.tags?.some((t) => t.toLowerCase().includes(query))) score += 3;
-    return score;
+    return {
+      name: this.name,
+      description: this.description,
+      inputSchema: this.inputSchema,
+      handler,
+    };
   }
 }
+
+export default GetHookExampleTool;
