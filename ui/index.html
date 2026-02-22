@@ -1588,21 +1588,17 @@
       // ════════════════════════════════════════════════════════════════
       // TOOL 1 — search_docs
       // ════════════════════════════════════════════════════════════════
-
       async function runSearchDocs() {
         const query = $('sd-query').value.trim();
         const limit = parseInt($('sd-limit').value, 10) || 3;
         const version = $('sd-version').value;
         const panel = $('results-search_docs');
-
         if (!query) {
           toast('Please enter a search query.');
           $('sd-query').focus();
           return;
         }
-
         showLoading('results-search_docs', `Searching for "${query}"…`);
-
         try {
           const raw = await callTool('search_docs', { query, limit, version });
           const parsed = parseMCPResult(raw);
@@ -1614,17 +1610,17 @@
 
       function renderSearchResults(panel, data, query) {
         const results = data.results || [];
-        const version = data.version || 'v5';
+        const version = data.version || 'v6';
 
         if (results.length === 0) {
           panel.innerHTML = `
-        <div class="card"><div class="card-body">
-          <div class="placeholder">
-            <div class="ph-icon">🔍</div>
-            <div class="ph-title">No results found</div>
-            <div class="ph-sub">Try a different query or version filter.</div>
-          </div>
-        </div></div>`;
+            <div class="card"><div class="card-body">
+              <div class="placeholder">
+                <div class="ph-icon">🔍</div>
+                <div class="ph-title">No results found</div>
+                <div class="ph-sub">Try a different query or version filter.</div>
+              </div>
+            </div></div>`;
           return;
         }
 
@@ -1632,40 +1628,79 @@
           .map((r, idx) => {
             const pct = Math.round(r.score * 100);
             const color = scoreColor(r.score);
-            const src = r.source && r.source.path ? r.source.path : '';
+
+            // Format snippet: preserve code blocks, convert newlines to <br>
+            const formattedSnippet = formatSnippet(r.snippet || '');
+
             return `
-        <div class="doc-card">
-          <div class="doc-card-header">
-            <div class="doc-card-title">${escHtml(r.title)}</div>
-            <div class="doc-card-meta">
-              ${categoryBadge(r.category)}
-              ${versionBadge(r.version)}
-            </div>
-          </div>
-          <div class="doc-card-body">
-            <div class="score-row">
-              <span class="score-label">Relevance</span>
-              <div class="score-bar-wrap">
-                <div class="score-bar-fill" style="width:${pct}%;background:${color}"></div>
+            <div class="doc-card">
+              <div class="doc-card-header">
+                <div class="doc-card-title">${escHtml(r.heading || r.title || 'Untitled')}</div>
+                <div class="doc-card-meta">
+                  ${categoryBadge(r.category)}
+                  ${versionBadge(r.version)}
+                </div>
               </div>
-              <span class="score-val" style="color:${color}">${pct}%</span>
-            </div>
-            ${src ? `<div class="doc-source">📁 ${escHtml(src)}</div>` : ''}
-            <div class="doc-snippet">${escHtml(r.snippet || '').replace(/\n/g, '<br>')}</div>
-          </div>
-        </div>`;
+
+              <div class="doc-card-breadcrumb">
+                📍 ${escHtml(r.breadcrumb || '')}
+              </div>
+
+              <div class="doc-card-body">
+                <div class="score-row">
+                  <span class="score-label">Relevance</span>
+                  <div class="score-bar-wrap">
+                    <div class="score-bar-fill" style="width:${pct}%;background:${color}"></div>
+                  </div>
+                  <span class="score-val" style="color:${color}">${pct}%</span>
+                </div>
+
+                <div class="doc-snippet">${formattedSnippet}</div>
+
+                ${r.hasCode ? '<div class="doc-code-badge">📄 Contains code example</div>' : ''}
+              </div>
+            </div>`;
           })
           .join('');
 
         panel.innerHTML = `
-      <div id="results-panel">
-        <div class="result-meta">
-          Found <strong>${results.length}</strong> result${results.length !== 1 ? 's' : ''}
-          for <strong>"${escHtml(query)}"</strong>
-          &nbsp;·&nbsp; version: <strong>${version}</strong>
-        </div>
-        ${cards}
-      </div>`;
+          <div id="results-panel">
+            <div class="result-meta">
+              Found <strong>${results.length}</strong> result${results.length !== 1 ? 's' : ''}
+              for <strong>"${escHtml(query)}"</strong>
+              &nbsp;·&nbsp; version: <strong>${version}</strong>
+            </div>
+            ${cards}
+          </div>`;
+      }
+
+      /**
+       * Format a snippet for display.
+       * - Detects code fences and wraps them in <pre><code>
+       * - Converts remaining newlines to <br>
+       */
+      function formatSnippet(snippet) {
+        if (!snippet) return '';
+
+        // Split on code fences
+        const parts = snippet.split(/(```[\s\S]*?```)/g);
+
+        return parts
+          .map((part) => {
+            if (part.startsWith('```')) {
+              // Extract language and code
+              const match = part.match(/^```(\w*)\n?([\s\S]*?)```$/);
+              if (match) {
+                const lang = match[1] ? escHtml(match[1]) : '';
+                const code = escHtml(match[2].trim());
+                return `<pre class="snippet-code"><code class="lang-${lang}">${code}</code></pre>`;
+              }
+              return `<pre class="snippet-code"><code>${escHtml(part)}</code></pre>`;
+            }
+            // Regular prose — escape and convert newlines
+            return escHtml(part).replace(/\n/g, '<br>');
+          })
+          .join('');
       }
 
       function exampleSearchDocs() {
@@ -1674,7 +1709,6 @@
         $('sd-version').value = 'v6';
         runSearchDocs();
       }
-
       // ════════════════════════════════════════════════════════════════
       // TOOL 2 — explain_concept
       // ════════════════════════════════════════════════════════════════
@@ -1719,215 +1753,6 @@ ${escaped}
       function exampleExplainConcept() {
         $('ec-concept').value = 'services';
         runExplainConcept();
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // TOOL 3 — get_hook_example
-      // ════════════════════════════════════════════════════════════════
-
-      async function runGetHookExample() {
-        const hookType = $('he-type').value;
-        const version = $('he-version').value;
-        const useCase = $('he-usecase').value.trim();
-        const panel = $('results-get_hook_example');
-
-        showLoading('results-get_hook_example', `Finding ${hookType} hook example…`);
-
-        try {
-          const args = { hookType, version };
-          if (useCase) args.useCase = useCase;
-          const raw = await callTool('get_hook_example', args);
-          const parsed = parseMCPResult(raw);
-          renderHookExample(panel, parsed);
-        } catch (err) {
-          showError('results-get_hook_example', err.message);
-        }
-      }
-
-      function renderHookExample(panel, data) {
-        const code = data.code || '// No code available';
-        const highlighted = hljs.highlight(code, {
-          language: 'typescript',
-          ignoreIllegals: true,
-        }).value;
-
-        panel.innerHTML = `
-          <div id="results-panel">
-            <div class="result-meta">
-              <span class="badge badge-purple">${escHtml(data.hookType || 'hook')}</span>
-              <span class="badge badge-blue">${escHtml(data.version || 'v5')}</span>
-              &nbsp;·&nbsp; Use case: <strong>${escHtml(data.useCase || 'General')}</strong>
-            </div>
-            <div class="card">
-              <div class="card-body">
-                <div class="code-block">
-                  <div class="file-path-bar">hook-example.ts</div>
-                  <pre><code class="hljs language-typescript">${highlighted}</code></pre>
-                </div>
-                ${data.explanation ? `<p style="margin-top: 16px; color: var(--c-text-2);">${escHtml(data.explanation)}</p>` : ''}
-              </div>
-            </div>
-          </div>`;
-      }
-
-      function exampleGetHookExample() {
-        $('he-type').value = 'before';
-        $('he-version').value = 'v6';
-        $('he-usecase').value = 'validate data';
-        runGetHookExample();
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // TOOL 4 — get_best_practices
-      // ════════════════════════════════════════════════════════════════
-
-      async function runGetBestPractices() {
-        const topic = $('bp-topic').value;
-        const context = $('bp-context').value.trim();
-        const panel = $('results-get_best_practices');
-
-        showLoading('results-get_best_practices', `Loading ${topic} best practices…`);
-
-        try {
-          const args = { topic };
-          if (context) args.context = context;
-          const raw = await callTool('get_best_practices', args);
-          const content = parseMCPResult(raw);
-          renderBestPractices(panel, content, topic);
-        } catch (err) {
-          showError('results-get_best_practices', err.message);
-        }
-      }
-
-      function renderBestPractices(panel, content, topic) {
-        const escaped = escHtml(content)
-          .replace(/\n/g, '<br>')
-          .replace(
-            /----------------------------------------/g,
-            '<hr style="margin: 20px 0; border: none; border-top: 1px solid var(--c-border);">'
-          );
-        panel.innerHTML = `
-          <div id="results-panel">
-            <div class="result-meta">
-              Best practices for <strong>${escHtml(topic)}</strong>
-            </div>
-            <div class="card">
-              <div class="card-body" style="font-size: 14px; line-height: 1.7;">
-${escaped}
-              </div>
-            </div>
-          </div>`;
-      }
-
-      function exampleGetBestPractices() {
-        $('bp-topic').value = 'security';
-        $('bp-context').value = '';
-        runGetBestPractices();
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // TOOL 5 — troubleshoot_error
-      // ════════════════════════════════════════════════════════════════
-
-      async function runTroubleshootError() {
-        const errorMessage = $('te-error').value.trim();
-        const stackTrace = $('te-stack').value.trim();
-        const version = $('te-version').value;
-        const panel = $('results-troubleshoot_error');
-
-        if (!errorMessage) {
-          toast('Please enter an error message.');
-          $('te-error').focus();
-          return;
-        }
-
-        showLoading('results-troubleshoot_error', 'Analyzing error…');
-
-        try {
-          const args = { errorMessage, version };
-          if (stackTrace) args.stackTrace = stackTrace;
-          const raw = await callTool('troubleshoot_error', args);
-          const content = parseMCPResult(raw);
-          renderTroubleshoot(panel, content);
-        } catch (err) {
-          showError('results-troubleshoot_error', err.message);
-        }
-      }
-
-      function renderTroubleshoot(panel, content) {
-        const escaped = escHtml(content).replace(/\n/g, '<br>');
-        panel.innerHTML = `
-          <div id="results-panel">
-            <div class="result-meta">
-              <span class="badge badge-red">Troubleshooting Result</span>
-            </div>
-            <div class="card">
-              <div class="card-body" style="font-size: 14px; line-height: 1.7;">
-${escaped}
-              </div>
-            </div>
-          </div>`;
-      }
-
-      function exampleTroubleshootError() {
-        $('te-error').value = 'NotAuthenticated: No auth token';
-        $('te-stack').value = '';
-        $('te-version').value = 'v6';
-        runTroubleshootError();
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // TOOL 6 — suggest_alternatives
-      // ════════════════════════════════════════════════════════════════
-
-      async function runSuggestAlternatives() {
-        const pattern = $('sa-pattern').value.trim();
-        const context = $('sa-context').value.trim();
-        const panel = $('results-suggest_alternatives');
-
-        if (!pattern) {
-          toast('Please enter a pattern to find alternatives for.');
-          $('sa-pattern').focus();
-          return;
-        }
-
-        showLoading('results-suggest_alternatives', `Finding alternatives for "${pattern}"…`);
-
-        try {
-          const args = { pattern };
-          if (context) args.context = context;
-          const raw = await callTool('suggest_alternatives', args);
-          const content = parseMCPResult(raw);
-          renderAlternatives(panel, content, pattern);
-        } catch (err) {
-          showError('results-suggest_alternatives', err.message);
-        }
-      }
-
-      function renderAlternatives(panel, content, pattern) {
-        const escaped = escHtml(content)
-          .replace(/\n/g, '<br>')
-          .replace(
-            /----------------------------------------/g,
-            '<hr style="margin: 20px 0; border: none; border-top: 1px solid var(--c-border);">'
-          );
-        panel.innerHTML = `
-          <div id="results-panel">
-            <div class="result-meta">
-              Alternatives for <strong>"${escHtml(pattern)}"</strong>
-            </div>
-            <div class="card">
-              <div class="card-body" style="font-size: 14px; line-height: 1.7;">
-${escaped}
-              </div>
-            </div>
-          </div>`;
-      }
-
-      function exampleSuggestAlternatives() {
-        $('sa-pattern').value = 'authentication';
-        $('sa-context').value = 'REST API';
-        runSuggestAlternatives();
       }
 
       // ════════════════════════════════════════════════════════════════
@@ -2023,102 +1848,6 @@ export const logRequest = async (context: HookContext, next: NextFunction) => {
         $('vc-prettier').checked = false;
         $('vc-bestpractices').checked = true;
         runValidateCode();
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // TOOL 8 — get_feathers_template
-      // ════════════════════════════════════════════════════════════════
-
-      async function runGetTemplate() {
-        const database = $('gt-database').value;
-        const auth = $('gt-auth').checked;
-        const typescript = $('gt-ts').checked;
-        const panel = $('results-get_feathers_template');
-
-        showLoading('results-get_feathers_template', 'Generating project template…');
-
-        try {
-          const raw = await callTool('get_feathers_template', { database, auth, typescript });
-          const parsed = parseMCPResult(raw);
-          renderTemplateResult(panel, parsed);
-        } catch (err) {
-          showError('results-get_feathers_template', err.message);
-        }
-      }
-
-      function renderTemplateResult(panel, data) {
-        const deps = data.dependencies || [];
-        const flags = data.featureFlags || [];
-        const files = data.files || {};
-
-        const depChips = deps.map((d) => `<span class="chip">${escHtml(d)}</span>`).join('');
-        const flagChips = flags
-          .map((f) => `<span class="badge badge-primary">${escHtml(f)}</span>`)
-          .join(' ');
-
-        const dbColor = { mongodb: 'badge-green', postgresql: 'badge-blue', sqlite: 'badge-amber' };
-        const dbBadge = `<span class="badge ${dbColor[data.database] || 'badge-grey'}">${data.database}</span>`;
-
-        panel.innerHTML = `
-      <div id="results-panel">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">✅ Template Generated</div>
-          </div>
-          <div class="card-body">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <span class="si-label">Database</span>
-                <span class="si-value">${escHtml(data.database)}</span>
-              </div>
-              <div class="summary-item">
-                <span class="si-label">Auth</span>
-                <span class="si-value">${data.auth ? '✅ Yes' : '❌ No'}</span>
-              </div>
-              <div class="summary-item">
-                <span class="si-label">TypeScript</span>
-                <span class="si-value">${data.typescript ? '✅ Yes' : '❌ No'}</span>
-              </div>
-              <div class="summary-item">
-                <span class="si-label">Version</span>
-                <span class="si-value">${escHtml(data.version || 'v5')}</span>
-              </div>
-            </div>
-
-            ${
-              flags.length
-                ? `
-              <div class="result-section-title">Feature Flags</div>
-              <div class="chip-list" style="margin-bottom:16px">${flagChips}</div>`
-                : ''
-            }
-
-            ${
-              deps.length
-                ? `
-              <div class="result-section-title">Dependencies</div>
-              <div class="chip-list">${depChips}</div>`
-                : ''
-            }
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">📁 Generated Files</div>
-          </div>
-          <div class="card-body">
-            ${buildFileTabs(files)}
-          </div>
-        </div>
-      </div>`;
-      }
-
-      function exampleGetTemplate() {
-        $('gt-database').value = 'mongodb';
-        $('gt-auth').checked = true;
-        $('gt-ts').checked = true;
-        runGetTemplate();
       }
 
       // ════════════════════════════════════════════════════════════════

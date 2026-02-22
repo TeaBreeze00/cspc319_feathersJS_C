@@ -38,27 +38,19 @@ export class MockVectorSearch {
     const scored = docs
       .map((doc) => {
         let score = 0;
-        const searchableText = [
-          doc.title,
-          doc.content,
-          ...(doc.tokens || []),
-          ...(doc.tags || []),
-        ]
+        const searchableText = [doc.heading, doc.rawContent, doc.breadcrumb, ...(doc.tags || [])]
           .join(' ')
           .toLowerCase();
 
         // Score based on query word matches
         for (const word of queryWords) {
           if (searchableText.includes(word)) {
-            // Higher score for title matches
-            if (doc.title.toLowerCase().includes(word)) {
+            if (doc.heading.toLowerCase().includes(word)) {
               score += 0.3;
             }
-            // Medium score for content matches
-            if (doc.content.toLowerCase().includes(word)) {
+            if (doc.rawContent.toLowerCase().includes(word)) {
               score += 0.1;
             }
-            // Lower score for tag matches
             if (doc.tags?.some((t) => t.toLowerCase().includes(word))) {
               score += 0.05;
             }
@@ -89,10 +81,7 @@ export const mockVectorSearch = new MockVectorSearch();
 /**
  * Create mock search results for testing
  */
-export function createMockSearchResults(
-  docIds: string[],
-  baseScore = 0.9
-): VectorSearchResult[] {
+export function createMockSearchResults(docIds: string[], baseScore = 0.9): VectorSearchResult[] {
   return docIds.map((id, index) => ({
     id,
     score: Math.max(baseScore - index * 0.1, 0.1),
@@ -102,21 +91,21 @@ export function createMockSearchResults(
 /**
  * Create a mock DocEntry for testing
  */
-export function createMockDocEntry(
-  overrides: Partial<DocEntry> = {}
-): DocEntry {
+export function createMockDocEntry(overrides: Partial<DocEntry> = {}): DocEntry {
   return {
     id: overrides.id || 'test-doc-1',
-    title: overrides.title || 'Test Document',
-    content: overrides.content || 'Test content for the document',
+    heading: overrides.heading || 'Test Document',
+    content: overrides.content || 'Context: Test > Test Document\n\nTest content for the document',
+    rawContent: overrides.rawContent || 'Test content for the document',
+    breadcrumb: overrides.breadcrumb || 'Test > Test Document',
     version: (overrides.version as 'v5' | 'v6' | 'both') || 'v6',
-    tokens: overrides.tokens || ['test', 'document'],
+    tokens: overrides.tokens ?? 10,
     category: overrides.category || 'test-category',
+    sourceFile: overrides.sourceFile || 'test/test-doc.md',
+    hasCode: overrides.hasCode ?? false,
+    codeLanguages: overrides.codeLanguages || [],
     tags: overrides.tags || ['test'],
     embedding: overrides.embedding || undefined,
-    source: overrides.source || undefined,
-    headingPath: overrides.headingPath || undefined,
-    sourceFile: overrides.sourceFile || undefined,
   };
 }
 
