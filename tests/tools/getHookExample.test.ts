@@ -6,13 +6,16 @@ describe('GetHookExampleTool', () => {
   it('should return a hook example for valid hookType', async () => {
     const result = await tool.execute({ hookType: 'before' });
     expect(result).toHaveProperty('content');
-    expect(result.content).toMatch(/Rule:/);
+    const parsed = JSON.parse(result.content);
+    expect(parsed.code).toBeTruthy();
+    expect(parsed.explanation).toBeTruthy();
   });
 
   it('should filter by version', async () => {
     const resultV5 = await tool.execute({ hookType: 'before', version: 'v5' });
     const resultV6 = await tool.execute({ hookType: 'before', version: 'v6' });
     expect(resultV5.content).not.toBe(resultV6.content);
+    expect(resultV6.content).toMatch(/No hook examples found/);
   });
 
   it('should return message when no hooks match', async () => {
