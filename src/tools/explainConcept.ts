@@ -1,21 +1,9 @@
 import { BaseTool } from './baseTool';
 import { JsonSchema, ToolResult } from '../protocol/types';
-import { ToolRegistration,ToolHandler } from '../protocol/types';
+import { ToolRegistration, ToolHandler } from '../protocol/types';
 
-import authentication from '../../knowledge-base/docs/authentication.json';
-import cookbook from '../../knowledge-base/docs/cookbook.json';
-import coreconcepts from '../../knowledge-base/docs/core-concepts.json';
-import database from '../../knowledge-base/docs/databases.json';
-import guides from '../../knowledge-base/docs/guides.json';
-import hooks from '../../knowledge-base/docs/hooks.json';
-import services from '../../knowledge-base/docs/services.json';
-import v6authentication from '../../knowledge-base/docs/v6-authentication.json';
-import v6cookbook from '../../knowledge-base/docs/v6-cookbook.json';
-import v6coreConcepts from '../../knowledge-base/docs/v6-core-concepts.json';
-import v6guides from '../../knowledge-base/docs/v6-guides.json';
-import v6hooks from '../../knowledge-base/docs/v6-hooks.json';
-import v6services from '../../knowledge-base/docs/v6-services.json';
-
+import fs from 'fs';
+import path from 'path';
 
 interface ExplainConceptParams {
   concept: string;
@@ -31,6 +19,32 @@ interface DocEntry {
   category?: string;
 }
 
+// We'll dynamically load JSON files from knowledge-base/docs/v5 and /v6
+// to avoid static imports that can fail when files are generated/absent.
+
+function loadJsonFiles(dir: string): DocEntry[] {
+  if (!fs.existsSync(dir)) return [];
+
+  const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json'));
+  const entries: DocEntry[] = [];
+
+  for (const file of files) {
+    try {
+      const raw = fs.readFileSync(path.join(dir, file), 'utf8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        entries.push(...parsed);
+      }
+    } catch (err) {
+      // Ignore malformed or unreadable files
+      // eslint-disable-next-line no-console
+      console.warn(`Warning: could not load ${file} from ${dir}: ${err}`);
+    }
+  }
+
+  return entries;
+}
+
 export class ExplainConceptTool extends BaseTool {
   name = 'explain_concept';
 
@@ -40,9 +54,9 @@ export class ExplainConceptTool extends BaseTool {
   inputSchema: JsonSchema = {
     type: 'object',
     properties: {
-      concept: { type: 'string' }
+      concept: { type: 'string' },
     },
-    required: ['concept']
+    required: ['concept'],
   };
 
   private docs: DocEntry[];
@@ -50,22 +64,13 @@ export class ExplainConceptTool extends BaseTool {
   constructor() {
     super();
 
-    // Combine ALL knowledge base docs into one searchable array
-    this.docs = [
-      ...authentication,
-      ...cookbook,
-      ...coreconcepts,
-      ...database,
-      ...guides,
-      ...hooks,
-      ...services,
-      ...v6authentication,
-      ...v6cookbook,
-      ...v6coreConcepts,
-      ...v6guides,
-      ...v6hooks,
-      ...v6services
-    ];
+    // Combine ALL knowledge base docs into one searchable array by
+    // loading any JSON files present under knowledge-base/docs/v5/ and /v6/.
+    const kbBase = path.join(__dirname, '..', '..', 'knowledge-base', 'docs');
+    const v5dir = path.join(kbBase, 'v5');
+    const v6dir = path.join(kbBase, 'v6');
+
+    this.docs = [...loadJsonFiles(v5dir), ...loadJsonFiles(v6dir)];
   }
 
   async execute(params: unknown): Promise<ToolResult> {
@@ -74,11 +79,11 @@ export class ExplainConceptTool extends BaseTool {
     const query = concept.toLowerCase();
 
     const matches = this.docs
-      .map(doc => ({
+      .map((doc) => ({
         doc,
-        score: this.scoreDoc(doc, query)
+        score: this.scoreDoc(doc, query),
       }))
-      .filter(entry => entry.score > 0)
+      .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score);
 
     if (matches.length === 0) {
@@ -90,7 +95,7 @@ Try:
 - Checking spelling
 - Using a broader term
 - Searching related topics like "services", "hooks", or "authentication"
-        `.trim()
+        `.trim(),
       };
     }
 
@@ -99,7 +104,7 @@ Try:
     // Pick up to 3 related concepts
     const related = matches
       .slice(1, 4)
-      .map(m => `- ${m.doc.title}`)
+      .map((m) => `- ${m.doc.title}`)
       .join('\n');
 
     return {
@@ -111,7 +116,7 @@ Definition:
 ${best.content}
 
 ${related ? `Related Concepts:\n${related}` : ''}
-      `.trim()
+      `.trim(),
     };
   }
 
@@ -122,10 +127,10 @@ ${related ? `Related Concepts:\n${related}` : ''}
     if (doc.title.toLowerCase().includes(query)) score += 6;
 
     // Match in tokens
-    if (doc.tokens?.some(t => t.toLowerCase().includes(query))) score += 4;
+    if (doc.tokens?.some((t) => t.toLowerCase().includes(query))) score += 4;
 
     // Match in tags
-    if (doc.tags?.some(t => t.toLowerCase().includes(query))) score += 3;
+    if (doc.tags?.some((t) => t.toLowerCase().includes(query))) score += 3;
 
     // Weak match in content
     if (doc.content.toLowerCase().includes(query)) score += 1;
@@ -138,7 +143,7 @@ ${related ? `Related Concepts:\n${related}` : ''}
       const typedParams = params as ExplainConceptParams;
       return this.execute(typedParams);
     };
-  
+
     return {
       name: this.name,
       description: this.description,

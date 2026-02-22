@@ -106,17 +106,39 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const jsonFiles = fs
-    .readdirSync(KB_DOCS_DIR)
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => path.join(KB_DOCS_DIR, f));
+  // Recursively collect all .json files under KB_DOCS_DIR (supports v5/, v6/)
+  function collectJsonFiles(dir: string): string[] {
+    const results: string[] = [];
+    if (!fs.existsSync(dir)) return results;
+
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        results.push(...collectJsonFiles(full));
+      } else if (entry.isFile() && entry.name.endsWith('.json')) {
+        results.push(full);
+      }
+    }
+    return results;
+  }
+
+  const jsonFiles = collectJsonFiles(KB_DOCS_DIR);
 
   if (jsonFiles.length === 0) {
     console.error('  ✗  No JSON files found in docs directory.');
+    console.error(
+      '     Expected JSON files under knowledge-base/docs/, e.g. knowledge-base/docs/v5/*.json and knowledge-base/docs/v6/*.json'
+    );
+    console.error('     Run the ingest scripts to generate them:');
+    console.error('       node scripts/ingest-v5-docs-sectioned.js');
+    console.error('       node scripts/ingest-v6-docs-sectioned.js');
     process.exit(1);
   }
 
-  console.log(`  Found ${jsonFiles.length} doc file(s): ${jsonFiles.map((f) => path.basename(f)).join(', ')}`);
+  console.log(
+    `  Found ${jsonFiles.length} doc file(s): ${jsonFiles.map((f) => path.relative(KB_DOCS_DIR, f)).join(', ')}`
+  );
   console.log('');
 
   // ── 2. Load the embedding model ──────────────────────────────────────────
@@ -176,16 +198,14 @@ async function main(): Promise<void> {
         const startEmbed = Date.now();
 
         const output = await embedder(text, {
-          pooling: 'mean',   // mean-pool the token embeddings → single vector
-          normalize: true,   // L2-normalise so cosine similarity = dot product
+          pooling: 'mean', // mean-pool the token embeddings → single vector
+          normalize: true, // L2-normalise so cosine similarity = dot product
         });
 
         const embedMs = Date.now() - startEmbed;
         doc.embedding = toNumberArray(output.data as Float32Array);
 
-        console.log(
-          `${label}  → ${doc.embedding.length}d  (${embedMs}ms)`
-        );
+        console.log(`${label}  → ${doc.embedding.length}d  (${embedMs}ms)`);
         totalEmbedded++;
       } catch (err) {
         console.warn(`${label}  → FAILED: ${String(err)}`);

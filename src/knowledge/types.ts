@@ -24,6 +24,10 @@ export interface DocEntry {
   };
   tags?: string[];
   embedding?: number[];
+  /** Breadcrumb path of headings: e.g., ["REST Client", "rest([baseUrl])"] */
+  headingPath?: string[];
+  /** Source markdown file path relative to the ingester root */
+  sourceFile?: string;
 }
 
 export interface TemplateFragment {
