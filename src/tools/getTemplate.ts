@@ -3,6 +3,7 @@ import { ToolResult } from './types';
 import { KnowledgeLoader } from '../knowledge';
 import { TemplateFragment, DocVersion } from '../knowledge/types';
 import { TemplateComposer } from './templates/composer';
+import { ValidationPipeline } from './validation';
 
 type DatabaseType = 'mongodb' | 'postgresql' | 'sqlite';
 
@@ -66,11 +67,13 @@ export class GetTemplateTool extends BaseTool {
 
   private loader: KnowledgeLoader;
   private composer: TemplateComposer;
+  private validator: ValidationPipeline;
 
-  constructor(loader?: KnowledgeLoader, composer?: TemplateComposer) {
+  constructor(loader?: KnowledgeLoader, composer?: TemplateComposer, validator?: ValidationPipeline) {
     super();
     this.loader = loader ?? new KnowledgeLoader();
     this.composer = composer ?? new TemplateComposer();
+    this.validator = validator ?? new ValidationPipeline({ typeCheck: false });
   }
 
   /**
@@ -115,6 +118,25 @@ export class GetTemplateTool extends BaseTool {
       includeComments: true,
     });
 
+    const validationErrors = await this.validateGeneratedFiles(composed.files);
+    if (validationErrors.length > 0) {
+      return {
+        content: JSON.stringify(
+          {
+            error: 'Generated template failed validation',
+            issues: validationErrors,
+          },
+          null,
+          2
+        ),
+        metadata: {
+          tool: 'get_feathers_template',
+          validationFailed: true,
+          issueCount: validationErrors.length,
+        },
+      };
+    }
+
     // Build file tree structure
     const fileTree = this.buildFileTree(composed.files, typescript);
 
@@ -143,6 +165,33 @@ export class GetTemplateTool extends BaseTool {
         featureFlags: composed.featureFlags,
       },
     };
+  }
+
+  private async validateGeneratedFiles(
+    files: Map<string, string>
+  ): Promise<Array<{ path: string; result: unknown }>> {
+    const errors: Array<{ path: string; result: unknown }> = [];
+
+    for (const [filePath, content] of Array.from(files.entries())) {
+      if (!filePath.endsWith('.ts') && !filePath.endsWith('.js')) {
+        continue;
+      }
+
+      const result = await this.validator.validate(content, {
+        typescript: true,
+        eslint: false,
+        prettier: false,
+        bestPractices: false,
+      });
+      if (!result.valid) {
+        errors.push({
+          path: filePath,
+          result,
+        });
+      }
+    }
+
+    return errors;
   }
 
   /**
@@ -267,7 +316,7 @@ export class GetTemplateTool extends BaseTool {
   ): Record<string, { path: string; content: string; size: number }> {
     const tree: Record<string, { path: string; content: string; size: number }> = {};
 
-    for (const [filePath, content] of files.entries()) {
+    for (const [filePath, content] of Array.from(files.entries())) {
       const adjustedPath = this.adjustFilePath(filePath, typescript);
       tree[adjustedPath] = {
         path: adjustedPath,

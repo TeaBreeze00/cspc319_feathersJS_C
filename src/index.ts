@@ -11,6 +11,7 @@ import {
   ExplainConceptTool,
   SuggestAlternativesTool,
   ListToolsTool,
+  ValidateCodeTool,
 } from './tools';
 
 // Protocol-level registry (metadata + implementations)
@@ -32,6 +33,7 @@ const getBestPracticesTool = new GetBestPracticesTool();
 const explainConceptTool = new ExplainConceptTool();
 const suggestAlternativesTool = new SuggestAlternativesTool();
 const listToolsTool = new ListToolsTool();
+const validateCodeTool = new ValidateCodeTool();
 
 // Register tools with protocol registry (metadata + handler for MCP)
 registry.register(searchDocsTool.register());
@@ -43,6 +45,7 @@ registry.register(getBestPracticesTool.register());
 registry.register(explainConceptTool.register());
 registry.register(suggestAlternativesTool.register());
 registry.register(listToolsTool.register());
+registry.register(validateCodeTool.register());
 
 // Register tools with routing registry (handler + schema for routing layer)
 routingRegistry.register(
@@ -89,6 +92,11 @@ routingRegistry.register(
   'list_available_tools',
   (params: unknown) => listToolsTool.execute(params),
   listToolsTool.inputSchema
+);
+routingRegistry.register(
+  'validate_code',
+  (params: unknown) => validateCodeTool.execute(params),
+  validateCodeTool.inputSchema
 );
 
 // Create protocol handlers wired to routing
