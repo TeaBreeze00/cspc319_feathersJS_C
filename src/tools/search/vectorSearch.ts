@@ -66,9 +66,9 @@ export class VectorSearch {
         // ESM @xenova/transformers package.
         const { pipeline } = await import('@xenova/transformers');
 
-        cachedEmbedder = await pipeline('feature-extraction', MODEL_NAME, {
+        cachedEmbedder = (await pipeline('feature-extraction', MODEL_NAME, {
           progress_callback: undefined, // suppress download progress bars
-        }) as (text: string, opts: object) => Promise<{ data: Float32Array }>;
+        })) as (text: string, opts: object) => Promise<{ data: Float32Array }>;
 
         console.error(`[VectorSearch] Model "${MODEL_NAME}" loaded.`);
       } catch (err) {
@@ -168,7 +168,7 @@ export class VectorSearch {
     query: string,
     docs: DocEntry[],
     limit = 10,
-    minScore = 0.15
+    minScore = 0.05
   ): Promise<VectorSearchResult[]> {
     if (!query || query.trim().length === 0) return [];
     if (docs.length === 0) return [];

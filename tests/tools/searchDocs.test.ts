@@ -97,15 +97,7 @@ describe('SearchDocsTool', () => {
       ],
       source: { url: 'https://feathersjs.com/docs/hooks' },
     },
-    {
-      id: 'doc-v4-services',
-      title: 'Feathers v4 Services',
-      content: 'Services are the heart of Feathers v4 applications with similar concepts to v5.',
-      version: 'v4',
-      category: 'core',
-      tokens: ['services', 'heart', 'feathers', 'v4', 'applications', 'similar', 'concepts', 'v5'],
-      source: { url: 'https://feathersjs.com/v4/docs/services' },
-    },
+
     {
       id: 'doc-v5-authentication',
       title: 'Authentication',
@@ -127,10 +119,10 @@ describe('SearchDocsTool', () => {
     {
       id: 'doc-both-concepts',
       title: 'Core Concepts',
-      content: 'Understanding the core concepts of FeathersJS that apply to both v4 and v5.',
+      content: 'Understanding the core concepts of FeathersJS that apply to both v5 and v6.',
       version: 'both',
       category: 'guides',
-      tokens: ['understanding', 'core', 'concepts', 'feathersjs', 'apply', 'both', 'v4', 'v5'],
+      tokens: ['understanding', 'core', 'concepts', 'feathersjs', 'apply', 'both', 'v5', 'v6'],
       source: { url: 'https://feathersjs.com/docs/concepts' },
     },
     {
@@ -240,29 +232,29 @@ describe('SearchDocsTool', () => {
   });
 
   describe('version filtering', () => {
-    it('defaults to v5 when no version specified', async () => {
+    it('defaults to v6 when no version specified', async () => {
       const result = await searchDocsTool.execute({ query: 'services' });
+
+      const parsed = JSON.parse(result.content);
+      expect(parsed.version).toBe('v6');
+
+      // Should include v6 and 'both' docs, but not v5-only docs
+      const versions = parsed.results.map((r: any) => r.version);
+      versions.forEach((v: string) => {
+        expect(v === 'v6' || v === 'both').toBe(true);
+      });
+    });
+
+    it('filters to v5 docs when version is v5', async () => {
+      const result = await searchDocsTool.execute({ query: 'services', version: 'v5' });
 
       const parsed = JSON.parse(result.content);
       expect(parsed.version).toBe('v5');
 
-      // Should include v5 and 'both' docs, but not v4-only docs
+      // Should include v5 and 'both' docs
       const versions = parsed.results.map((r: any) => r.version);
       versions.forEach((v: string) => {
         expect(v === 'v5' || v === 'both').toBe(true);
-      });
-    });
-
-    it('filters to v4 docs when version is v4', async () => {
-      const result = await searchDocsTool.execute({ query: 'services', version: 'v4' });
-
-      const parsed = JSON.parse(result.content);
-      expect(parsed.version).toBe('v4');
-
-      // Should include v4 and 'both' docs
-      const versions = parsed.results.map((r: any) => r.version);
-      versions.forEach((v: string) => {
-        expect(v === 'v4' || v === 'both').toBe(true);
       });
     });
 
@@ -272,14 +264,14 @@ describe('SearchDocsTool', () => {
       const parsed = JSON.parse(result.content);
       expect(parsed.version).toBe('all');
 
-      // Should include docs from both v4 and v5
+      // Should include docs from both v5 and v6
       const ids = parsed.results.map((r: any) => r.id);
-      const hasV4 = ids.some((id: string) => id.includes('v4'));
       const hasV5 = ids.some((id: string) => id.includes('v5'));
+      const hasV6 = ids.some((id: string) => id.includes('v6'));
 
       // At least one version should be present if docs match
       if (parsed.results.length > 1) {
-        expect(hasV4 || hasV5).toBe(true);
+        expect(hasV5 || hasV6).toBe(true);
       }
     });
 
@@ -296,7 +288,7 @@ describe('SearchDocsTool', () => {
       const parsed = JSON.parse(result.content);
       expect(parsed.version).toBe('v6');
 
-      // Should only include v6 and 'both' docs, not v4 or v5-only docs
+      // Should only include v6 and 'both' docs, not v5-only docs
       const versions = parsed.results.map((r: any) => r.version);
       versions.forEach((v: string) => {
         expect(v === 'v6' || v === 'both').toBe(true);
@@ -318,7 +310,7 @@ describe('SearchDocsTool', () => {
       }
     });
 
-    it('"all" version filter includes v6 docs alongside v4 and v5', async () => {
+    it('"all" version filter includes both v5 and v6 docs', async () => {
       const result = await searchDocsTool.execute({ query: 'services', version: 'all' });
 
       const parsed = JSON.parse(result.content);
@@ -333,15 +325,15 @@ describe('SearchDocsTool', () => {
       }
     });
 
-    it('v6 does not appear in v5-only searches', async () => {
-      const result = await searchDocsTool.execute({ query: 'services', version: 'v5' });
+    it('v5 does not appear in v6-only searches', async () => {
+      const result = await searchDocsTool.execute({ query: 'services', version: 'v6' });
 
       const parsed = JSON.parse(result.content);
       const versions: string[] = parsed.results.map((r: any) => r.version);
 
-      // v6-only docs must not appear in a v5-scoped search
-      const hasV6Only = versions.some((v) => v === 'v6');
-      expect(hasV6Only).toBe(false);
+      // v5-only docs must not appear in a v6-scoped search
+      const hasV5Only = versions.some((v) => v === 'v5');
+      expect(hasV5Only).toBe(false);
     });
   });
 
@@ -404,7 +396,7 @@ describe('SearchDocsTool', () => {
           id: `doc-${i}`,
           title: `Document ${i} about feathers`,
           content: `This is content about feathers and services for document ${i}. It contains various keywords like hooks, authentication, and middleware.`,
-          version: i % 2 === 0 ? 'v5' : 'v4',
+          version: i % 2 === 0 ? 'v6' : 'v5',
           category: 'docs',
           tokens: ['feathers', 'services', 'document', 'hooks', 'authentication', 'middleware'],
           source: { url: `https://example.com/doc/${i}` },
@@ -463,9 +455,9 @@ describe('SearchDocsTool', () => {
     it('handles invalid version parameter', async () => {
       const result = await searchDocsTool.execute({ query: 'services', version: 'invalid' as any });
 
-      // Should fall back to default version (v5)
+      // Should fall back to default version (v6)
       const parsed = JSON.parse(result.content);
-      expect(parsed.version).toBe('v5');
+      expect(parsed.version).toBe('v6');
     });
 
     it('handles negative limit parameter', async () => {

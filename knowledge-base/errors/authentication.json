@@ -5,7 +5,7 @@
     "cause": "A service method was called without valid authentication credentials (no JWT or invalid JWT).",
     "solution": "Ensure the client sends a valid JWT token. Use `client.authenticate()` before making service calls. Check that the `authenticate` hook is registered correctly.",
     "example": "await client.authenticate({ strategy: \"local\", email: \"user@example.com\", password: \"secret\" })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "authentication",
       "jwt",
@@ -19,7 +19,7 @@
     "cause": "The authenticated user does not have permission to perform this action.",
     "solution": "Check your authorization/permission hooks. Verify the user has the required role. Review the `abilityFor` or custom permission logic.",
     "example": "app.service(\"admin\").hooks({ before: { all: [authenticate(\"jwt\"), authorize()] } })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "authorization",
       "permissions",
@@ -33,7 +33,7 @@
     "cause": "Local authentication strategy received a request without the password field.",
     "solution": "Ensure both email/username and password fields are sent. Check the field names match your authentication configuration.",
     "example": "await client.authenticate({ strategy: \"local\", email: \"user@example.com\", password: \"mysecret\" })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "authentication",
       "local",
@@ -48,7 +48,7 @@
     "cause": "The JWT access token has expired.",
     "solution": "Re-authenticate to get a new token. Configure appropriate `expiresIn` in authentication config. Implement token refresh logic.",
     "example": "try { await client.reAuthenticate() } catch(e) { await client.authenticate({ strategy: \"local\", ...credentials }) }",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "authentication",
       "jwt",
@@ -63,7 +63,7 @@
     "cause": "The JWT was signed with a different algorithm than expected.",
     "solution": "Ensure the JWT algorithm in authentication configuration matches between server and client. Default is HS256.",
     "example": "Check config/default.json: authentication.jwtOptions.algorithm should be \"HS256\"",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "authentication",
       "jwt",
@@ -78,7 +78,7 @@
     "cause": "Socket.io or REST transport is missing required headers for authentication.",
     "solution": "Ensure authentication headers are set. For Socket.io, use `extraHeaders` option. For REST, include the Authorization header.",
     "example": "const socket = io({ extraHeaders: { Authorization: `Bearer ${token}` } })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "transport",
       "headers",

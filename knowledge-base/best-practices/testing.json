@@ -6,7 +6,7 @@
     "rationale": "Create a test app, register services, call app.setup() and test service methods directly without HTTP.",
     "goodExample": "const app = feathers()\napp.use('messages', new MessageService())\nawait app.setup()\nconst result = await app.service('messages').create({ text: 'test' })\nexpect(result.text).toBe('test')\nawait app.teardown()",
     "badExample": "// Bad: testing through HTTP/WebSocket (slow, brittle)\nconst response = await fetch('http://localhost:3030/messages', {\n  method: 'POST',\n  body: JSON.stringify({ text: 'test' })\n})",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "testing",
       "unit",
@@ -20,7 +20,7 @@
     "rationale": "The Memory adapter is perfect for tests - no database setup needed, fast, and implements the full service interface.",
     "goodExample": "import { MemoryService } from '@feathersjs/memory'\n\nconst app = feathers()\napp.use('messages', new MemoryService({\n  paginate: { default: 10, max: 100 }\n}))",
     "badExample": "// Avoid in tests: real database connections\n// Slow, requires setup, can fail due to connection issues\napp.use('messages', new MongoDBService({ Model: mongoCollection }))",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "testing",
       "memory",
@@ -35,7 +35,7 @@
     "rationale": "Export and test hook functions in isolation rather than only through full service calls. This makes tests faster and more focused.",
     "goodExample": "// Export hook for direct testing\nexport const setTimestamp = async (context: HookContext) => {\n  context.data.createdAt = Date.now()\n  return context\n}\n\n// Test in isolation\nconst context = { data: { text: 'test' } } as HookContext\nconst result = await setTimestamp(context)\nexpect(result.data.createdAt).toBeDefined()",
     "badExample": "// Bad: only testing hooks through service calls\n// Slow, unclear what's being tested\nconst result = await app.service('messages').create({ text: 'test' })\nexpect(result.createdAt).toBeDefined() // Which hook set this?",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "testing",
       "hooks",
@@ -50,7 +50,7 @@
     "rationale": "Always test that your services and hooks return appropriate errors for invalid inputs, unauthorized access, and edge cases.",
     "goodExample": "// Good: explicit error testing\nawait expect(\n  app.service('messages').create({}) // empty data\n).rejects.toThrow(BadRequest)\n\nawait expect(\n  app.service('messages').get('nonexistent-id')\n).rejects.toThrow(NotFound)\n\nawait expect(\n  app.service('protected').find({ provider: 'rest' }) // unauthenticated\n).rejects.toThrow(NotAuthenticated)",
     "badExample": "// Bad: only testing happy path\nconst result = await app.service('messages').create({ text: 'hello' })\nexpect(result).toBeDefined()\n// Never tests: what if text is missing? What if not authenticated?",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "testing",
       "errors",
@@ -65,7 +65,7 @@
     "rationale": "Use beforeEach/afterEach to reset service state. Prevents test pollution and order-dependent failures.",
     "goodExample": "describe('messages service', () => {\n  let app: Application\n\n  beforeEach(async () => {\n    app = feathers()\n    app.use('messages', new MemoryService())\n    await app.setup()\n  })\n\n  afterEach(async () => {\n    await app.teardown()\n  })\n\n  it('creates a message', async () => {\n    // Each test gets a fresh app\n  })\n})",
     "badExample": "// Bad: shared state between tests\nconst app = feathers()\napp.use('messages', new MemoryService())\n// Tests depend on each other's data - fragile!",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "testing",
       "cleanup",

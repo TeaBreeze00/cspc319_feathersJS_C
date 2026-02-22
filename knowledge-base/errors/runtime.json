@@ -5,7 +5,7 @@
     "cause": "Called a service method that is not implemented or not listed in the `methods` option.",
     "solution": "Implement the missing method on the service, or add it to the `methods` option in `app.use()`. Check spelling of method name.",
     "example": "app.use(\"myservice\", new MyService(), { methods: [\"find\", \"get\", \"create\", \"myCustomMethod\"] })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "service",
       "method",
@@ -19,7 +19,7 @@
     "cause": "A service method or database query took too long to complete.",
     "solution": "Check database connection. Optimize slow queries. Increase timeout configuration if appropriate. Check for deadlocks.",
     "example": "app.use(\"messages\", new MessageService(), { timeout: 10000 })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "timeout",
       "performance",
@@ -33,7 +33,7 @@
     "cause": "The service does not implement the called method (find, get, create, etc.).",
     "solution": "Implement the required method on your service class. Feathers automatically throws NotImplemented for missing standard methods.",
     "example": "class MyService { async find(params: Params) { return [] } /* implement needed methods */ }",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "service",
       "method",
@@ -47,7 +47,7 @@
     "cause": "Tried to access a service that has not been registered with `app.use()`.",
     "solution": "Check the service path spelling. Ensure the service is registered before it is accessed. Verify import/configuration order.",
     "example": "app.use(\"messages\", new MessageService()); const svc = app.service(\"messages\"); // path must match exactly",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "service",
       "registration",
@@ -61,7 +61,7 @@
     "cause": "Accessing the service object directly instead of through `app.service()`, or calling a method that doesn't exist.",
     "solution": "Always use `app.service(path)` to access services, not the raw service object. Check method name spelling.",
     "example": "const svc = app.service(\"messages\"); await svc.find(); // NOT: await rawServiceObj.find()",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "service",
       "usage",
@@ -75,7 +75,7 @@
     "cause": "Tried to publish or send to a channel that has no connections or hasn't been created.",
     "solution": "Ensure connections join the channel (e.g., on login). Check channel naming. Channels only exist while they have connections.",
     "example": "app.on(\"login\", (result, { connection }) => { if (connection) app.channel(\"authenticated\").join(connection) })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "channels",
       "real-time",

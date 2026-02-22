@@ -50,7 +50,7 @@ function makeDoc(
   id: string,
   title: string,
   content: string,
-  version: 'v4' | 'v5' | 'both' = 'v5'
+  version: 'v5' | 'v6' | 'both' = 'v6'
 ): DocEntry {
   // Generate the same fake embedding we produce at query time so similarity
   // actually reflects term overlap.

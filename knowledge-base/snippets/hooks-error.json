@@ -5,7 +5,7 @@
     "useCase": "Global error handler",
     "code": "app.hooks({\n  error: {\n    all: [\n      async (context: HookContext) => {\n        console.error(`Error in '${context.path}' service method '${context.method}'`, context.error.stack)\n        // Don't expose internal errors to clients\n        if (!context.error.code) {\n          context.error = new GeneralError('An internal error occurred')\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Application-level error hook that logs errors and sanitizes internal errors before sending to clients.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "error-handling",
@@ -19,7 +19,7 @@
     "useCase": "Handle not found errors",
     "code": "app.service('messages').hooks({\n  error: {\n    get: [\n      async (context: HookContext) => {\n        if (context.error.code === 404) {\n          context.error = new NotFound(`Message ${context.id} not found`)\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Customizes the NotFound error message for a specific service.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "error-handling",
@@ -33,7 +33,7 @@
     "useCase": "Retry on database connection error",
     "code": "app.service('messages').hooks({\n  error: {\n    all: [\n      async (context: HookContext) => {\n        if (context.error.message?.includes('ECONNREFUSED') && !context.params._retried) {\n          context.params._retried = true\n          // Wait and retry once\n          await new Promise(resolve => setTimeout(resolve, 1000))\n          context.result = await context.service[context.method](...context.arguments)\n          context.error = null\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Retries a service call once when a database connection error occurs.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "error-handling",
@@ -47,7 +47,7 @@
     "useCase": "Map database errors to Feathers errors",
     "code": "import { BadRequest, Conflict, GeneralError } from '@feathersjs/errors'\n\napp.hooks({\n  error: {\n    all: [\n      async (context: HookContext) => {\n        if (context.error.code === 'SQLITE_CONSTRAINT') {\n          context.error = new Conflict('A record with that value already exists')\n        } else if (context.error.code === '23505') {\n          context.error = new Conflict('Duplicate key violation')\n        } else if (context.error.code === '23502') {\n          context.error = new BadRequest('Required field is missing')\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Maps low-level database constraint errors to proper Feathers error types.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "error-handling",
@@ -61,7 +61,7 @@
     "useCase": "Rate limit error response",
     "code": "app.hooks({\n  error: {\n    all: [\n      async (context: HookContext) => {\n        if (context.error.code === 429) {\n          context.error.message = 'Too many requests. Please wait and try again.'\n          context.error.data = {\n            retryAfter: 60\n          }\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Customizes rate limit error responses with retry-after information.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "error-handling",
@@ -75,7 +75,7 @@
     "useCase": "Log errors to external service",
     "code": "app.hooks({\n  error: {\n    all: [\n      async (context: HookContext) => {\n        // Log to external error tracking\n        if (context.error.code >= 500 || !context.error.code) {\n          console.error({\n            service: context.path,\n            method: context.method,\n            error: context.error.message,\n            stack: context.error.stack,\n            params: { provider: context.params.provider }\n          })\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Logs server errors (5xx) to console/external service for monitoring. Skips client errors (4xx).",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "error-handling",

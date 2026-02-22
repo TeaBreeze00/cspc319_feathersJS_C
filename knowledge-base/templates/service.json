@@ -10,7 +10,7 @@
       "@feathersjs/feathers"
     ],
     "featureFlags": [],
-    "version": "v5",
+    "version": "both",
     "description": "Custom Feathers v5 service class with CRUD methods",
     "language": "typescript",
     "tags": [
@@ -33,7 +33,7 @@
     "featureFlags": [
       "mongodb"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "MongoDB database service using @feathersjs/mongodb adapter",
     "language": "typescript",
     "tags": [
@@ -57,7 +57,7 @@
     "featureFlags": [
       "postgresql"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "PostgreSQL database service using @feathersjs/knex adapter",
     "language": "typescript",
     "tags": [
@@ -82,7 +82,7 @@
     "featureFlags": [
       "sqlite"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "SQLite database service using @feathersjs/knex adapter",
     "language": "typescript",
     "tags": [

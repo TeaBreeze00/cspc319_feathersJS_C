@@ -14,7 +14,7 @@
     "featureFlags": [
       "postgresql"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "PostgreSQL database service using @feathersjs/knex adapter",
     "language": "typescript",
     "tags": [

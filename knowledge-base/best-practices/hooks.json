@@ -6,7 +6,7 @@
     "rationale": "Around hooks provide the most control by wrapping the entire before/after/error flow in a single function. They are the recommended pattern in Feathers v5.",
     "goodExample": "app.service('messages').hooks({\n  around: {\n    all: [\n      async (context, next) => {\n        console.log('Before:', context.method)\n        await next()\n        console.log('After:', context.method)\n      }\n    ]\n  }\n})",
     "badExample": "// Anti-pattern: duplicating logic across before/after\napp.service('messages').hooks({\n  before: { all: [logBefore] },\n  after: { all: [logAfter] },\n  error: { all: [logError] }\n})",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "hooks",
       "around",
@@ -20,7 +20,7 @@
     "rationale": "Each hook should do one thing well. Chain multiple small hooks rather than creating large monolithic hooks.",
     "goodExample": "// Good: composable, reusable hooks\napp.service('messages').hooks({\n  before: {\n    create: [authenticate('jwt'), validateData, setTimestamp, setOwner]\n  }\n})",
     "badExample": "// Bad: one massive hook doing everything\napp.service('messages').hooks({\n  before: {\n    create: [async (context) => {\n      // 200 lines of auth + validation + data manipulation\n    }]\n  }\n})",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "hooks",
       "composition",
@@ -34,7 +34,7 @@
     "rationale": "Feathers v5 recommends using schema resolvers instead of manual hooks for setting computed properties, populating associations, and securing response data.",
     "goodExample": "// v5 recommended: resolvers\nconst messageDataResolver = resolve<Message, HookContext>({\n  userId: async (value, message, context) => context.params.user.id,\n  createdAt: async () => Date.now()\n})\n\napp.service('messages').hooks({\n  around: { all: [resolveResult(resultResolver)] },\n  before: { create: [resolveData(messageDataResolver)] }\n})",
     "badExample": "// Less ideal for v5: manual hooks\napp.service('messages').hooks({\n  before: {\n    create: [\n      async (context) => {\n        context.data.userId = context.params.user.id\n        context.data.createdAt = Date.now()\n      }\n    ]\n  }\n})",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "hooks",
       "resolvers",
@@ -49,7 +49,7 @@
     "rationale": "Register hooks at the application level for logic that applies to all services, such as logging, error handling, or authentication.",
     "goodExample": "// Good: application-level hook for cross-cutting concern\napp.hooks({\n  around: {\n    all: [async (context, next) => {\n      const start = Date.now()\n      await next()\n      console.log(`${context.path}.${context.method}: ${Date.now() - start}ms`)\n    }]\n  }\n})",
     "badExample": "// Bad: duplicating the same hook on every service\napp.service('messages').hooks({ around: { all: [logTime] } })\napp.service('users').hooks({ around: { all: [logTime] } })\napp.service('orders').hooks({ around: { all: [logTime] } })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "hooks",
       "application",
@@ -63,7 +63,7 @@
     "rationale": "Forgetting to call next() in an around hook will prevent the service method and subsequent hooks from executing.",
     "goodExample": "app.service('messages').hooks({\n  around: {\n    all: [async (context, next) => {\n      // Do something before\n      await next() // MUST call next()\n      // Do something after\n    }]\n  }\n})",
     "badExample": "// Bug: forgetting next() - service method never executes\napp.service('messages').hooks({\n  around: {\n    all: [async (context, next) => {\n      console.log('This runs, but service method never does')\n      // Missing: await next()\n    }]\n  }\n})",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "hooks",
       "around",

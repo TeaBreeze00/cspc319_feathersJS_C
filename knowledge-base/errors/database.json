@@ -5,7 +5,7 @@
     "cause": "Attempted to get, update, patch, or remove a record with an ID that does not exist in the database.",
     "solution": "Check that the ID is correct and the record exists. Handle 404 errors gracefully in the client.",
     "example": "try { await app.service(\"messages\").get(id) } catch(e) { if (e.code === 404) { /* handle */ } }",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "database",
       "crud",
@@ -19,7 +19,7 @@
     "cause": "A SQLite database constraint was violated (unique constraint, foreign key, not null).",
     "solution": "Check for duplicate values on unique columns. Ensure required fields are provided. Verify foreign key references exist.",
     "example": "await app.service(\"users\").create({ email: \"unique@email.com\" }) // fails if email already exists",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "sqlite",
       "knex",
@@ -34,7 +34,7 @@
     "cause": "Attempted to create or update a record with a value that violates a unique constraint.",
     "solution": "Check for existing records with the same unique field value. Use upsert pattern or check existence before create.",
     "example": "const existing = await service.find({ query: { email } }); if (existing.total > 0) throw new Conflict(\"Email exists\")",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "database",
       "unique",
@@ -49,7 +49,7 @@
     "cause": "MongoDB received an invalid ObjectId string (not a valid 24-character hex string).",
     "solution": "Validate ID format before using in queries. Use ObjectIdSchema from @feathersjs/mongodb for schema validation with automatic conversion.",
     "example": "import { ObjectIdSchema } from \"@feathersjs/mongodb\"; const schema = Type.Object({ userId: ObjectIdSchema() })",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "mongodb",
       "objectid",
@@ -64,7 +64,7 @@
     "cause": "Cannot connect to the database or external service.",
     "solution": "Check that the database server is running. Verify connection string/URL. Check network connectivity and firewall rules.",
     "example": "Check config/default.json for correct database connection settings",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "database",
       "connection",
@@ -78,7 +78,7 @@
     "cause": "A database migration failed to apply.",
     "solution": "Check the migration file for syntax errors. Ensure the database state matches expectations. Run migrations in order. Use `knex migrate:status` to check.",
     "example": "npx knex migrate:latest --knexfile knexfile.ts",
-    "version": "v5",
+    "version": "both",
     "tags": [
       "database",
       "migration",

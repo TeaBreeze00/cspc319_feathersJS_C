@@ -74,20 +74,8 @@ export class KnowledgeLoader {
       }
     }
 
-    // No file specified: combine all JSON arrays in folder
-    const names = await readdir(folder);
-    const arrays: T[] = [];
-    for (const n of names) {
-      if (!n.endsWith('.json')) continue;
-      const p = path.join(folder, n);
-      const raw = await readFile(p, 'utf8');
-      try {
-        const parsed = JSON.parse(raw) as T[];
-        arrays.push(...parsed);
-      } catch {
-        // skip invalid JSON files
-      }
-    }
+    // No file specified: recursively combine all JSON arrays in folder
+    const arrays: T[] = await this.readAllJsonArraysRecursive<T>(folder, []);
     this.cache.set(key, arrays);
     return arrays;
   }

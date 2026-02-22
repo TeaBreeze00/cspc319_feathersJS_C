@@ -33,16 +33,16 @@ export class GetHookExampleTool extends BaseTool {
         enum: ['before', 'after', 'error'],
       },
       useCase: { type: 'string' },
-      version: { type: 'string' },
+      version: { type: 'string', enum: ['v5', 'v6'] },
     },
     required: ['hookType'],
   };
 
   async execute(params: unknown): Promise<ToolResult> {
-    const { hookType, useCase, version = 'v5' } = params as GetHookExampleParams;
+    const { hookType, useCase, version = 'v6' } = params as GetHookExampleParams;
     const snippets = this.loadSnippets(hookType);
 
-    const versioned = snippets.filter((s) => s.version === version);
+    const versioned = snippets.filter((s) => s.version === version || s.version === 'both');
     if (versioned.length === 0) {
       return {
         content: `No hook examples found for type "${hookType}" in version "${version}".`,

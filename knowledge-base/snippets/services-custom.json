@@ -5,7 +5,7 @@
     "useCase": "Service with setup/teardown",
     "code": "class DatabaseService {\n  connection: any = null\n\n  async setup(app: Application, path: string) {\n    this.connection = await createDatabaseConnection(app.get('dbUrl'))\n    console.log(`Service ${path} connected to database`)\n  }\n\n  async teardown(app: Application, path: string) {\n    if (this.connection) {\n      await this.connection.close()\n      console.log(`Service ${path} disconnected from database`)\n    }\n  }\n\n  async find(params: Params) {\n    return this.connection.query('SELECT * FROM items')\n  }\n}",
     "explanation": "Service with setup (initialize on app start) and teardown (cleanup on shutdown) lifecycle methods.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "lifecycle",
@@ -20,7 +20,7 @@
     "useCase": "External API wrapper service",
     "code": "class WeatherService {\n  async find(params: Params) {\n    const { city } = params.query || {}\n    const response = await fetch(`https://api.weather.com/v1/${city}`)\n    if (!response.ok) throw new BadRequest('City not found')\n    return response.json()\n  }\n\n  async get(id: Id, params: Params) {\n    const response = await fetch(`https://api.weather.com/v1/forecast/${id}`)\n    return response.json()\n  }\n}\n\napp.use('weather', new WeatherService(), {\n  methods: ['find', 'get']\n})",
     "explanation": "Custom service wrapping an external REST API. Only exposes find and get methods.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "custom-service",
@@ -34,7 +34,7 @@
     "useCase": "Service with events",
     "code": "class NotificationService {\n  events = ['statusChanged']\n\n  async create(data: any, params: Params) {\n    const notification = { ...data, id: Date.now(), status: 'sent' }\n    this.emit('statusChanged', notification)\n    return notification\n  }\n}\n\n// Listen for custom events\napp.service('notifications').on('statusChanged', (data: any) => {\n  console.log('Notification status changed:', data)\n})",
     "explanation": "Service emitting custom events that can be listened to in real-time.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "events",
@@ -48,7 +48,7 @@
     "useCase": "File upload service pattern",
     "code": "import multer from 'multer'\n\nclass UploadService {\n  async create(data: any, params: Params) {\n    const file = params.file\n    if (!file) throw new BadRequest('No file uploaded')\n    return {\n      id: Date.now(),\n      originalName: file.originalname,\n      size: file.size,\n      mimetype: file.mimetype,\n      path: file.path\n    }\n  }\n}\n\n// Express middleware for file uploads\napp.use('uploads',\n  multer({ dest: 'uploads/' }).single('file'),\n  new UploadService()\n)",
     "explanation": "File upload service using multer middleware for handling multipart form data.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "upload",

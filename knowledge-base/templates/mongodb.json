@@ -13,7 +13,7 @@
     "featureFlags": [
       "mongodb"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "MongoDB database service using @feathersjs/mongodb adapter",
     "language": "typescript",
     "tags": [

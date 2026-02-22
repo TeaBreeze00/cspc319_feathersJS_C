@@ -165,21 +165,38 @@
         padding: 5px;
         box-shadow: var(--shadow-sm);
         margin-bottom: 24px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        scrollbar-color: var(--c-border-m) transparent;
+      }
+
+      .tool-tabs::-webkit-scrollbar {
+        height: 6px;
+      }
+
+      .tool-tabs::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .tool-tabs::-webkit-scrollbar-thumb {
+        background: var(--c-border-m);
+        border-radius: 3px;
       }
 
       .tool-tab {
-        flex: 1;
+        flex: 0 0 auto;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        padding: 10px 12px;
+        gap: 6px;
+        padding: 8px 12px;
         border-radius: var(--radius-md);
         border: none;
         background: transparent;
         cursor: pointer;
         font-family: var(--font-sans);
-        font-size: 0.875rem;
+        font-size: 0.82rem;
         font-weight: 500;
         color: var(--c-text-2);
         transition:
@@ -1083,7 +1100,61 @@
           role="tab"
         >
           <span class="tab-icon">🔍</span>
-          <span>Search Docs</span>
+          <span>Search</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="explain_concept"
+          onclick="switchTool('explain_concept')"
+          role="tab"
+        >
+          <span class="tab-icon">💡</span>
+          <span>Explain</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="get_hook_example"
+          onclick="switchTool('get_hook_example')"
+          role="tab"
+        >
+          <span class="tab-icon">🪝</span>
+          <span>Hooks</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="get_best_practices"
+          onclick="switchTool('get_best_practices')"
+          role="tab"
+        >
+          <span class="tab-icon">✅</span>
+          <span>Best Practices</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="troubleshoot_error"
+          onclick="switchTool('troubleshoot_error')"
+          role="tab"
+        >
+          <span class="tab-icon">🐛</span>
+          <span>Troubleshoot</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="suggest_alternatives"
+          onclick="switchTool('suggest_alternatives')"
+          role="tab"
+        >
+          <span class="tab-icon">🔀</span>
+          <span>Alternatives</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="validate_code"
+          onclick="switchTool('validate_code')"
+          role="tab"
+        >
+          <span class="tab-icon">✔️</span>
+          <span>Validate</span>
         </button>
         <button
           class="tool-tab"
@@ -1092,7 +1163,7 @@
           role="tab"
         >
           <span class="tab-icon">📦</span>
-          <span>Get Template</span>
+          <span>Template</span>
         </button>
         <button
           class="tool-tab"
@@ -1101,7 +1172,16 @@
           role="tab"
         >
           <span class="tab-icon">⚙️</span>
-          <span>Generate Service</span>
+          <span>Service</span>
+        </button>
+        <button
+          class="tool-tab"
+          data-tool="list_tools"
+          onclick="switchTool('list_tools')"
+          role="tab"
+        >
+          <span class="tab-icon">📋</span>
+          <span>List Tools</span>
         </button>
       </div>
 
@@ -1130,10 +1210,9 @@
               <div class="form-group">
                 <label for="sd-version">Version Filter</label>
                 <select id="sd-version">
-                  <option value="v5" selected>v5 (default)</option>
-                  <option value="v6">v6 (latest)</option>
-                  <option value="v4">v4</option>
-                  <option value="both">Both v4 + v5</option>
+                  <option value="v6" selected>v6 (latest)</option>
+                  <option value="v5">v5</option>
+                  <option value="both">Both v5 + v6</option>
                   <option value="all">All versions</option>
                 </select>
               </div>
@@ -1151,7 +1230,265 @@
         <div id="results-search_docs"></div>
       </div>
 
-      <!-- ── Tool Panel: get_feathers_template ──────────────── -->
+      <!-- ── Tool Panel: explain_concept ────────────────────────── -->
+      <div id="panel-explain_concept" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">💡 Explain Concept</div>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="ec-concept"
+                >Concept
+                <span class="label-hint"
+                  >What FeathersJS concept do you want explained?</span
+                ></label
+              >
+              <input
+                type="text"
+                id="ec-concept"
+                placeholder="e.g. hooks, services, authentication, channels…"
+              />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runExplainConcept()">
+                <span>▶</span> Explain
+              </button>
+              <button class="btn-example" onclick="exampleExplainConcept()">
+                Try example → "services"
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-explain_concept"></div>
+      </div>
+
+      <!-- ── Tool Panel: get_hook_example ───────────────────────── -->
+      <div id="panel-get_hook_example" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🪝 Get Hook Example</div>
+          </div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="he-type">Hook Type</label>
+                <select id="he-type">
+                  <option value="before" selected>Before</option>
+                  <option value="after">After</option>
+                  <option value="error">Error</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="he-version">Version</label>
+                <select id="he-version">
+                  <option value="v6" selected>v6</option>
+                  <option value="v5">v5</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="he-usecase"
+                >Use Case <span class="label-hint">(optional) Describe what you need</span></label
+              >
+              <input
+                type="text"
+                id="he-usecase"
+                placeholder="e.g. validate data, hash password, log requests…"
+              />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runGetHookExample()">
+                <span>▶</span> Get Example
+              </button>
+              <button class="btn-example" onclick="exampleGetHookExample()">
+                Try example → before hook for validation
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-get_hook_example"></div>
+      </div>
+
+      <!-- ── Tool Panel: get_best_practices ─────────────────────── -->
+      <div id="panel-get_best_practices" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">✅ Get Best Practices</div>
+          </div>
+          <div class="card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label for="bp-topic">Topic</label>
+                <select id="bp-topic">
+                  <option value="hooks" selected>Hooks</option>
+                  <option value="services">Services</option>
+                  <option value="security">Security</option>
+                  <option value="testing">Testing</option>
+                  <option value="performance">Performance</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="bp-context"
+                >Context <span class="label-hint">(optional) Narrow down results</span></label
+              >
+              <input
+                type="text"
+                id="bp-context"
+                placeholder="e.g. authentication, database queries, error handling…"
+              />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runGetBestPractices()">
+                <span>▶</span> Get Practices
+              </button>
+              <button class="btn-example" onclick="exampleGetBestPractices()">
+                Try example → security best practices
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-get_best_practices"></div>
+      </div>
+
+      <!-- ── Tool Panel: troubleshoot_error ─────────────────────── -->
+      <div id="panel-troubleshoot_error" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🐛 Troubleshoot Error</div>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="te-error"
+                >Error Message <span class="label-hint">Paste the error you're seeing</span></label
+              >
+              <textarea
+                id="te-error"
+                rows="3"
+                placeholder="e.g. NotAuthenticated: No auth token"
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <label for="te-stack"
+                >Stack Trace
+                <span class="label-hint">(optional) Helps narrow down the issue</span></label
+              >
+              <textarea id="te-stack" rows="4" placeholder="Paste stack trace here…"></textarea>
+            </div>
+            <div class="form-group">
+              <label for="te-version">Version</label>
+              <select id="te-version">
+                <option value="v6" selected>v6</option>
+                <option value="v5">v5</option>
+              </select>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runTroubleshootError()">
+                <span>▶</span> Troubleshoot
+              </button>
+              <button class="btn-example" onclick="exampleTroubleshootError()">
+                Try example → NotAuthenticated error
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-troubleshoot_error"></div>
+      </div>
+
+      <!-- ── Tool Panel: suggest_alternatives ───────────────────── -->
+      <div id="panel-suggest_alternatives" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🔀 Suggest Alternatives</div>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="sa-pattern"
+                >Pattern <span class="label-hint">Describe the implementation pattern</span></label
+              >
+              <input
+                type="text"
+                id="sa-pattern"
+                placeholder="e.g. authentication, real-time updates, file upload…"
+              />
+            </div>
+            <div class="form-group">
+              <label for="sa-context"
+                >Context <span class="label-hint">(optional) Additional context</span></label
+              >
+              <input
+                type="text"
+                id="sa-context"
+                placeholder="e.g. REST API, WebSocket, microservices…"
+              />
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runSuggestAlternatives()">
+                <span>▶</span> Get Alternatives
+              </button>
+              <button class="btn-example" onclick="exampleSuggestAlternatives()">
+                Try example → authentication patterns
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-suggest_alternatives"></div>
+      </div>
+
+      <!-- ── Tool Panel: validate_code ──────────────────────────── -->
+      <div id="panel-validate_code" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">✔️ Validate Code</div>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <label for="vc-code"
+                >Code <span class="label-hint">Paste your FeathersJS code to validate</span></label
+              >
+              <textarea
+                id="vc-code"
+                rows="10"
+                placeholder="// Paste your TypeScript or JavaScript code here…"
+                style="font-family: var(--font-mono); font-size: 13px"
+              ></textarea>
+            </div>
+            <div class="form-group">
+              <label>Checks to Run</label>
+              <div class="toggle-row">
+                <label class="toggle-label">
+                  <input type="checkbox" id="vc-typescript" checked />
+                  TypeScript
+                </label>
+                <label class="toggle-label">
+                  <input type="checkbox" id="vc-eslint" checked />
+                  ESLint
+                </label>
+                <label class="toggle-label">
+                  <input type="checkbox" id="vc-prettier" />
+                  Prettier
+                </label>
+                <label class="toggle-label">
+                  <input type="checkbox" id="vc-bestpractices" checked />
+                  Best Practices
+                </label>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runValidateCode()">
+                <span>▶</span> Validate
+              </button>
+              <button class="btn-example" onclick="exampleValidateCode()">
+                Try example → sample hook code
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-validate_code"></div>
+      </div>
+
+      <!-- ── Tool Panel: get_feathers_template ──────────────────── -->
       <div id="panel-get_feathers_template" class="tool-panel" style="display: none">
         <div class="card">
           <div class="card-header">
@@ -1236,6 +1573,27 @@
         </div>
         <div id="results-generate_service"></div>
       </div>
+
+      <!-- ── Tool Panel: list_tools ─────────────────────────────── -->
+      <div id="panel-list_tools" class="tool-panel" style="display: none">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📋 List All Tools</div>
+          </div>
+          <div class="card-body">
+            <p style="color: var(--c-text-2); margin-bottom: 16px">
+              Fetch the complete list of available MCP tools from the server, including their
+              descriptions and input schemas.
+            </p>
+            <div class="form-actions">
+              <button class="btn btn-primary" onclick="runListTools()">
+                <span>▶</span> Fetch Tools
+              </button>
+            </div>
+          </div>
+        </div>
+        <div id="results-list_tools"></div>
+      </div>
     </main>
 
     <!-- Toast container -->
@@ -1295,7 +1653,6 @@
       const VERSION_BADGE = {
         v6: 'badge-teal',
         v5: 'badge-blue',
-        v4: 'badge-amber',
         both: 'badge-purple',
       };
       function versionBadge(ver) {
@@ -1571,12 +1928,362 @@
       function exampleSearchDocs() {
         $('sd-query').value = 'hooks';
         $('sd-limit').value = '3';
-        $('sd-version').value = 'v5';
+        $('sd-version').value = 'v6';
         runSearchDocs();
       }
 
       // ════════════════════════════════════════════════════════════════
-      // TOOL 2 — get_feathers_template
+      // TOOL 2 — explain_concept
+      // ════════════════════════════════════════════════════════════════
+
+      async function runExplainConcept() {
+        const concept = $('ec-concept').value.trim();
+        const panel = $('results-explain_concept');
+
+        if (!concept) {
+          toast('Please enter a concept to explain.');
+          $('ec-concept').focus();
+          return;
+        }
+
+        showLoading('results-explain_concept', `Looking up "${concept}"…`);
+
+        try {
+          const raw = await callTool('explain_concept', { concept });
+          const content = parseMCPResult(raw);
+          renderExplainResult(panel, content, concept);
+        } catch (err) {
+          showError('results-explain_concept', err.message);
+        }
+      }
+
+      function renderExplainResult(panel, content, concept) {
+        // content is plain text from the tool
+        const escaped = escHtml(content).replace(/\n/g, '<br>');
+        panel.innerHTML = `
+          <div id="results-panel">
+            <div class="result-meta">
+              Explanation for <strong>"${escHtml(concept)}"</strong>
+            </div>
+            <div class="card">
+              <div class="card-body" style="white-space: pre-wrap; font-size: 14px; line-height: 1.7;">
+${escaped}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function exampleExplainConcept() {
+        $('ec-concept').value = 'services';
+        runExplainConcept();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 3 — get_hook_example
+      // ════════════════════════════════════════════════════════════════
+
+      async function runGetHookExample() {
+        const hookType = $('he-type').value;
+        const version = $('he-version').value;
+        const useCase = $('he-usecase').value.trim();
+        const panel = $('results-get_hook_example');
+
+        showLoading('results-get_hook_example', `Finding ${hookType} hook example…`);
+
+        try {
+          const args = { hookType, version };
+          if (useCase) args.useCase = useCase;
+          const raw = await callTool('get_hook_example', args);
+          const parsed = parseMCPResult(raw);
+          renderHookExample(panel, parsed);
+        } catch (err) {
+          showError('results-get_hook_example', err.message);
+        }
+      }
+
+      function renderHookExample(panel, data) {
+        const code = data.code || '// No code available';
+        const highlighted = hljs.highlight(code, {
+          language: 'typescript',
+          ignoreIllegals: true,
+        }).value;
+
+        panel.innerHTML = `
+          <div id="results-panel">
+            <div class="result-meta">
+              <span class="badge badge-purple">${escHtml(data.hookType || 'hook')}</span>
+              <span class="badge badge-blue">${escHtml(data.version || 'v5')}</span>
+              &nbsp;·&nbsp; Use case: <strong>${escHtml(data.useCase || 'General')}</strong>
+            </div>
+            <div class="card">
+              <div class="card-body">
+                <div class="code-block">
+                  <div class="file-path-bar">hook-example.ts</div>
+                  <pre><code class="hljs language-typescript">${highlighted}</code></pre>
+                </div>
+                ${data.explanation ? `<p style="margin-top: 16px; color: var(--c-text-2);">${escHtml(data.explanation)}</p>` : ''}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function exampleGetHookExample() {
+        $('he-type').value = 'before';
+        $('he-version').value = 'v6';
+        $('he-usecase').value = 'validate data';
+        runGetHookExample();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 4 — get_best_practices
+      // ════════════════════════════════════════════════════════════════
+
+      async function runGetBestPractices() {
+        const topic = $('bp-topic').value;
+        const context = $('bp-context').value.trim();
+        const panel = $('results-get_best_practices');
+
+        showLoading('results-get_best_practices', `Loading ${topic} best practices…`);
+
+        try {
+          const args = { topic };
+          if (context) args.context = context;
+          const raw = await callTool('get_best_practices', args);
+          const content = parseMCPResult(raw);
+          renderBestPractices(panel, content, topic);
+        } catch (err) {
+          showError('results-get_best_practices', err.message);
+        }
+      }
+
+      function renderBestPractices(panel, content, topic) {
+        const escaped = escHtml(content)
+          .replace(/\n/g, '<br>')
+          .replace(
+            /----------------------------------------/g,
+            '<hr style="margin: 20px 0; border: none; border-top: 1px solid var(--c-border);">'
+          );
+        panel.innerHTML = `
+          <div id="results-panel">
+            <div class="result-meta">
+              Best practices for <strong>${escHtml(topic)}</strong>
+            </div>
+            <div class="card">
+              <div class="card-body" style="font-size: 14px; line-height: 1.7;">
+${escaped}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function exampleGetBestPractices() {
+        $('bp-topic').value = 'security';
+        $('bp-context').value = '';
+        runGetBestPractices();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 5 — troubleshoot_error
+      // ════════════════════════════════════════════════════════════════
+
+      async function runTroubleshootError() {
+        const errorMessage = $('te-error').value.trim();
+        const stackTrace = $('te-stack').value.trim();
+        const version = $('te-version').value;
+        const panel = $('results-troubleshoot_error');
+
+        if (!errorMessage) {
+          toast('Please enter an error message.');
+          $('te-error').focus();
+          return;
+        }
+
+        showLoading('results-troubleshoot_error', 'Analyzing error…');
+
+        try {
+          const args = { errorMessage, version };
+          if (stackTrace) args.stackTrace = stackTrace;
+          const raw = await callTool('troubleshoot_error', args);
+          const content = parseMCPResult(raw);
+          renderTroubleshoot(panel, content);
+        } catch (err) {
+          showError('results-troubleshoot_error', err.message);
+        }
+      }
+
+      function renderTroubleshoot(panel, content) {
+        const escaped = escHtml(content).replace(/\n/g, '<br>');
+        panel.innerHTML = `
+          <div id="results-panel">
+            <div class="result-meta">
+              <span class="badge badge-red">Troubleshooting Result</span>
+            </div>
+            <div class="card">
+              <div class="card-body" style="font-size: 14px; line-height: 1.7;">
+${escaped}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function exampleTroubleshootError() {
+        $('te-error').value = 'NotAuthenticated: No auth token';
+        $('te-stack').value = '';
+        $('te-version').value = 'v6';
+        runTroubleshootError();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 6 — suggest_alternatives
+      // ════════════════════════════════════════════════════════════════
+
+      async function runSuggestAlternatives() {
+        const pattern = $('sa-pattern').value.trim();
+        const context = $('sa-context').value.trim();
+        const panel = $('results-suggest_alternatives');
+
+        if (!pattern) {
+          toast('Please enter a pattern to find alternatives for.');
+          $('sa-pattern').focus();
+          return;
+        }
+
+        showLoading('results-suggest_alternatives', `Finding alternatives for "${pattern}"…`);
+
+        try {
+          const args = { pattern };
+          if (context) args.context = context;
+          const raw = await callTool('suggest_alternatives', args);
+          const content = parseMCPResult(raw);
+          renderAlternatives(panel, content, pattern);
+        } catch (err) {
+          showError('results-suggest_alternatives', err.message);
+        }
+      }
+
+      function renderAlternatives(panel, content, pattern) {
+        const escaped = escHtml(content)
+          .replace(/\n/g, '<br>')
+          .replace(
+            /----------------------------------------/g,
+            '<hr style="margin: 20px 0; border: none; border-top: 1px solid var(--c-border);">'
+          );
+        panel.innerHTML = `
+          <div id="results-panel">
+            <div class="result-meta">
+              Alternatives for <strong>"${escHtml(pattern)}"</strong>
+            </div>
+            <div class="card">
+              <div class="card-body" style="font-size: 14px; line-height: 1.7;">
+${escaped}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function exampleSuggestAlternatives() {
+        $('sa-pattern').value = 'authentication';
+        $('sa-context').value = 'REST API';
+        runSuggestAlternatives();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 7 — validate_code
+      // ════════════════════════════════════════════════════════════════
+
+      async function runValidateCode() {
+        const code = $('vc-code').value;
+        const panel = $('results-validate_code');
+
+        if (!code.trim()) {
+          toast('Please enter some code to validate.');
+          $('vc-code').focus();
+          return;
+        }
+
+        const checks = [];
+        if ($('vc-typescript').checked) checks.push('typescript');
+        if ($('vc-eslint').checked) checks.push('eslint');
+        if ($('vc-prettier').checked) checks.push('prettier');
+        if ($('vc-bestpractices').checked) checks.push('bestPractices');
+
+        showLoading('results-validate_code', 'Validating code…');
+
+        try {
+          const raw = await callTool('validate_code', { code, checks });
+          const parsed = parseMCPResult(raw);
+          renderValidation(panel, parsed);
+        } catch (err) {
+          showError('results-validate_code', err.message);
+        }
+      }
+
+      function renderValidation(panel, data) {
+        const valid = data.valid;
+        const results = data.results || {};
+
+        const statusBadge = valid
+          ? '<span class="badge badge-green">✓ Valid</span>'
+          : '<span class="badge badge-red">✗ Issues Found</span>';
+
+        const checkRows = ['typescript', 'eslint', 'prettier', 'bestPractices']
+          .map((key) => {
+            const result = results[key];
+            if (!result) return '';
+            const ok = result.valid !== false && !result.errors?.length;
+            const icon = ok ? '✓' : '✗';
+            const color = ok ? 'var(--c-green)' : 'var(--c-red)';
+            const errors = result.errors || [];
+            const errorList =
+              errors.length > 0
+                ? `<ul style="margin: 8px 0 0 20px; color: var(--c-red);">${errors.map((e) => `<li>${escHtml(typeof e === 'string' ? e : e.message || JSON.stringify(e))}</li>`).join('')}</ul>`
+                : '';
+            return `
+            <div style="margin-bottom: 12px;">
+              <strong style="color: ${color};">${icon} ${key}</strong>
+              ${errorList}
+            </div>`;
+          })
+          .join('');
+
+        const formattedCode = data.formattedCode
+          ? `<div class="code-block" style="margin-top: 16px;">
+              <div class="file-path-bar">Formatted Code</div>
+              <pre><code class="hljs language-typescript">${hljs.highlight(data.formattedCode, { language: 'typescript', ignoreIllegals: true }).value}</code></pre>
+            </div>`
+          : '';
+
+        panel.innerHTML = `
+          <div id="results-panel">
+            <div class="result-meta">
+              ${statusBadge}
+            </div>
+            <div class="card">
+              <div class="card-body">
+                ${checkRows}
+                ${formattedCode}
+              </div>
+            </div>
+          </div>`;
+      }
+
+      function exampleValidateCode() {
+        $('vc-code').value = `import { HookContext, NextFunction } from '@feathersjs/feathers';
+
+export const logRequest = async (context: HookContext, next: NextFunction) => {
+  console.log('Service:', context.path);
+  console.log('Method:', context.method);
+  await next();
+};`;
+        $('vc-typescript').checked = true;
+        $('vc-eslint').checked = true;
+        $('vc-prettier').checked = false;
+        $('vc-bestpractices').checked = true;
+        runValidateCode();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 8 — get_feathers_template
       // ════════════════════════════════════════════════════════════════
 
       async function runGetTemplate() {
@@ -1672,7 +2379,7 @@
       }
 
       // ════════════════════════════════════════════════════════════════
-      // TOOL 3 — generate_service
+      // TOOL 9 — generate_service
       // ════════════════════════════════════════════════════════════════
 
       // ── Field builder ─────────────────────────────────────────────
@@ -1808,6 +2515,80 @@
         addField('description', 'string', false);
         addField('inStock', 'boolean', false);
         runGenerateService();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 10 — list_tools
+      // ════════════════════════════════════════════════════════════════
+
+      async function runListTools() {
+        const panel = $('results-list_tools');
+
+        showLoading('results-list_tools', 'Fetching available tools…');
+
+        try {
+          const resp = await fetch('/api/tools');
+          const data = await resp.json();
+
+          if (!data.ok) {
+            throw new Error(data.error || 'Failed to fetch tools');
+          }
+
+          renderToolsList(panel, data.tools);
+        } catch (err) {
+          showError('results-list_tools', err.message);
+        }
+      }
+
+      function renderToolsList(panel, tools) {
+        if (!tools || tools.length === 0) {
+          panel.innerHTML = `
+            <div class="card"><div class="card-body">
+              <div class="placeholder">
+                <div class="ph-icon">📋</div>
+                <div class="ph-title">No tools found</div>
+                <div class="ph-sub">The MCP server returned an empty tools list.</div>
+              </div>
+            </div></div>`;
+          return;
+        }
+
+        const toolCards = tools
+          .map((tool) => {
+            const props = tool.inputSchema?.properties || {};
+            const required = tool.inputSchema?.required || [];
+            const params = Object.entries(props)
+              .map(([name, schema]) => {
+                const isRequired = required.includes(name);
+                const typeStr = schema.enum ? schema.enum.join(' | ') : schema.type || 'any';
+                return `<div style="margin: 4px 0; font-size: 13px;">
+                  <code style="background: var(--c-primary-l); padding: 2px 6px; border-radius: 4px;">${escHtml(name)}</code>
+                  <span style="color: var(--c-text-3); margin-left: 6px;">${escHtml(typeStr)}</span>
+                  ${isRequired ? '<span class="badge badge-amber" style="margin-left: 6px; font-size: 10px;">required</span>' : ''}
+                </div>`;
+              })
+              .join('');
+
+            return `
+              <div class="doc-card" style="margin-bottom: 12px;">
+                <div class="doc-card-header">
+                  <div class="doc-card-title" style="font-family: var(--font-mono);">${escHtml(tool.name)}</div>
+                </div>
+                <div class="doc-card-body">
+                  <p style="color: var(--c-text-2); margin-bottom: 12px;">${escHtml(tool.description || 'No description')}</p>
+                  ${params ? `<div style="border-top: 1px solid var(--c-border); padding-top: 12px;"><strong style="font-size: 12px; color: var(--c-text-3);">PARAMETERS</strong>${params}</div>` : ''}
+                </div>
+              </div>`;
+          })
+          .join('');
+
+        panel.innerHTML = `
+          <div id="results-panel">
+            <div class="result-meta">
+              Found <strong>${tools.length}</strong> available tool${tools.length !== 1 ? 's' : ''}
+            </div>
+            ${toolCards}
+          </div>`;
       }
     </script>
   </body>

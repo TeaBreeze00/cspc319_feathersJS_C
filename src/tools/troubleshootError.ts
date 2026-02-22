@@ -1,6 +1,6 @@
 import { BaseTool } from './baseTool';
 import { JsonSchema, ToolResult } from '../protocol/types';
-import { ToolRegistration,ToolHandler } from '../protocol/types';
+import { ToolRegistration, ToolHandler } from '../protocol/types';
 
 // Import your knowledge base
 import authErrors from '../../knowledge-base/errors/authentication.json';
@@ -28,17 +28,16 @@ interface ErrorEntry {
 export class TroubleshootErrorTool extends BaseTool {
   name = 'troubleshoot_error';
 
-  description =
-    'Analyze a FeathersJS error and suggest likely cause, solution, and example fix.';
+  description = 'Analyze a FeathersJS error and suggest likely cause, solution, and example fix.';
 
   inputSchema: JsonSchema = {
     type: 'object',
     properties: {
       errorMessage: { type: 'string' },
       stackTrace: { type: 'string' },
-      version: { type: 'string' }
+      version: { type: 'string', enum: ['v5', 'v6'] },
     },
-    required: ['errorMessage']
+    required: ['errorMessage'],
   };
 
   // Merge all error files into one array
@@ -46,29 +45,28 @@ export class TroubleshootErrorTool extends BaseTool {
     ...authErrors,
     ...configErrors,
     ...dbErrors,
-    ...runtimeErrors
+    ...runtimeErrors,
   ];
 
   async execute(params: unknown): Promise<ToolResult> {
-    const { errorMessage, stackTrace, version = 'v5' } =
-      params as TroubleshootParams;
+    const { errorMessage, stackTrace, version = 'v6' } = params as TroubleshootParams;
 
     const combinedText = `${errorMessage} ${stackTrace ?? ''}`;
 
-    // Filter by version first
+    // Filter by version first (include 'both' version entries)
     const relevantErrors = this.errorDatabase.filter(
-      entry => entry.version === version
+      (entry) => entry.version === version || entry.version === 'both'
     );
 
     // Match against patterns
     const matches = relevantErrors
-      .filter(entry => {
+      .filter((entry) => {
         const regex = new RegExp(entry.pattern, 'i');
         return regex.test(combinedText);
       })
-      .map(entry => ({
+      .map((entry) => ({
         entry,
-        score: entry.pattern.length // longer pattern = more specific
+        score: entry.pattern.length, // longer pattern = more specific
       }))
       .sort((a, b) => b.score - a.score);
 
@@ -89,7 +87,7 @@ General troubleshooting steps:
 
 Error Received:
 ${errorMessage}
-        `.trim()
+        `.trim(),
       };
     }
 
@@ -112,18 +110,18 @@ ${best.example}
       metadata: {
         id: best.id,
         category: best.category,
-        tags: best.tags
-      }
+        tags: best.tags,
+      },
     };
   }
 
-   register(): ToolRegistration {
+  register(): ToolRegistration {
     const handler: ToolHandler = async (params: unknown) => {
       // cast params safely
       const typedParams = params as TroubleshootParams;
       return this.execute(typedParams);
     };
-  
+
     return {
       name: this.name,
       description: this.description,
@@ -131,5 +129,4 @@ ${best.example}
       handler,
     };
   }
-  
 }

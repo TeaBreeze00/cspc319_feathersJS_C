@@ -14,7 +14,7 @@
     "featureFlags": [
       "authentication"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "JWT + Local authentication setup for FeathersJS v5",
     "language": "typescript",
     "tags": [
@@ -41,7 +41,7 @@
       "authentication",
       "oauth"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "JWT + Local + OAuth (Google/GitHub) authentication setup",
     "language": "typescript",
     "tags": [

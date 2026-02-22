@@ -1,89 +1,97 @@
-/**
- * searchDocs.ts
- *
- * MCP tool: search_docs
- *
- * Searches the FeathersJS documentation knowledge base using semantic
- * vector similarity instead of keyword (BM25) matching.
- *
- * At search time:
- *   1. The user's query is embedded with all-MiniLM-L6-v2 (local, no API key).
- *   2. Cosine similarity is computed against every pre-embedded DocEntry.
- *   3. Results are returned sorted by descending relevance score.
- *
- * Pre-conditions:
- *   - knowledge-base/docs/*.json files must contain an `embedding` field on
- *     each entry. Run `npm run generate:embeddings` once to populate them.
- *   - Docs without an `embedding` field are skipped gracefully.
- */
-
 import { BaseTool } from './baseTool';
 import { ToolResult } from './types';
+import { ToolRegistration, ToolHandler, JsonSchema } from '../protocol/types';
 import { KnowledgeLoader } from '../knowledge';
-import { DocEntry, DocVersion } from '../knowledge/types';
+import { DocEntry } from '../knowledge/types';
 import { vectorSearch } from './search/vectorSearch';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-type SearchVersion = DocVersion | 'all';
+type VersionFilter = 'v5' | 'v6' | 'both' | 'all';
 
 interface SearchDocsParams {
   query: string;
-  limit: number;
-  version: SearchVersion;
+  version?: VersionFilter;
+  limit?: number;
 }
+
+interface SearchResult {
+  id: string;
+  title: string;
+  version: string;
+  category: string;
+  score: number;
+  snippet: string;
+  url?: string;
+  headingPath?: string[];
+}
+
+interface SearchResponse {
+  query: string;
+  version: VersionFilter;
+  results: SearchResult[];
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const DEFAULT_LIMIT = 10;
+const MAX_LIMIT = 50;
+const SNIPPET_CONTEXT_CHARS = 200;
+const VALID_VERSIONS = new Set<VersionFilter>(['v5', 'v6', 'both', 'all']);
 
 // ---------------------------------------------------------------------------
 // SearchDocsTool
 // ---------------------------------------------------------------------------
 
 /**
- * Tool that searches the FeathersJS documentation knowledge base using
- * semantic vector embeddings and returns the most relevant entries.
+ * SearchDocsTool
  *
- * Name: `search_docs`
+ * Semantic search over the FeathersJS knowledge base using vector embeddings.
+ * Loads all DocEntry objects from the KnowledgeLoader, filters by version,
+ * then delegates ranking to VectorSearch (cosine similarity with all-MiniLM-L6-v2).
  *
- * Input:
- *   - query:   string (required)  — free-text search query
- *   - limit:   number (optional)  — max results to return (default 5, max 50)
- *   - version: string (optional)  — 'v4' | 'v5' | 'v6' | 'both' | 'all' (default 'v5')
+ * Returned JSON shape:
+ * {
+ *   query: string,
+ *   version: string,
+ *   results: Array<{
+ *     id, title, version, category, score, snippet, url, headingPath
+ *   }>
+ * }
  */
 export class SearchDocsTool extends BaseTool {
   name = 'search_docs';
 
   description =
-    'Searches the FeathersJS documentation knowledge base using semantic similarity and returns the most relevant entries.';
+    'Search the FeathersJS documentation using semantic vector search. ' +
+    'Returns the most relevant documentation sections for a given query, ' +
+    'optionally filtered by version (v4, v5, v6, both, all).';
 
-  inputSchema = {
+  inputSchema: JsonSchema = {
     type: 'object',
     properties: {
       query: {
         type: 'string',
-        description: 'Search query — can be a natural language question or keywords.',
-      },
-      limit: {
-        type: 'number',
-        minimum: 1,
-        maximum: 50,
-        description: 'Maximum number of results to return (default 5).',
+        description: 'The search query — a natural language question or keyword phrase.',
       },
       version: {
         type: 'string',
-        enum: ['v4', 'v5', 'v6', 'both', 'all'],
+        enum: ['v5', 'v6', 'both', 'all'],
         description:
-          'Documentation version filter. Default is v5. Use both/all to search all versions. Use v6 for the latest Feathers v6 docs.',
+          'FeathersJS version to search (default: v6). ' +
+          'Use "all" or "both" to search across all versions.',
+      },
+      limit: {
+        type: 'number',
+        description: `Maximum number of results to return (default: ${DEFAULT_LIMIT}, max: ${MAX_LIMIT}).`,
       },
     },
     required: ['query'],
-    additionalProperties: false,
   };
-
-  // ── Private state ──────────────────────────────────────────────────────────
-
-  /** Cached docs per version filter to avoid re-reading the filesystem. */
-  private docCache: Map<SearchVersion, DocEntry[]> = new Map();
 
   private loader: KnowledgeLoader;
 
@@ -92,183 +100,167 @@ export class SearchDocsTool extends BaseTool {
     this.loader = loader ?? new KnowledgeLoader();
   }
 
-  // ── Public API ─────────────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // execute
+  // ---------------------------------------------------------------------------
 
   async execute(params: unknown): Promise<ToolResult> {
-    const { query, limit, version } = this.normalizeParams(params);
+    // Safely normalize params — handle null, undefined, non-object inputs
+    const normalized = this.normalizeParams(params);
+    const { query, version, limit } = normalized;
 
-    // Empty query — return empty results immediately without hitting the model
+    // Empty query → return empty results immediately
     if (!query) {
-      return this.buildResult(query, [], version);
+      return this.buildResult(query, version, []);
     }
 
-    // Load and filter docs for the requested version
-    const docs = await this.getDocsForVersion(version);
+    // Load all docs from the knowledge base
+    const allDocs = await this.loader.load<DocEntry>('docs');
 
-    if (docs.length === 0) {
-      return this.buildResult(query, [], version);
+    // Filter by the requested version
+    const filteredDocs = this.filterByVersion(allDocs, version);
+
+    // Delegate ranking to vector search
+    const ranked = await vectorSearch.search(query, filteredDocs, limit);
+
+    // Build the full result objects by joining ranked ids back to their DocEntry
+    const docMap = new Map<string, DocEntry>(filteredDocs.map((d) => [d.id, d]));
+
+    const results: SearchResult[] = [];
+    for (const { id, score } of ranked) {
+      const doc = docMap.get(id);
+      if (!doc) continue;
+
+      results.push({
+        id: doc.id,
+        title: doc.title,
+        version: doc.version as string,
+        category: (doc.category as string) ?? 'uncategorized',
+        score,
+        snippet: this.generateSnippet(doc.content, query),
+        url: doc.source?.url,
+        headingPath: doc.headingPath,
+      });
     }
 
-    // Run semantic search
-    const hits = await vectorSearch.search(query, docs, limit);
-
-    // Map search results back to full DocEntry data + snippet
-    const results = hits
-      .map((hit) => {
-        const doc = docs.find((d) => d.id === hit.id);
-        if (!doc) return null;
-
-        return {
-          id: doc.id,
-          title: doc.title,
-          version: doc.version,
-          category: doc.category,
-          source: doc.source,
-          score: hit.score,
-          snippet: this.buildSnippet(doc),
-        };
-      })
-      .filter((r): r is NonNullable<typeof r> => r !== null);
-
-    return this.buildResult(query, results, version);
+    return this.buildResult(query, version, results);
   }
 
-  // ── Private helpers ────────────────────────────────────────────────────────
+  // ---------------------------------------------------------------------------
+  // register (MCP protocol registration)
+  // ---------------------------------------------------------------------------
+
+  register(): ToolRegistration {
+    const handler: ToolHandler = async (params: unknown) => {
+      return this.execute(params);
+    };
+
+    return {
+      name: this.name,
+      description: this.description,
+      inputSchema: this.inputSchema,
+      handler,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
   /**
-   * Validate and normalise raw incoming parameters.
+   * Safely extract and validate params from an unknown input.
+   * Returns safe defaults for every field.
    */
-  private normalizeParams(params: unknown): SearchDocsParams {
-    const obj = (params ?? {}) as Record<string, unknown>;
-
-    const query = typeof obj['query'] === 'string' ? obj['query'].trim() : '';
-
-    const limit =
-      typeof obj['limit'] === 'number' && Number.isFinite(obj['limit']) && obj['limit'] > 0
-        ? Math.min(Math.floor(obj['limit'] as number), 50)
-        : 5;
-
-    let version: SearchVersion = 'v5';
-    if (typeof obj['version'] === 'string') {
-      const v = obj['version'] as SearchVersion;
-      if (v === 'v4' || v === 'v5' || v === 'v6' || v === 'both' || v === 'all') {
-        version = v;
-      }
+  private normalizeParams(params: unknown): Required<SearchDocsParams> {
+    if (params === null || params === undefined || typeof params !== 'object') {
+      return { query: '', version: 'v5', limit: DEFAULT_LIMIT };
     }
 
-    return { query, limit, version };
-  }
+    const obj = params as Record<string, unknown>;
 
-  /**
-   * Load all docs for a given version filter, using an in-memory cache
-   * so the filesystem is only read once per version per process lifetime.
-   */
-  private async getDocsForVersion(version: SearchVersion): Promise<DocEntry[]> {
-    if (this.docCache.has(version)) {
-      return this.docCache.get(version)!;
+    // query — trim whitespace, default to empty string
+    const rawQuery = typeof obj.query === 'string' ? obj.query.trim() : '';
+
+    // version — validate against allowed set, fall back to 'v6'
+    const rawVersion = obj.version;
+    const version: VersionFilter =
+      typeof rawVersion === 'string' && VALID_VERSIONS.has(rawVersion as VersionFilter)
+        ? (rawVersion as VersionFilter)
+        : 'v6';
+
+    // limit — must be a positive integer, cap at MAX_LIMIT, fall back to DEFAULT_LIMIT
+    const rawLimit = obj.limit;
+    let limit = DEFAULT_LIMIT;
+    if (typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit > 0) {
+      limit = Math.min(Math.floor(rawLimit), MAX_LIMIT);
     }
 
-    const allDocs = (await this.loader.load<DocEntry>('docs')) ?? [];
-    const filtered = allDocs.filter((doc) => this.matchesVersion(doc.version, version));
-
-    this.docCache.set(version, filtered);
-    return filtered;
+    return { query: rawQuery, version, limit };
   }
 
   /**
-   * Determine whether a doc's version matches the requested filter.
-   */
-  private matchesVersion(docVersion: DocVersion, filter: SearchVersion): boolean {
-    if (filter === 'all' || filter === 'both') return true;
-    if (docVersion === 'both') return true;
-    return docVersion === filter;
-  }
-
-  /**
-   * Return the human-readable label for a version filter, used in result metadata.
-   */
-  private versionLabel(version: SearchVersion): string {
-    switch (version) {
-      case 'v4':
-        return 'FeathersJS v4';
-      case 'v5':
-        return 'FeathersJS v5';
-      case 'v6':
-        return 'FeathersJS v6';
-      case 'both':
-      case 'all':
-        return 'All versions';
-    }
-  }
-
-  /**
-   * Build a short human-readable excerpt from a doc's content.
+   * Filter docs by version.
    *
-   * With semantic search the query terms may not literally appear in the
-   * text, so we simply return the opening of the content — which is almost
-   * always the most informative part of a documentation entry.
-   *
-   * Markdown headings and blank lines at the very start are stripped so the
-   * snippet starts with real prose.
+   * - 'all' / 'both' → include everything
+   * - 'v5'           → include v5 + docs marked 'both'
+   * - 'v6'           → include v6 + docs marked 'both'
    */
-  private buildSnippet(doc: DocEntry, maxLength = 400): string {
-    let content = (doc.content ?? '').trim();
+  private filterByVersion(docs: DocEntry[], version: VersionFilter): DocEntry[] {
+    if (version === 'all' || version === 'both') {
+      return docs;
+    }
 
+    return docs.filter((doc) => doc.version === version || doc.version === 'both');
+  }
+
+  /**
+   * Extract a short snippet from content centred around the first occurrence
+   * of any query word. Falls back to the start of the content.
+   */
+  private generateSnippet(content: string, query: string): string {
     if (!content) return '';
 
-    // Strip leading Markdown heading lines (lines starting with #)
-    const lines = content.split('\n');
-    let firstContentLine = 0;
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (line.startsWith('#') || line.length === 0) {
-        firstContentLine = i + 1;
-      } else {
-        break;
+    const words = query
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((w) => w.length > 1);
+
+    let matchIndex = -1;
+
+    // Find the earliest occurrence of any query word in the content
+    for (const word of words) {
+      const idx = content.toLowerCase().indexOf(word);
+      if (idx !== -1 && (matchIndex === -1 || idx < matchIndex)) {
+        matchIndex = idx;
       }
     }
-    content = lines.slice(firstContentLine).join('\n').trim();
 
-    if (content.length <= maxLength) return content;
+    // Centre the window around the match (or use start of content)
+    const start = Math.max(0, (matchIndex === -1 ? 0 : matchIndex) - SNIPPET_CONTEXT_CHARS / 2);
+    const end = Math.min(content.length, start + SNIPPET_CONTEXT_CHARS);
 
-    // Trim to maxLength, breaking on a word boundary
-    const cut = content.slice(0, maxLength);
-    const lastSpace = cut.lastIndexOf(' ');
-    return (lastSpace > maxLength * 0.8 ? cut.slice(0, lastSpace) : cut) + '…';
+    let snippet = content.slice(start, end).trim();
+
+    // Add ellipsis if we're not at the boundaries
+    if (start > 0) snippet = '…' + snippet;
+    if (end < content.length) snippet = snippet + '…';
+
+    return snippet;
   }
 
   /**
-   * Construct the ToolResult payload returned to the MCP caller.
+   * Build the final ToolResult with content JSON and metadata.
    */
-  private buildResult(
-    query: string,
-    results: Array<{
-      id: string;
-      title: string;
-      version: DocVersion;
-      category: string;
-      source?: { url?: string; path?: string };
-      score: number;
-      snippet: string;
-    }>,
-    version: SearchVersion
-  ): ToolResult {
+  private buildResult(query: string, version: VersionFilter, results: SearchResult[]): ToolResult {
+    const response: SearchResponse = { query, version, results };
+
     return {
-      content: JSON.stringify(
-        {
-          query,
-          version,
-          results,
-        },
-        null,
-        2
-      ),
+      content: JSON.stringify(response, null, 2),
       metadata: {
-        tool: 'search_docs',
+        tool: this.name,
         query,
         version,
         count: results.length,
-        results,
       },
     };
   }

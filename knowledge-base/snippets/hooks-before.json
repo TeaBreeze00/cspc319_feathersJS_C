@@ -5,7 +5,7 @@
     "useCase": "Validate data before create",
     "code": "app.service('messages').hooks({\n  before: {\n    create: [\n      async (context: HookContext) => {\n        if (!context.data.text || context.data.text.trim() === '') {\n          throw new BadRequest('Message text cannot be empty')\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Validates that message text is not empty before creating. Throws BadRequest error if validation fails.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "validation",
@@ -19,7 +19,7 @@
     "useCase": "Set createdAt timestamp",
     "code": "app.service('messages').hooks({\n  before: {\n    create: [\n      async (context: HookContext) => {\n        context.data = {\n          ...context.data,\n          createdAt: Date.now()\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Adds createdAt timestamp to data before creating a new record.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "timestamp",
@@ -33,7 +33,7 @@
     "useCase": "Restrict to authenticated users",
     "code": "import { authenticate } from '@feathersjs/authentication'\n\napp.service('messages').hooks({\n  before: {\n    all: [authenticate('jwt')]\n  }\n})",
     "explanation": "Requires JWT authentication for all methods on the service. Uses the authenticate hook from @feathersjs/authentication.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "authentication",
@@ -47,7 +47,7 @@
     "useCase": "Set owner on create",
     "code": "app.service('messages').hooks({\n  before: {\n    create: [\n      async (context: HookContext) => {\n        const { user } = context.params\n        if (!user) throw new NotAuthenticated('Not authenticated')\n        context.data.userId = user.id\n      }\n    ]\n  }\n})",
     "explanation": "Sets the userId field to the authenticated user ID before creating a record. Ensures data ownership.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "authorization",
@@ -61,7 +61,7 @@
     "useCase": "Limit query results",
     "code": "app.service('messages').hooks({\n  before: {\n    find: [\n      async (context: HookContext) => {\n        context.params.query = {\n          ...context.params.query,\n          $limit: Math.min(context.params.query?.$limit || 25, 100)\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Limits the maximum number of results to 100, defaulting to 25. Prevents large query result sets.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "pagination",
@@ -76,7 +76,7 @@
     "useCase": "Sanitize HTML in input data",
     "code": "import sanitize from 'sanitize-html'\n\napp.service('messages').hooks({\n  before: {\n    create: [\n      async (context: HookContext) => {\n        if (context.data.text) {\n          context.data.text = sanitize(context.data.text)\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Sanitizes HTML from user input to prevent XSS attacks.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "sanitize",
@@ -90,7 +90,7 @@
     "useCase": "Normalize email to lowercase",
     "code": "app.service('users').hooks({\n  before: {\n    create: [\n      async (context: HookContext) => {\n        if (context.data.email) {\n          context.data.email = context.data.email.toLowerCase().trim()\n        }\n      }\n    ]\n  }\n})",
     "explanation": "Normalizes email addresses to lowercase before creating user accounts.",
-    "version": "v5",
+    "version": "both",
     "language": "typescript",
     "tags": [
       "email",

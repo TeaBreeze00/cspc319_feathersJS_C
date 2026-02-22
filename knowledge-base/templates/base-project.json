@@ -16,7 +16,7 @@
       "@feathersjs/socketio"
     ],
     "featureFlags": [],
-    "version": "v5",
+    "version": "both",
     "description": "Base FeathersJS v5 application setup with Koa, REST, and Socket.io",
     "language": "typescript",
     "tags": [
@@ -44,7 +44,7 @@
     "featureFlags": [
       "express"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "Base FeathersJS v5 application setup with Express, REST, and Socket.io",
     "language": "typescript",
     "tags": [
@@ -68,7 +68,7 @@
     "featureFlags": [
       "authentication"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "JWT + Local authentication setup for FeathersJS v5",
     "language": "typescript",
     "tags": [
@@ -95,7 +95,7 @@
       "authentication",
       "oauth"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "JWT + Local + OAuth (Google/GitHub) authentication setup",
     "language": "typescript",
     "tags": [
@@ -121,7 +121,7 @@
       "channels",
       "real-time"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "Real-time channel configuration for authenticated/anonymous users",
     "language": "typescript",
     "tags": [

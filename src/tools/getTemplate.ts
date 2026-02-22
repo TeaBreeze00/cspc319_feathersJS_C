@@ -23,7 +23,7 @@ interface GetTemplateParams {
  *   - database: 'mongodb' | 'postgresql' | 'sqlite' (required) - database adapter to use
  *   - auth: boolean (optional, default false) - include authentication setup
  *   - typescript: boolean (optional, default true) - generate TypeScript or JavaScript
- *   - version: 'v4' | 'v5' | 'both' (optional, default 'v5') - FeathersJS version
+ *   - version: 'v5' | 'v6' | 'both' (optional, default 'v6') - FeathersJS version
  *
  * Behavior:
  *   - Loads template fragments from knowledge base based on flags
@@ -57,8 +57,8 @@ export class GetTemplateTool extends BaseTool {
       },
       version: {
         type: 'string',
-        enum: ['v4', 'v5', 'both'],
-        description: 'FeathersJS version (default: v5).',
+        enum: ['v5', 'v6', 'both'],
+        description: 'FeathersJS version (default: v6).',
       },
     },
     required: ['database'],
@@ -69,7 +69,11 @@ export class GetTemplateTool extends BaseTool {
   private composer: TemplateComposer;
   private validator: ValidationPipeline;
 
-  constructor(loader?: KnowledgeLoader, composer?: TemplateComposer, validator?: ValidationPipeline) {
+  constructor(
+    loader?: KnowledgeLoader,
+    composer?: TemplateComposer,
+    validator?: ValidationPipeline
+  ) {
     super();
     this.loader = loader ?? new KnowledgeLoader();
     this.composer = composer ?? new TemplateComposer();
@@ -204,7 +208,7 @@ export class GetTemplateTool extends BaseTool {
     const auth = typeof obj.auth === 'boolean' ? obj.auth : false;
     const typescript = typeof obj.typescript === 'boolean' ? obj.typescript : true;
     const version: DocVersion =
-      obj.version === 'v4' || obj.version === 'v5' || obj.version === 'both' ? obj.version : 'v5';
+      obj.version === 'v5' || obj.version === 'v6' || obj.version === 'both' ? obj.version : 'v6';
 
     return { database, auth, typescript, version };
   }

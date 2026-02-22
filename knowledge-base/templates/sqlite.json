@@ -14,7 +14,7 @@
     "featureFlags": [
       "sqlite"
     ],
-    "version": "v5",
+    "version": "both",
     "description": "SQLite database service using @feathersjs/knex adapter",
     "language": "typescript",
     "tags": [

@@ -25,7 +25,7 @@ describe('GetTemplateTool', () => {
       id: 'tpl-base-project',
       name: 'Base Project Template',
       description: 'Base FeathersJS project with Koa',
-      version: 'v5',
+      version: 'both',
       code: `
 import { feathers } from '@feathersjs/feathers';
 import { koa, rest } from '@feathersjs/koa';
@@ -47,7 +47,7 @@ export { app };
       id: 'tpl-base-express',
       name: 'Express Base Template',
       description: 'Base FeathersJS project with Express',
-      version: 'v5',
+      version: 'both',
       code: `
 import { feathers } from '@feathersjs/feathers';
 import express from '@feathersjs/express';
@@ -68,7 +68,7 @@ export { app };
       id: 'tpl-mongodb-service',
       name: 'MongoDB Service Template',
       description: 'MongoDB database adapter',
-      version: 'v5',
+      version: 'both',
       code: `
 import { MongoDBService } from '@feathersjs/mongodb';
 
@@ -83,7 +83,7 @@ export class MyService extends MongoDBService {}
       id: 'tpl-knex-postgresql',
       name: 'PostgreSQL Service Template',
       description: 'PostgreSQL database adapter using Knex',
-      version: 'v5',
+      version: 'both',
       code: `
 import { KnexService } from '@feathersjs/knex';
 
@@ -98,7 +98,7 @@ export class MyService extends KnexService {}
       id: 'tpl-knex-sqlite',
       name: 'SQLite Service Template',
       description: 'SQLite database adapter using Knex',
-      version: 'v5',
+      version: 'both',
       code: `
 import { KnexService } from '@feathersjs/knex';
 
@@ -113,7 +113,7 @@ export class MyService extends KnexService {}
       id: 'tpl-authentication',
       name: 'Authentication Template',
       description: 'JWT authentication setup',
-      version: 'v5',
+      version: 'both',
       code: `
 import { AuthenticationService, JWTStrategy } from '@feathersjs/authentication';
 import { LocalStrategy } from '@feathersjs/authentication-local';
@@ -132,23 +132,6 @@ export const authentication = (app: any) => {
       dependencies: ['@feathersjs/authentication', '@feathersjs/authentication-local'],
       featureFlags: ['authentication'],
       tags: ['authentication'],
-    },
-    {
-      id: 'tpl-v4-base',
-      name: 'V4 Base Template',
-      description: 'Base FeathersJS v4 project',
-      version: 'v4',
-      code: `
-const feathers = require('@feathersjs/feathers');
-const express = require('@feathersjs/express');
-
-const app = express(feathers());
-module.exports = app;
-`,
-      imports: [],
-      dependencies: ['@feathersjs/feathers', '@feathersjs/express'],
-      featureFlags: ['v4'],
-      tags: ['project', 'base'],
     },
   ];
 
@@ -195,7 +178,7 @@ module.exports = app;
               database,
               auth,
               typescript,
-              version: 'v5',
+              version: 'both',
             });
 
             expect(result).toBeDefined();
@@ -319,21 +302,23 @@ module.exports = app;
   });
 
   describe('version filtering', () => {
-    it('defaults to v5 when version not specified', async () => {
+    it('defaults to v6 when version not specified', async () => {
       const result = await getTemplateTool.execute({ database: 'mongodb' });
 
       const parsed = JSON.parse(result.content);
-      expect(parsed.version).toBe('v5');
+      expect(parsed.version).toBe('v6');
     });
 
-    it('filters to v4 templates when version=v4', async () => {
+    it('filters to v5 templates when version=v5', async () => {
       const result = await getTemplateTool.execute({
         database: 'mongodb',
-        version: 'v4',
+        version: 'v5',
       });
 
       const parsed = JSON.parse(result.content);
-      expect(parsed.version).toBe('v4');
+      // Templates are marked as 'both', so they match v5 filter
+      // The result version reflects what was requested
+      expect(parsed.version).toBe('v5');
     });
 
     it('includes both versions when version=both', async () => {
