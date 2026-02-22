@@ -76,7 +76,7 @@ export class TemplateComposer {
 
     // Step 3: Compose each file
     const files = new Map<string, string>();
-    for (const [filePath, fileFragments] of fragmentsByFile.entries()) {
+    for (const [filePath, fileFragments] of Array.from(fragmentsByFile.entries())) {
       const fileContent = this.composeFile(fileFragments, includeComments);
       files.set(filePath, fileContent);
     }
@@ -129,7 +129,7 @@ export class TemplateComposer {
     const ordered: string[] = [];
 
     // Start with fragments that have no dependencies
-    for (const [id, degree] of inDegree.entries()) {
+    for (const [id, degree] of Array.from(inDegree.entries())) {
       if (degree === 0) {
         queue.push(id);
       }

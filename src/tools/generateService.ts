@@ -2,6 +2,7 @@ import { BaseTool } from './baseTool';
 import { ToolResult } from './types';
 import { createImport, createClass, createInterface, PropertyDef, MethodDef } from './codegen/astUtils';
 import { generateMongooseSchema, generateKnexSchema, generateTypeScriptInterface, FieldDef } from './codegen/schemaGenerator';
+import { ValidationPipeline } from './validation';
 
 type DatabaseType = 'mongodb' | 'postgresql' | 'sqlite';
 
@@ -115,6 +116,25 @@ export class GenerateServiceTool extends BaseTool {
     const testFile = this.generateTestFile(name, fields);
     generatedFiles.push(testFile);
 
+    const validationErrors = await this.validateGeneratedFiles(generatedFiles);
+    if (validationErrors.length > 0) {
+      return {
+        content: JSON.stringify(
+          {
+            error: 'Generated service failed validation',
+            issues: validationErrors,
+          },
+          null,
+          2
+        ),
+        metadata: {
+          tool: 'generate_service',
+          validationFailed: true,
+          issueCount: validationErrors.length,
+        },
+      };
+    }
+
     // Build result
     const filesMap: Record<string, { path: string; content: string; type: string; size: number }> = {};
     for (const file of generatedFiles) {
@@ -144,6 +164,34 @@ export class GenerateServiceTool extends BaseTool {
         files: generatedFiles.map((f) => ({ path: f.path, type: f.type })),
       },
     };
+  }
+
+  private async validateGeneratedFiles(
+    files: GeneratedFile[]
+  ): Promise<Array<{ path: string; type: string; result: unknown }>> {
+    const validator = new ValidationPipeline({ typeCheck: false });
+    const errors: Array<{ path: string; type: string; result: unknown }> = [];
+
+    for (const file of files) {
+      if (!file.path.endsWith('.ts') && !file.path.endsWith('.js')) {
+        continue;
+      }
+      const result = await validator.validate(file.content, {
+        typescript: true,
+        eslint: false,
+        prettier: false,
+        bestPractices: false,
+      });
+      if (!result.valid) {
+        errors.push({
+          path: file.path,
+          type: file.type,
+          result,
+        });
+      }
+    }
+
+    return errors;
   }
 
   /**

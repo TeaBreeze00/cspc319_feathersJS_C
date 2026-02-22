@@ -16,6 +16,7 @@ export { BaseTool } from './baseTool';
 export { SearchDocsTool } from './searchDocs';
 export { GetTemplateTool } from './getTemplate';
 export { GenerateServiceTool } from './generateService';
+export { ValidateCodeTool } from './validateCode';
 export { GetHookExampleTool } from './getHookExample';
 export { TroubleshootErrorTool } from './troubleshootError';
 export { GetBestPracticesTool } from './getBestPractices';
