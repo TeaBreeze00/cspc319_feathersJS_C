@@ -1,0 +1,25 @@
+{
+  "generated": "2026-02-22T21:40:26.996Z",
+  "config": {
+    "MAX_SECTION_TOKENS": 500,
+    "MIN_CHUNK_TOKENS": 40,
+    "INPUT_DIRS": [
+      "docs/v5_docs",
+      "docs/v6_docs"
+    ],
+    "OUTPUT_DIR": "knowledge-base/chunks",
+    "CHARS_PER_TOKEN": 4
+  },
+  "stats": {
+    "v5": {
+      "files": 97,
+      "chunks": 561,
+      "withCode": 342
+    },
+    "v6": {
+      "files": 49,
+      "chunks": 307,
+      "withCode": 189
+    }
+  }
+}

@@ -29,7 +29,7 @@ export class KnowledgeLoader {
    */
   async preload(): Promise<void> {
     // Load docs/* (recursively including subdirectories)
-    const docsDir = path.join(this.kbRoot, 'docs');
+    const docsDir = path.join(this.kbRoot, 'chunks'); // was 'docs'
     const templatesDir = path.join(this.kbRoot, 'templates');
 
     const docs = await this.readAllJsonArraysRecursive<DocEntry>(docsDir);

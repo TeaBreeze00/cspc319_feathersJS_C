@@ -228,7 +228,7 @@ export function generateKnexSchema(fields: FieldDef[], tableName: string): strin
   // Generate up migration
   lines.push('export async function up(knex: Knex): Promise<void> {');
   lines.push(`  await knex.schema.createTable('${tableName}', (table) => {`);
-  lines.push('    table.increments(\'id\').primary();');
+  lines.push("    table.increments('id').primary();");
 
   for (const field of fields) {
     const columnDef = generateKnexColumnDef(field);
@@ -335,10 +335,7 @@ function getTypeScriptType(field: FieldDef): string {
  * @param interfaceName - Name of the interface
  * @returns Generated TypeScript interface as a string
  */
-export function generateTypeScriptInterface(
-  fields: FieldDef[],
-  interfaceName: string
-): string {
+export function generateTypeScriptInterface(fields: FieldDef[], interfaceName: string): string {
   const lines: string[] = [];
 
   lines.push(`export interface ${interfaceName} {`);

@@ -1,6 +1,7 @@
 import { BaseTool } from './baseTool';
 import { ToolResult, JsonSchema } from '../protocol/types';
 import { ValidationPipeline } from './validation';
+import { ToolRegistration, ToolHandler } from '../protocol/types';
 
 interface ValidateCodeParams {
   code: string;
@@ -10,7 +11,8 @@ interface ValidateCodeParams {
 
 export class ValidateCodeTool extends BaseTool {
   name = 'validate_code';
-  description = 'Validate code for TypeScript syntax, linting, formatting, and FeathersJS best practices.';
+  description =
+    'Validate code for TypeScript syntax, linting, formatting, and FeathersJS best practices.';
   inputSchema: JsonSchema = {
     type: 'object',
     properties: {
@@ -22,6 +24,19 @@ export class ValidateCodeTool extends BaseTool {
   };
 
   private pipeline = new ValidationPipeline();
+
+  register(): ToolRegistration {
+    const handler: ToolHandler = async (params: unknown) => {
+      return this.execute(params);
+    };
+
+    return {
+      name: this.name,
+      description: this.description,
+      inputSchema: this.inputSchema,
+      handler,
+    };
+  }
 
   async execute(params: unknown): Promise<ToolResult> {
     const { code, checks } = params as ValidateCodeParams;
@@ -68,3 +83,4 @@ export class ValidateCodeTool extends BaseTool {
     };
   }
 }
+export default ValidateCodeTool;

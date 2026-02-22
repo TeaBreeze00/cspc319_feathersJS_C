@@ -14,14 +14,9 @@
 
 export { BaseTool } from './baseTool';
 export { SearchDocsTool } from './searchDocs';
-export { GetTemplateTool } from './getTemplate';
 export { GenerateServiceTool } from './generateService';
 export { ValidateCodeTool } from './validateCode';
-export { GetHookExampleTool } from './getHookExample';
-export { TroubleshootErrorTool } from './troubleshootError';
-export { GetBestPracticesTool } from './getBestPractices';
 export { ExplainConceptTool } from './explainConcept';
-export { SuggestAlternativesTool } from './suggestAlternatives';
 export { ListToolsTool } from './listTools';
 
 export * from './types';

@@ -154,11 +154,7 @@ function parseType(typeStr: string): ts.TypeNode {
  * @param methods - Array of method definitions
  * @returns The generated class as a string
  */
-export function createClass(
-  name: string,
-  properties: PropertyDef[],
-  methods: MethodDef[]
-): string {
+export function createClass(name: string, properties: PropertyDef[], methods: MethodDef[]): string {
   const members: ts.ClassElement[] = [];
 
   // Add properties
@@ -330,9 +326,7 @@ export function createFunction(
   body?: string,
   async?: boolean
 ): string {
-  const modifiers: ts.ModifierLike[] = [
-    ts.factory.createModifier(ts.SyntaxKind.ExportKeyword),
-  ];
+  const modifiers: ts.ModifierLike[] = [ts.factory.createModifier(ts.SyntaxKind.ExportKeyword)];
 
   if (async) {
     modifiers.push(ts.factory.createModifier(ts.SyntaxKind.AsyncKeyword));
@@ -354,9 +348,7 @@ export function createFunction(
 
   let block: ts.Block;
   if (body) {
-    const bodyStatement = ts.factory.createExpressionStatement(
-      ts.factory.createIdentifier(body)
-    );
+    const bodyStatement = ts.factory.createExpressionStatement(ts.factory.createIdentifier(body));
     block = ts.factory.createBlock([bodyStatement], true);
   } else {
     block = ts.factory.createBlock([], true);
@@ -404,10 +396,7 @@ export function createConst(
     ts.factory.createIdentifier(initializer)
   );
 
-  const variableList = ts.factory.createVariableDeclarationList(
-    [variableDecl],
-    ts.NodeFlags.Const
-  );
+  const variableList = ts.factory.createVariableDeclarationList([variableDecl], ts.NodeFlags.Const);
 
   const variableStatement = ts.factory.createVariableStatement(
     modifiers.length > 0 ? modifiers : undefined,

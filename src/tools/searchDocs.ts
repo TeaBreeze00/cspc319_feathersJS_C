@@ -19,13 +19,12 @@ interface SearchDocsParams {
 
 interface SearchResult {
   id: string;
-  title: string;
+  heading: string; // was title
   version: string;
   category: string;
   score: number;
   snippet: string;
-  url?: string;
-  headingPath?: string[];
+  breadcrumb: string; // replaces url + headingPath
 }
 
 interface SearchResponse {
@@ -115,7 +114,7 @@ export class SearchDocsTool extends BaseTool {
     }
 
     // Load all docs from the knowledge base
-    const allDocs = await this.loader.load<DocEntry>('docs');
+    const allDocs = await this.loader.load<DocEntry>('chunks'); // ← should be 'chunks'
 
     // Filter by the requested version
     const filteredDocs = this.filterByVersion(allDocs, version);
@@ -133,13 +132,12 @@ export class SearchDocsTool extends BaseTool {
 
       results.push({
         id: doc.id,
-        title: doc.title,
+        heading: doc.heading,
         version: doc.version as string,
         category: (doc.category as string) ?? 'uncategorized',
         score,
-        snippet: this.generateSnippet(doc.content, query),
-        url: doc.source?.url,
-        headingPath: doc.headingPath,
+        snippet: this.generateSnippet(doc.rawContent, query),
+        breadcrumb: doc.breadcrumb,
       });
     }
 
@@ -265,5 +263,4 @@ export class SearchDocsTool extends BaseTool {
     };
   }
 }
-
 export default SearchDocsTool;

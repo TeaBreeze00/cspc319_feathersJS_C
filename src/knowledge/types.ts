@@ -13,21 +13,18 @@ export type KnowledgeCategory =
 
 export interface DocEntry {
   id: string;
-  title: string;
+  heading: string;
   content: string;
+  rawContent: string;
+  breadcrumb: string;
   version: DocVersion;
-  tokens: string[];
+  tokens: number;
   category: KnowledgeCategory | string;
-  source?: {
-    url?: string;
-    path?: string;
-  };
+  sourceFile: string;
+  hasCode: boolean;
+  codeLanguages: string[];
   tags?: string[];
   embedding?: number[];
-  /** Breadcrumb path of headings: e.g., ["REST Client", "rest([baseUrl])"] */
-  headingPath?: string[];
-  /** Source markdown file path relative to the ingester root */
-  sourceFile?: string;
 }
 
 export interface TemplateFragment {

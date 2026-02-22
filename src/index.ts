@@ -3,13 +3,8 @@ import { ToolHandlerRegistry, ParameterValidator, ErrorHandler, Router } from '.
 import { callToolHandler } from './protocol/handlers/callTool';
 import {
   SearchDocsTool,
-  GetTemplateTool,
   GenerateServiceTool,
-  GetHookExampleTool,
-  TroubleshootErrorTool,
-  GetBestPracticesTool,
   ExplainConceptTool,
-  SuggestAlternativesTool,
   ListToolsTool,
   ValidateCodeTool,
 } from './tools';
@@ -25,25 +20,15 @@ const router = new Router(routingRegistry, validator, errorHandler);
 
 // Create tool instances
 const searchDocsTool = new SearchDocsTool();
-const getTemplateTool = new GetTemplateTool();
 const generateServiceTool = new GenerateServiceTool();
-const getHookExampleTool = new GetHookExampleTool();
-const troubleshootErrorTool = new TroubleshootErrorTool();
-const getBestPracticesTool = new GetBestPracticesTool();
 const explainConceptTool = new ExplainConceptTool();
-const suggestAlternativesTool = new SuggestAlternativesTool();
 const listToolsTool = new ListToolsTool();
 const validateCodeTool = new ValidateCodeTool();
 
 // Register tools with protocol registry (metadata + handler for MCP)
 registry.register(searchDocsTool.register());
-registry.register(getTemplateTool.register());
 registry.register(generateServiceTool.register());
-registry.register(getHookExampleTool.register());
-registry.register(troubleshootErrorTool.register());
-registry.register(getBestPracticesTool.register());
 registry.register(explainConceptTool.register());
-registry.register(suggestAlternativesTool.register());
 registry.register(listToolsTool.register());
 registry.register(validateCodeTool.register());
 
@@ -53,41 +38,19 @@ routingRegistry.register(
   (params: unknown) => searchDocsTool.execute(params),
   searchDocsTool.inputSchema
 );
-routingRegistry.register(
-  'get_feathers_template',
-  (params: unknown) => getTemplateTool.execute(params),
-  getTemplateTool.inputSchema
-);
+
 routingRegistry.register(
   'generate_service',
   (params: unknown) => generateServiceTool.execute(params),
   generateServiceTool.inputSchema
 );
-routingRegistry.register(
-  'get_hook_example',
-  (params: unknown) => getHookExampleTool.execute(params),
-  getHookExampleTool.inputSchema
-);
-routingRegistry.register(
-  'troubleshoot_error',
-  (params: unknown) => troubleshootErrorTool.execute(params),
-  troubleshootErrorTool.inputSchema
-);
-routingRegistry.register(
-  'get_best_practices',
-  (params: unknown) => getBestPracticesTool.execute(params),
-  getBestPracticesTool.inputSchema
-);
+
 routingRegistry.register(
   'explain_concept',
   (params: unknown) => explainConceptTool.execute(params),
   explainConceptTool.inputSchema
 );
-routingRegistry.register(
-  'suggest_alternatives',
-  (params: unknown) => suggestAlternativesTool.execute(params),
-  suggestAlternativesTool.inputSchema
-);
+
 routingRegistry.register(
   'list_available_tools',
   (params: unknown) => listToolsTool.execute(params),

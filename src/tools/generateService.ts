@@ -1,7 +1,18 @@
 import { BaseTool } from './baseTool';
 import { ToolResult } from './types';
-import { createImport, createClass, createInterface, PropertyDef, MethodDef } from './codegen/astUtils';
-import { generateMongooseSchema, generateKnexSchema, generateTypeScriptInterface, FieldDef } from './codegen/schemaGenerator';
+import {
+  createImport,
+  createClass,
+  createInterface,
+  PropertyDef,
+  MethodDef,
+} from './codegen/astUtils';
+import {
+  generateMongooseSchema,
+  generateKnexSchema,
+  generateTypeScriptInterface,
+  FieldDef,
+} from './codegen/schemaGenerator';
 import { ValidationPipeline } from './validation';
 
 type DatabaseType = 'mongodb' | 'postgresql' | 'sqlite';
@@ -136,7 +147,8 @@ export class GenerateServiceTool extends BaseTool {
     }
 
     // Build result
-    const filesMap: Record<string, { path: string; content: string; type: string; size: number }> = {};
+    const filesMap: Record<string, { path: string; content: string; type: string; size: number }> =
+      {};
     for (const file of generatedFiles) {
       filesMap[file.path] = {
         path: file.path,
@@ -327,7 +339,9 @@ export class GenerateServiceTool extends BaseTool {
 
     // Service class
     if (database === 'mongodb') {
-      lines.push(`export class ${className}Service extends MongoDBService<I${className}, ${className}Data, Params, ${className}Patch> {`);
+      lines.push(
+        `export class ${className}Service extends MongoDBService<I${className}, ${className}Data, Params, ${className}Patch> {`
+      );
     } else {
       lines.push(`export class ${className}Service extends KnexService {`);
     }
@@ -345,7 +359,9 @@ export class GenerateServiceTool extends BaseTool {
       lines.push(`  const collection = app.get('mongodbClient').db().collection('${name}');`);
       lines.push(`  app.use('${name}', new ${className}Service({ collection }));`);
     } else {
-      lines.push(`  const db = app.get('${database === 'postgresql' ? 'postgresqlClient' : 'sqliteClient'}');`);
+      lines.push(
+        `  const db = app.get('${database === 'postgresql' ? 'postgresqlClient' : 'sqliteClient'}');`
+      );
       lines.push(`  app.use('${name}', new ${className}Service({`);
       lines.push(`    Model: db,`);
       lines.push(`    name: '${name}'`);

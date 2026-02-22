@@ -19,15 +19,18 @@ import * as path from 'path';
 // ---------------------------------------------------------------------------
 // Types (mirrors src/knowledge/types.ts without importing from src/)
 // ---------------------------------------------------------------------------
-
 interface DocEntry {
   id: string;
-  title: string;
+  heading: string;
   content: string;
+  rawContent: string;
+  breadcrumb: string;
   version: string;
-  tokens: string[];
+  tokens: number;
   category: string;
-  source?: { url?: string; path?: string };
+  sourceFile: string;
+  hasCode: boolean;
+  codeLanguages: string[];
   tags?: string[];
   embedding?: number[];
 }
@@ -36,7 +39,7 @@ interface DocEntry {
 // Constants
 // ---------------------------------------------------------------------------
 
-const KB_DOCS_DIR = path.join(__dirname, '..', 'knowledge-base', 'docs');
+const KB_DOCS_DIR = path.join(__dirname, '..', 'knowledge-base', 'chunks');
 
 /**
  * Maximum number of characters taken from `content` when building the text
@@ -64,9 +67,7 @@ const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
  * captures both the topic label and the actual explanation.
  */
 function buildEmbedText(doc: DocEntry): string {
-  const title = (doc.title ?? '').trim();
-  const content = (doc.content ?? '').trim().slice(0, MAX_CONTENT_CHARS);
-  return `${title}\n\n${content}`;
+  return doc.content.trim().slice(0, MAX_CONTENT_CHARS);
 }
 
 /**
@@ -185,7 +186,7 @@ async function main(): Promise<void> {
     // ── 4. Embed each doc entry ────────────────────────────────────────────
     for (let i = 0; i < docs.length; i++) {
       const doc = docs[i];
-      const label = `    [${progress(i + 1, docs.length)}] ${doc.id} — "${doc.title}"`;
+      const label = `    [${progress(i + 1, docs.length)}] ${doc.id} — "${doc.heading}"`;
 
       const text = buildEmbedText(doc);
       if (!text.trim()) {
