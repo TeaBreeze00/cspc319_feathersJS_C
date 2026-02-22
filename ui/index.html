@@ -1111,42 +1111,7 @@
           <span class="tab-icon">💡</span>
           <span>Explain</span>
         </button>
-        <button
-          class="tool-tab"
-          data-tool="get_hook_example"
-          onclick="switchTool('get_hook_example')"
-          role="tab"
-        >
-          <span class="tab-icon">🪝</span>
-          <span>Hooks</span>
-        </button>
-        <button
-          class="tool-tab"
-          data-tool="get_best_practices"
-          onclick="switchTool('get_best_practices')"
-          role="tab"
-        >
-          <span class="tab-icon">✅</span>
-          <span>Best Practices</span>
-        </button>
-        <button
-          class="tool-tab"
-          data-tool="troubleshoot_error"
-          onclick="switchTool('troubleshoot_error')"
-          role="tab"
-        >
-          <span class="tab-icon">🐛</span>
-          <span>Troubleshoot</span>
-        </button>
-        <button
-          class="tool-tab"
-          data-tool="suggest_alternatives"
-          onclick="switchTool('suggest_alternatives')"
-          role="tab"
-        >
-          <span class="tab-icon">🔀</span>
-          <span>Alternatives</span>
-        </button>
+
         <button
           class="tool-tab"
           data-tool="validate_code"
@@ -1156,15 +1121,7 @@
           <span class="tab-icon">✔️</span>
           <span>Validate</span>
         </button>
-        <button
-          class="tool-tab"
-          data-tool="get_feathers_template"
-          onclick="switchTool('get_feathers_template')"
-          role="tab"
-        >
-          <span class="tab-icon">📦</span>
-          <span>Template</span>
-        </button>
+
         <button
           class="tool-tab"
           data-tool="generate_service"
@@ -1263,179 +1220,6 @@
         <div id="results-explain_concept"></div>
       </div>
 
-      <!-- ── Tool Panel: get_hook_example ───────────────────────── -->
-      <div id="panel-get_hook_example" class="tool-panel" style="display: none">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">🪝 Get Hook Example</div>
-          </div>
-          <div class="card-body">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="he-type">Hook Type</label>
-                <select id="he-type">
-                  <option value="before" selected>Before</option>
-                  <option value="after">After</option>
-                  <option value="error">Error</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="he-version">Version</label>
-                <select id="he-version">
-                  <option value="v6" selected>v6</option>
-                  <option value="v5">v5</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="he-usecase"
-                >Use Case <span class="label-hint">(optional) Describe what you need</span></label
-              >
-              <input
-                type="text"
-                id="he-usecase"
-                placeholder="e.g. validate data, hash password, log requests…"
-              />
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="runGetHookExample()">
-                <span>▶</span> Get Example
-              </button>
-              <button class="btn-example" onclick="exampleGetHookExample()">
-                Try example → before hook for validation
-              </button>
-            </div>
-          </div>
-        </div>
-        <div id="results-get_hook_example"></div>
-      </div>
-
-      <!-- ── Tool Panel: get_best_practices ─────────────────────── -->
-      <div id="panel-get_best_practices" class="tool-panel" style="display: none">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">✅ Get Best Practices</div>
-          </div>
-          <div class="card-body">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="bp-topic">Topic</label>
-                <select id="bp-topic">
-                  <option value="hooks" selected>Hooks</option>
-                  <option value="services">Services</option>
-                  <option value="security">Security</option>
-                  <option value="testing">Testing</option>
-                  <option value="performance">Performance</option>
-                </select>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="bp-context"
-                >Context <span class="label-hint">(optional) Narrow down results</span></label
-              >
-              <input
-                type="text"
-                id="bp-context"
-                placeholder="e.g. authentication, database queries, error handling…"
-              />
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="runGetBestPractices()">
-                <span>▶</span> Get Practices
-              </button>
-              <button class="btn-example" onclick="exampleGetBestPractices()">
-                Try example → security best practices
-              </button>
-            </div>
-          </div>
-        </div>
-        <div id="results-get_best_practices"></div>
-      </div>
-
-      <!-- ── Tool Panel: troubleshoot_error ─────────────────────── -->
-      <div id="panel-troubleshoot_error" class="tool-panel" style="display: none">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">🐛 Troubleshoot Error</div>
-          </div>
-          <div class="card-body">
-            <div class="form-group">
-              <label for="te-error"
-                >Error Message <span class="label-hint">Paste the error you're seeing</span></label
-              >
-              <textarea
-                id="te-error"
-                rows="3"
-                placeholder="e.g. NotAuthenticated: No auth token"
-              ></textarea>
-            </div>
-            <div class="form-group">
-              <label for="te-stack"
-                >Stack Trace
-                <span class="label-hint">(optional) Helps narrow down the issue</span></label
-              >
-              <textarea id="te-stack" rows="4" placeholder="Paste stack trace here…"></textarea>
-            </div>
-            <div class="form-group">
-              <label for="te-version">Version</label>
-              <select id="te-version">
-                <option value="v6" selected>v6</option>
-                <option value="v5">v5</option>
-              </select>
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="runTroubleshootError()">
-                <span>▶</span> Troubleshoot
-              </button>
-              <button class="btn-example" onclick="exampleTroubleshootError()">
-                Try example → NotAuthenticated error
-              </button>
-            </div>
-          </div>
-        </div>
-        <div id="results-troubleshoot_error"></div>
-      </div>
-
-      <!-- ── Tool Panel: suggest_alternatives ───────────────────── -->
-      <div id="panel-suggest_alternatives" class="tool-panel" style="display: none">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">🔀 Suggest Alternatives</div>
-          </div>
-          <div class="card-body">
-            <div class="form-group">
-              <label for="sa-pattern"
-                >Pattern <span class="label-hint">Describe the implementation pattern</span></label
-              >
-              <input
-                type="text"
-                id="sa-pattern"
-                placeholder="e.g. authentication, real-time updates, file upload…"
-              />
-            </div>
-            <div class="form-group">
-              <label for="sa-context"
-                >Context <span class="label-hint">(optional) Additional context</span></label
-              >
-              <input
-                type="text"
-                id="sa-context"
-                placeholder="e.g. REST API, WebSocket, microservices…"
-              />
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="runSuggestAlternatives()">
-                <span>▶</span> Get Alternatives
-              </button>
-              <button class="btn-example" onclick="exampleSuggestAlternatives()">
-                Try example → authentication patterns
-              </button>
-            </div>
-          </div>
-        </div>
-        <div id="results-suggest_alternatives"></div>
-      </div>
-
       <!-- ── Tool Panel: validate_code ──────────────────────────── -->
       <div id="panel-validate_code" class="tool-panel" style="display: none">
         <div class="card">
@@ -1486,47 +1270,6 @@
           </div>
         </div>
         <div id="results-validate_code"></div>
-      </div>
-
-      <!-- ── Tool Panel: get_feathers_template ──────────────────── -->
-      <div id="panel-get_feathers_template" class="tool-panel" style="display: none">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">📦 Get Project Template</div>
-          </div>
-          <div class="card-body">
-            <div class="form-group">
-              <label for="gt-database">Database Adapter</label>
-              <select id="gt-database">
-                <option value="mongodb" selected>MongoDB</option>
-                <option value="postgresql">PostgreSQL</option>
-                <option value="sqlite">SQLite</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Options</label>
-              <div class="toggle-row">
-                <label class="toggle-label">
-                  <input type="checkbox" id="gt-auth" checked />
-                  Include Authentication
-                </label>
-                <label class="toggle-label">
-                  <input type="checkbox" id="gt-ts" checked />
-                  TypeScript
-                </label>
-              </div>
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="runGetTemplate()">
-                <span>▶</span> Generate Template
-              </button>
-              <button class="btn-example" onclick="exampleGetTemplate()">
-                Try example → MongoDB + Auth + TypeScript
-              </button>
-            </div>
-          </div>
-        </div>
-        <div id="results-get_feathers_template"></div>
       </div>
 
       <!-- ── Tool Panel: generate_service ───────────────────── -->
