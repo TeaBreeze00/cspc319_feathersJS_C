@@ -1,24 +1,24 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { BaseTool } from './baseTool';
-import hookBestPractices from '../../knowledge-base/best-practices/hooks.json';
-import { JsonSchema } from '../protocol';
-import { ToolRegistration,ToolHandler } from '../protocol/types';
-
+import { ToolResult } from './types';
+import { JsonSchema } from '../protocol/types';
 
 interface GetHookExampleParams {
-  hookType: 'before' | 'after' | 'error' | 'around';
+  hookType: 'before' | 'after' | 'error';
   useCase?: string;
   version?: string;
 }
 
-interface HookBestPractice {
+interface HookSnippet {
   id: string;
-  topic: string;
-  rule: string;
-  rationale: string;
-  goodExample: string;
-  badExample: string;
+  type: 'before' | 'after' | 'error';
+  useCase: string;
+  code: string;
+  explanation: string;
   version: string;
-  tags: string[];
+  language?: string;
+  tags?: string[];
 }
 
 export class GetHookExampleTool extends BaseTool {
@@ -30,64 +30,78 @@ export class GetHookExampleTool extends BaseTool {
     properties: {
       hookType: {
         type: 'string',
-        enum: ['before', 'after', 'error', 'around']
+        enum: ['before', 'after', 'error'],
       },
       useCase: { type: 'string' },
-      version: { type: 'string' }
+      version: { type: 'string' },
     },
-    required: ['hookType']
+    required: ['hookType'],
   };
 
-  async execute(params: unknown) {
-    const { hookType, version = 'v5' } = params as GetHookExampleParams;
+  async execute(params: unknown): Promise<ToolResult> {
+    const { hookType, useCase, version = 'v5' } = params as GetHookExampleParams;
+    const snippets = this.loadSnippets(hookType);
 
-    const versionPractices = (hookBestPractices as HookBestPractice[]).filter(
-      (bp) => bp.topic === 'hooks' && bp.version === version
-    );
-
-    const matches = versionPractices.filter((bp) => bp.tags.includes(hookType));
-
-    if (versionPractices.length === 0) {
+    const versioned = snippets.filter((s) => s.version === version);
+    if (versioned.length === 0) {
       return {
-        content: `No hook examples found for type "${hookType}" in version "${version}".`
+        content: `No hook examples found for type "${hookType}" in version "${version}".`,
       };
     }
 
-    const best = matches.length > 0 ? matches[0] : versionPractices[0];
-    const fallbackNote =
-      matches.length === 0
-        ? `\nNote: No exact "${hookType}" tagged example found; showing closest "${version}" hook practice.\n`
-        : '';
-
+    const match = this.selectBest(versioned, useCase);
     return {
-      content: `
-Rule: ${best.rule}
-
-Why:
-${best.rationale}
-${fallbackNote}
-
-Good Example:
-${best.goodExample}
-
-Bad Example:
-${best.badExample}
-      `.trim()
+      content: JSON.stringify(
+        {
+          hookType,
+          useCase: match.useCase,
+          version: match.version,
+          code: match.code,
+          explanation: match.explanation,
+        },
+        null,
+        2
+      ),
     };
   }
 
- register(): ToolRegistration {
-  const handler: ToolHandler = async (params: unknown) => {
-    // cast params safely
-    const typedParams = params as GetHookExampleParams;
-    return this.execute(typedParams);
-  };
+  private loadSnippets(hookType: 'before' | 'after' | 'error'): HookSnippet[] {
+    const basePath = path.resolve(process.cwd(), 'knowledge-base', 'snippets');
+    const files = [`hooks-${hookType}.json`, 'hooks-common.json'];
 
-  return {
-    name: this.name,
-    description: this.description,
-    inputSchema: this.inputSchema,
-    handler,
-  };
-}
+    const all: HookSnippet[] = [];
+    for (const file of files) {
+      const fullPath = path.join(basePath, file);
+      if (!fs.existsSync(fullPath)) {
+        continue;
+      }
+      const raw = fs.readFileSync(fullPath, 'utf8');
+      const parsed = JSON.parse(raw) as HookSnippet[];
+      all.push(...parsed);
+    }
+
+    return all.filter((s) => s.type === hookType);
+  }
+
+  private selectBest(snippets: HookSnippet[], useCase?: string): HookSnippet {
+    if (!useCase) {
+      return snippets[0];
+    }
+
+    const query = useCase.toLowerCase();
+    const scored = snippets.map((s) => ({
+      score: this.scoreSnippet(s, query),
+      snippet: s,
+    }));
+    scored.sort((a, b) => b.score - a.score);
+    return scored[0].snippet;
+  }
+
+  private scoreSnippet(snippet: HookSnippet, query: string): number {
+    let score = 0;
+    if (snippet.useCase.toLowerCase().includes(query)) score += 5;
+    if (snippet.explanation.toLowerCase().includes(query)) score += 2;
+    if (snippet.tags?.some((t) => t.toLowerCase().includes(query))) score += 3;
+    return score;
+  }
 }
