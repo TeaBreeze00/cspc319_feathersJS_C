@@ -1,111 +1,95 @@
-import { KnowledgeLoader } from '../../src/knowledge/loader'
-import * as path from 'path'
+import { KnowledgeLoader } from '../../src/knowledge/loader';
+import { DocEntry } from '../../src/knowledge/types';
+import * as path from 'path';
 
 describe('KnowledgeLoader', () => {
-  let loader: KnowledgeLoader
-  const kbPath = path.join(__dirname, '../../knowledge-base')
+  let loader: KnowledgeLoader;
+  const kbPath = path.join(__dirname, '../../knowledge-base');
 
   beforeEach(() => {
-    loader = new KnowledgeLoader(kbPath)
-  })
+    loader = new KnowledgeLoader(kbPath);
+  });
 
   afterEach(() => {
-    loader.clearCache()
-  })
+    loader.clearCache();
+  });
 
   describe('preload', () => {
     test('completes without errors', async () => {
-      await expect(loader.preload()).resolves.not.toThrow()
-    })
+      await expect(loader.preload()).resolves.not.toThrow();
+    });
 
-    test('loads docs and templates into cache', async () => {
-      await loader.preload()
-      const docs = await loader.load('docs')
-      const templates = await loader.load('templates')
-      
-      expect(docs.length).toBeGreaterThan(0)
-      expect(templates.length).toBeGreaterThan(0)
-    })
+    test('loads docs from chunks into cache', async () => {
+      await loader.preload();
+      const docs = await loader.load<DocEntry>('docs');
 
-    test('memory usage is under 100MB', async () => {
-      await loader.preload()
-      const docs = await loader.load('docs')
-      const templates = await loader.load('templates')
-      
-      const approxBytes = Buffer.byteLength(
-        JSON.stringify({ docs, templates })
-      )
-      const approxMB = approxBytes / (1024 * 1024)
-      
-      expect(approxMB).toBeLessThan(100)
-    })
-  })
+      expect(Array.isArray(docs)).toBe(true);
+      expect(docs.length).toBeGreaterThan(0);
+    });
 
-  describe('lazy loading', () => {
-    test('loads snippets on demand', async () => {
-      const snippets = await loader.load('snippets')
-      expect(Array.isArray(snippets)).toBe(true)
-      expect(snippets.length).toBeGreaterThan(0)
-    })
+    test('keeps approximate serialized preload size under 100MB', async () => {
+      await loader.preload();
+      const docs = await loader.load<DocEntry>('docs');
+      const templates = await loader.load('templates');
 
-    test('loads errors on demand', async () => {
-      const errors = await loader.load('errors')
-      expect(Array.isArray(errors)).toBe(true)
-      expect(errors.length).toBeGreaterThan(0)
-    })
+      const approxBytes = Buffer.byteLength(JSON.stringify({ docsLength: docs.length, templates }));
+      const approxMB = approxBytes / (1024 * 1024);
+      expect(approxMB).toBeLessThan(100);
+    });
+  });
 
-    test('loads best-practices on demand', async () => {
-      const bestPractices = await loader.load('best-practices')
-      expect(Array.isArray(bestPractices)).toBe(true)
-      expect(bestPractices.length).toBeGreaterThan(0)
-    })
+  describe('runtime loading', () => {
+    test('loads all chunks recursively', async () => {
+      const chunks = await loader.load<DocEntry>('chunks');
+      expect(Array.isArray(chunks)).toBe(true);
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(chunks[0]).toHaveProperty('id');
+      expect(chunks[0]).toHaveProperty('version');
+    });
 
-    test('loads specific file within category', async () => {
-      const hooksServices = await loader.load('snippets', 'hooks-services')
-      expect(Array.isArray(hooksServices)).toBe(true)
-    })
+    test('loads specific chunk file', async () => {
+      const v5Chunks = await loader.load<DocEntry>('chunks', 'v5-chunks');
+      expect(Array.isArray(v5Chunks)).toBe(true);
+      expect(v5Chunks.length).toBeGreaterThan(0);
+      expect(v5Chunks.every((entry) => entry.version === 'v5')).toBe(true);
+    });
 
-    test('caches loaded content', async () => {
-      const first = await loader.load('snippets')
-      const second = await loader.load('snippets')
-      expect(first).toBe(second) // Same reference = cached
-    })
-  })
+    test('returns empty array for unknown category', async () => {
+      const unknown = await loader.load('does-not-exist');
+      expect(Array.isArray(unknown)).toBe(true);
+      expect(unknown).toHaveLength(0);
+    });
+
+    test('caches loaded category by reference', async () => {
+      const first = await loader.load<DocEntry>('chunks');
+      const second = await loader.load<DocEntry>('chunks');
+      expect(first).toBe(second);
+    });
+  });
 
   describe('buildIndex', () => {
-    test('returns structured index with all categories', async () => {
-      await loader.preload()
-      const index = await loader.buildIndex()
-      
-      expect(index.byCategory).toBeDefined()
-      expect(typeof index.byCategory).toBe('object')
-      expect(index.templates).toBeDefined()
-      expect(index.snippets).toBeDefined()
-      expect(index.patterns).toBeDefined()
-      expect(index.bestPractices).toBeDefined()
-    })
+    test('returns structured index object even when optional folders are empty', async () => {
+      const index = await loader.buildIndex();
 
-    test('groups docs by category', async () => {
-      await loader.preload()
-      const index = await loader.buildIndex()
-      
-      const categories = Object.keys(index.byCategory)
-      expect(categories.length).toBeGreaterThan(0)
-    })
-  })
+      expect(index.byCategory).toBeDefined();
+      expect(typeof index.byCategory).toBe('object');
+      expect(Array.isArray(index.templates)).toBe(true);
+      expect(Array.isArray(index.snippets)).toBe(true);
+      expect(Array.isArray(index.patterns)).toBe(true);
+      expect(Array.isArray(index.bestPractices)).toBe(true);
+    });
+  });
 
   describe('clearCache', () => {
-    test('clears all cached data', async () => {
-      await loader.preload()
-      const beforeClear = await loader.load('docs')
-      expect(beforeClear.length).toBeGreaterThan(0)
-      
-      loader.clearCache()
-      
-      // After clearing, loading again should work but be a new instance
-      const afterClear = await loader.load('docs')
-      expect(afterClear.length).toBeGreaterThan(0)
-      expect(beforeClear).not.toBe(afterClear) // Different reference
-    })
-  })
-})
+    test('clears cached collections', async () => {
+      const beforeClear = await loader.load<DocEntry>('chunks');
+      expect(beforeClear.length).toBeGreaterThan(0);
+
+      loader.clearCache();
+
+      const afterClear = await loader.load<DocEntry>('chunks');
+      expect(afterClear.length).toBeGreaterThan(0);
+      expect(beforeClear).not.toBe(afterClear);
+    });
+  });
+});

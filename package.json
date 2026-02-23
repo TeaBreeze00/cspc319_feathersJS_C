@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "test": "jest --coverage",
+    "test:coverage": "jest --coverage --watchman=false",
     "lint": "eslint 'src/**/*.ts'",
     "format": "prettier --write src/ tests/",
     "prepare": "npm run build",
