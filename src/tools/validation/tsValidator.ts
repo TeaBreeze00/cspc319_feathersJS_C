@@ -30,9 +30,11 @@ export class TypeScriptValidator {
   validate(code: string, filename = 'input.ts'): ValidationResult {
     const compilerOptions: ts.CompilerOptions = {
       target: ts.ScriptTarget.ES2022,
-      module: ts.ModuleKind.ESNext,
+      module: ts.ModuleKind.NodeNext, // changed
+      moduleResolution: ts.ModuleResolutionKind.NodeNext, // added
       strict: true,
       noEmit: true,
+      noResolve: true,
     };
 
     const normalizedFile = this.normalizeFilename(filename);
