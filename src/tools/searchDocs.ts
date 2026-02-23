@@ -39,7 +39,6 @@ interface SearchResponse {
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
-const SNIPPET_CONTEXT_CHARS = 200;
 const VALID_VERSIONS = new Set<VersionFilter>(['v5', 'v6', 'both', 'all']);
 
 // ---------------------------------------------------------------------------
@@ -216,34 +215,7 @@ export class SearchDocsTool extends BaseTool {
    * of any query word. Falls back to the start of the content.
    */
   private generateSnippet(content: string, query: string): string {
-    if (!content) return '';
-
-    const words = query
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((w) => w.length > 1);
-
-    let matchIndex = -1;
-
-    // Find the earliest occurrence of any query word in the content
-    for (const word of words) {
-      const idx = content.toLowerCase().indexOf(word);
-      if (idx !== -1 && (matchIndex === -1 || idx < matchIndex)) {
-        matchIndex = idx;
-      }
-    }
-
-    // Centre the window around the match (or use start of content)
-    const start = Math.max(0, (matchIndex === -1 ? 0 : matchIndex) - SNIPPET_CONTEXT_CHARS / 2);
-    const end = Math.min(content.length, start + SNIPPET_CONTEXT_CHARS);
-
-    let snippet = content.slice(start, end).trim();
-
-    // Add ellipsis if we're not at the boundaries
-    if (start > 0) snippet = '…' + snippet;
-    if (end < content.length) snippet = snippet + '…';
-
-    return snippet;
+    return content ?? '';
   }
 
   /**
