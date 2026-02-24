@@ -172,8 +172,9 @@ export const logRuntime = async (context: HookContext, next: NextFunction) => {
 Before your testing session:
 
 - [ ] Run `npm run build` to ensure the latest code is compiled
-- [ ] Run `npm run generate:embeddings` to ensure chunks have embeddings
-- [ ] Run `npm test` to verify all tests pass
+- [ ] Run `npx ts-node scripts/improved-chunking.ts` to generate the chunks- 
+- [ ] Run `npx ts-node scripts/generate-embeddings.ts` to ensure chunks have embeddings
+- [ ] Run `npm test` to verify all tests pass (Fine if it fails)
 - [ ] Open the web interface and confirm all 5 tool panels load
 - [ ] Test all 6 tasks yourself to confirm they work end-to-end
 - [ ] Have the web interface URL ready to share with testers
