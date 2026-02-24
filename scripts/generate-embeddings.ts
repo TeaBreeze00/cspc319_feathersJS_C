@@ -1,24 +1,21 @@
 /**
  * generate-embeddings.ts
  *
- * One-time script that reads every DocEntry from knowledge-base/docs/*.json,
- * generates a 384-dimensional sentence embedding for each entry using the
- * all-MiniLM-L6-v2 model (via @xenova/transformers, fully local – no API key),
- * and writes the embedding back into the same JSON files under the `embedding` key.
+ * Generates 1024-dimensional BGE-M3 embeddings for each DocEntry.
+ * Uses Xenova/bge-m3 via @xenova/transformers (local, no API key).
  *
- * Run once after any change to the knowledge base:
+ * Key changes from v1:
+ *  - Model: Xenova/bge-m3 (1024d, 8192 token window) vs all-MiniLM-L6-v2 (384d, 256 tokens)
+ *  - Pooling: 'cls' (BGE-M3 requirement) vs 'mean'
+ *  - Embed text: full content with semantic header prefix (no truncation needed)
+ *
+ * Run after chunking:
  *   npm run generate:embeddings
- *
- * The updated JSON files should be committed to the repository so that the
- * MCP server never has to compute embeddings at query time.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 
-// ---------------------------------------------------------------------------
-// Types (mirrors src/knowledge/types.ts without importing from src/)
-// ---------------------------------------------------------------------------
 interface DocEntry {
   id: string;
   heading: string;
@@ -32,6 +29,7 @@ interface DocEntry {
   hasCode: boolean;
   codeLanguages: string[];
   tags?: string[];
+  subHeadings?: string[];
   embedding?: number[];
 }
 
@@ -42,115 +40,105 @@ interface DocEntry {
 const KB_DOCS_DIR = path.join(__dirname, '..', 'knowledge-base', 'chunks');
 
 /**
- * Maximum number of characters taken from `content` when building the text
- * to embed.  all-MiniLM-L6-v2 has a 256-token context window; ~1 000 chars
- * comfortably fits inside it while capturing enough semantic detail.
+ * BGE-M3: 1024d, 8192 token window, MIT license, built for retrieval.
+ * Xenova/bge-m3 is the ONNX-converted version compatible with @xenova/transformers.
+ * First run downloads ~568 MB (int8 quantized) and caches it.
  */
-const MAX_CONTENT_CHARS = 1000;
+const MODEL_NAME = 'Xenova/bge-m3';
+
+// ---------------------------------------------------------------------------
+// Embed text builder
+// ---------------------------------------------------------------------------
 
 /**
- * Hugging Face model identifier used by @xenova/transformers.
- * all-MiniLM-L6-v2:
- *   - 384-dimensional output
- *   - ~23 MB download (cached after first run)
- *   - Excellent balance of speed and semantic quality
+ * Build the text to embed for a single DocEntry.
+ *
+ * BGE-M3 can process 8192 tokens — enough for entire documentation files.
+ * We use the pre-built `content` field which already contains:
+ *   - Heading
+ *   - Breadcrumb
+ *   - Covers: (subHeadings list)
+ *   - Topics: (tags)
+ *   - Full rawContent
+ *
+ * This means the model sees both the structured metadata AND the full content,
+ * giving rich semantic representation of the entire document.
  */
-const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
+function buildEmbedText(doc: DocEntry): string {
+  // The chunker already built a perfect embed text in the `content` field.
+  // It front-loads heading/subHeadings/tags before the raw content.
+  // BGE-M3 handles the full length — no truncation needed.
+  return doc.content.trim();
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Build the text string that will be embedded for a single DocEntry.
- * We combine the title and the beginning of the content so the embedding
- * captures both the topic label and the actual explanation.
- */
-function buildEmbedText(doc: DocEntry): string {
-  return doc.content.trim().slice(0, MAX_CONTENT_CHARS);
-}
-
-/**
- * Convert a Float32Array (what @xenova/transformers returns) to a plain
- * number[] so it can be serialised into JSON without loss.
- */
 function toNumberArray(float32: Float32Array): number[] {
   const out: number[] = new Array(float32.length);
   for (let i = 0; i < float32.length; i++) {
-    // Round to 6 decimal places — more than enough precision, saves ~30 % JSON size
     out[i] = Math.round(float32[i] * 1_000_000) / 1_000_000;
   }
   return out;
 }
 
-/** Simple zero-padded progress indicator, e.g. " 3/42". */
 function progress(current: number, total: number): string {
   const w = String(total).length;
   return `${String(current).padStart(w)}/${total}`;
 }
 
+function collectJsonFiles(dir: string): string[] {
+  const results: string[] = [];
+  if (!fs.existsSync(dir)) return results;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) results.push(...collectJsonFiles(full));
+    else if (entry.isFile() && entry.name.endsWith('.json') && !entry.name.includes('metadata'))
+      results.push(full);
+  }
+  return results;
+}
+
 // ---------------------------------------------------------------------------
-// Core logic
+// Main
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
   console.log('');
-  console.log('  🪶  FeathersJS MCP — Embedding Generator');
-  console.log('  ─────────────────────────────────────────');
+  console.log('  🪶  FeathersJS MCP — BGE-M3 Embedding Generator');
+  console.log('  ─────────────────────────────────────────────────');
   console.log(`  Model : ${MODEL_NAME}`);
+  console.log(`  Dims  : 1024`);
+  console.log(`  Window: 8192 tokens`);
   console.log(`  Docs  : ${KB_DOCS_DIR}`);
   console.log('');
 
-  // ── 1. Discover JSON files ───────────────────────────────────────────────
   if (!fs.existsSync(KB_DOCS_DIR)) {
     console.error(`  ✗  Docs directory not found: ${KB_DOCS_DIR}`);
+    console.error('     Run: npx ts-node scripts/improved-chunking.ts');
     process.exit(1);
   }
 
-  // Recursively collect all .json files under KB_DOCS_DIR (supports v5/, v6/)
-  function collectJsonFiles(dir: string): string[] {
-    const results: string[] = [];
-    if (!fs.existsSync(dir)) return results;
-
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        results.push(...collectJsonFiles(full));
-      } else if (entry.isFile() && entry.name.endsWith('.json')) {
-        results.push(full);
-      }
-    }
-    return results;
-  }
-
   const jsonFiles = collectJsonFiles(KB_DOCS_DIR);
-
   if (jsonFiles.length === 0) {
-    console.error('  ✗  No JSON files found in docs directory.');
-    console.error(
-      '     Expected JSON files under knowledge-base/docs/, e.g. knowledge-base/docs/v5/*.json and knowledge-base/docs/v6/*.json'
-    );
-    console.error('     Run the ingest scripts to generate them:');
-    console.error('       node scripts/ingest-v5-docs-sectioned.js');
-    console.error('       node scripts/ingest-v6-docs-sectioned.js');
+    console.error('  ✗  No JSON chunk files found. Run the chunker first.');
     process.exit(1);
   }
 
   console.log(
-    `  Found ${jsonFiles.length} doc file(s): ${jsonFiles.map((f) => path.relative(KB_DOCS_DIR, f)).join(', ')}`
+    `  Found ${jsonFiles.length} chunk file(s): ${jsonFiles.map((f) => path.basename(f)).join(', ')}`
   );
   console.log('');
 
-  // ── 2. Load the embedding model ──────────────────────────────────────────
-  console.log('  Loading model (first run will download ~23 MB and cache it) …');
+  // Load BGE-M3
+  console.log('  Loading BGE-M3 (first run downloads ~568 MB int8 quantized, cached after) …');
   const startLoad = Date.now();
 
-  // Dynamic import keeps CommonJS compatibility while loading the ESM package
   const { pipeline } = await import('@xenova/transformers');
 
   const embedder = await pipeline('feature-extraction', MODEL_NAME, {
-    // Suppress the verbose progress bars from the transformers library
     progress_callback: undefined,
   });
 
@@ -158,7 +146,6 @@ async function main(): Promise<void> {
   console.log(`  ✓  Model ready in ${(loadMs / 1000).toFixed(1)}s`);
   console.log('');
 
-  // ── 3. Process each file ─────────────────────────────────────────────────
   let totalDocs = 0;
   let totalEmbedded = 0;
   let totalSkipped = 0;
@@ -168,10 +155,9 @@ async function main(): Promise<void> {
     let docs: DocEntry[];
 
     try {
-      const raw = fs.readFileSync(filePath, 'utf-8');
-      docs = JSON.parse(raw) as DocEntry[];
+      docs = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as DocEntry[];
     } catch (err) {
-      console.warn(`  ⚠  Skipping ${fileName} — could not parse JSON: ${String(err)}`);
+      console.warn(`  ⚠  Skipping ${fileName} — parse error: ${String(err)}`);
       continue;
     }
 
@@ -183,12 +169,11 @@ async function main(): Promise<void> {
     console.log(`  Processing ${fileName} (${docs.length} entries) …`);
     totalDocs += docs.length;
 
-    // ── 4. Embed each doc entry ────────────────────────────────────────────
     for (let i = 0; i < docs.length; i++) {
       const doc = docs[i];
-      const label = `    [${progress(i + 1, docs.length)}] ${doc.id} — "${doc.heading}"`;
-
+      const label = `    [${progress(i + 1, docs.length)}] ${doc.id}`;
       const text = buildEmbedText(doc);
+
       if (!text.trim()) {
         console.log(`${label}  → skipped (empty text)`);
         totalSkipped++;
@@ -199,14 +184,14 @@ async function main(): Promise<void> {
         const startEmbed = Date.now();
 
         const output = await embedder(text, {
-          pooling: 'mean', // mean-pool the token embeddings → single vector
-          normalize: true, // L2-normalise so cosine similarity = dot product
+          pooling: 'cls', // BGE-M3 uses CLS pooling (not mean)
+          normalize: true, // L2-normalise → cosine similarity = dot product
         });
 
         const embedMs = Date.now() - startEmbed;
         doc.embedding = toNumberArray(output.data as Float32Array);
 
-        console.log(`${label}  → ${doc.embedding.length}d  (${embedMs}ms)`);
+        console.log(`${label}  → ${doc.embedding.length}d  (${embedMs}ms)  [${doc.tokens} tokens]`);
         totalEmbedded++;
       } catch (err) {
         console.warn(`${label}  → FAILED: ${String(err)}`);
@@ -214,7 +199,6 @@ async function main(): Promise<void> {
       }
     }
 
-    // ── 5. Write updated file back ─────────────────────────────────────────
     try {
       fs.writeFileSync(filePath, JSON.stringify(docs, null, 2), 'utf-8');
       console.log(`  ✓  Wrote ${fileName}\n`);
@@ -224,13 +208,12 @@ async function main(): Promise<void> {
     }
   }
 
-  // ── 6. Summary ────────────────────────────────────────────────────────────
   console.log('  ─────────────────────────────────────────');
   console.log(`  Total docs   : ${totalDocs}`);
   console.log(`  Embedded     : ${totalEmbedded}`);
   console.log(`  Skipped/err  : ${totalSkipped}`);
   console.log('');
-  console.log('  Done. Commit the updated knowledge-base/docs/*.json files.');
+  console.log('  Done. Run: npm run build && npm test');
   console.log('');
 }
 

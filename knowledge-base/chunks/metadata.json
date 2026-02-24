@@ -1,7 +1,7 @@
 {
-  "generated": "2026-02-24T00:30:03.376Z",
+  "generated": "2026-02-24T07:48:46.933Z",
   "config": {
-    "MAX_SECTION_TOKENS": 500,
+    "MAX_EMBED_TOKENS": 7500,
     "MIN_CHUNK_TOKENS": 40,
     "INPUT_DIRS": [
       "docs/v5_docs",
@@ -13,13 +13,13 @@
   "stats": {
     "v5": {
       "files": 97,
-      "chunks": 561,
-      "withCode": 342
+      "chunks": 98,
+      "withCode": 69
     },
     "v6": {
       "files": 49,
-      "chunks": 307,
-      "withCode": 189
+      "chunks": 49,
+      "withCode": 39
     }
   }
 }

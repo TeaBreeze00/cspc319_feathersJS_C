@@ -1,23 +1,20 @@
 #!/usr/bin/env ts-node
 
 /**
- * FeathersJS Documentation Chunker — Hierarchical Header Strategy
+ * FeathersJS Documentation Chunker — Full-File Strategy (BGE-M3)
  *
- * Chunking logic:
- * - # = document title → prepended as context to all chunks in the file
- * - ## = primary chunk boundary, always creates a new chunk
- * - ### = sub-chunk boundary, but only if the ## section exceeds MAX_SECTION_TOKENS
+ * Strategy: 1 file = 1 chunk.
+ * BGE-M3 has an 8192-token context window — large enough to embed entire files.
+ * This eliminates fragmentation and gives the agent complete, self-contained docs.
  *
- * Every chunk carries a full breadcrumb: e.g. "Hooks > Hook context > context.params"
- * Code blocks are never split — they are consumed atomically within their section.
+ * Overflow rule: if a file exceeds MAX_EMBED_TOKENS (7500), split into 2 at
+ * the midpoint ## heading. Affects only the largest files (~1-3 per version).
  *
- * Handles:
- * - ```ts, ```js, ```sh, ``` (bare) code fences
- * - <BlockQuote> components (v5 style)
- * - ::tip / ::warning / ::info / ::danger callouts (v6 style)
- * - <LanguageBlock> tags (stripped, prose content kept)
- * - <Badges> blocks and image lines (stripped)
- * - YAML Frontmatter (stripped)
+ * Improvements over v1:
+ *   - Comprehensive path + filename + content category extraction
+ *   - ~100 tag concepts covering the full FeathersJS surface area
+ *   - Skips non-content directories (.vitepress, assets, public, components, menus, node_modules)
+ *   - Handles both v5 (<BlockQuote>) and v6 (::callout[label]) syntax
  */
 
 import * as fs from 'fs';
@@ -31,19 +28,18 @@ type Version = 'v5' | 'v6' | 'both';
 
 interface Chunk {
   id: string;
-  content: string; // breadcrumb + raw content — this is what you embed
-  rawContent: string; // content without breadcrumb prefix
-  breadcrumb: string; // e.g. "Hooks > Hook context > context.params"
+  content: string; // embed text: semantic header + full rawContent
+  rawContent: string; // full file content (returned to agent)
+  breadcrumb: string;
   version: Version;
   sourceFile: string;
-  heading: string; // the immediate heading for this chunk
+  heading: string; // document title (# heading)
+  subHeadings: string[]; // all ##, ###, #### headings
   hasCode: boolean;
   codeLanguages: string[];
   tokens: number;
   category: string;
   tags: string[];
-  prevChunkId?: string;
-  nextChunkId?: string;
 }
 
 // ============================================================================
@@ -51,15 +47,357 @@ interface Chunk {
 // ============================================================================
 
 const CONFIG = {
-  MAX_SECTION_TOKENS: 500, // ## sections larger than this get split at ###
-  MIN_CHUNK_TOKENS: 40, // discard chunks smaller than this
+  MAX_EMBED_TOKENS: 7500,
+  MIN_CHUNK_TOKENS: 40,
   INPUT_DIRS: ['docs/v5_docs', 'docs/v6_docs'],
   OUTPUT_DIR: 'knowledge-base/chunks',
   CHARS_PER_TOKEN: 4,
 };
 
+/** Directories to skip during file walking (case-insensitive basename check). */
+const SKIP_DIRS = new Set([
+  '.vitepress',
+  'assets',
+  'public',
+  'components',
+  'node_modules',
+  'menus',
+]);
+
 // ============================================================================
-// Utilities
+// Category extraction — three tiers: path → filename → content
+// ============================================================================
+
+/**
+ * Tier 1: subdirectory patterns (most specific, checked first).
+ * Order matters — first match wins.
+ */
+const PATH_CATEGORY_RULES: [RegExp, string][] = [
+  // Cookbook sub-categories
+  [/\/cookbook\/authentication\//, 'cookbook-authentication'],
+  [/\/cookbook\/deploy\//, 'deployment'],
+  [/\/cookbook\/express\//, 'cookbook-express'],
+  [/\/cookbook\/general\//, 'cookbook'],
+  [/\/cookbook\//, 'cookbook'],
+
+  // API sub-categories
+  [/\/api\/authentication\//, 'authentication'],
+  [/\/api\/databases\//, 'databases'],
+  [/\/api\/schema\//, 'schema'],
+  [/\/api\/client\//, 'client'],
+
+  // Guide sub-categories
+  [/\/guides\/cli\//, 'cli'],
+  [/\/guides\/basics\//, 'guides'],
+  [/\/guides\/frontend\//, 'frontend'],
+  [/\/guides\//, 'guides'],
+
+  // Top-level groupings
+  [/\/ecosystem\//, 'ecosystem'],
+  [/\/help\//, 'help'],
+];
+
+/**
+ * Tier 2: filename-based (for top-level /api/ files and root docs).
+ * Checked when no path rule matched, using the basename without extension.
+ */
+const FILENAME_CATEGORY: Record<string, string> = {
+  application: 'application',
+  hooks: 'hooks',
+  services: 'services',
+  channels: 'channels',
+  events: 'events',
+  errors: 'errors',
+  configuration: 'configuration',
+  express: 'express',
+  koa: 'koa',
+  socketio: 'socketio',
+  client: 'client',
+  authentication: 'authentication',
+  // v6 runtimes / transports
+  browser: 'runtime',
+  bun: 'runtime',
+  cloudflare: 'runtime',
+  deno: 'runtime',
+  nodejs: 'runtime',
+  http: 'transport',
+  // Guides
+  migrating: 'migration',
+  security: 'security',
+  'whats-new': 'release-notes',
+  frameworks: 'frameworks',
+  generator: 'cli',
+  // Help
+  faq: 'help',
+  // Comparison files
+  comparison: 'comparison',
+  'feathers-vs-firebase': 'comparison',
+  'feathers-vs-loopback': 'comparison',
+  'feathers-vs-meteor': 'comparison',
+  'feathers-vs-nest': 'comparison',
+  'feathers-vs-sails': 'comparison',
+  // Cookbook topics (when in root)
+  docker: 'deployment',
+  'file-uploading': 'cookbook-express',
+  'view-engine': 'cookbook-express',
+  scaling: 'cookbook',
+  'client-test': 'testing',
+  // Auth cookbook
+  anonymous: 'cookbook-authentication',
+  apiKey: 'cookbook-authentication',
+  auth0: 'cookbook-authentication',
+  facebook: 'cookbook-authentication',
+  firebase: 'cookbook-authentication',
+  google: 'cookbook-authentication',
+  'revoke-jwt': 'cookbook-authentication',
+  stateless: 'cookbook-authentication',
+  _discord: 'cookbook-authentication',
+  // CLI reference files
+  declarations: 'cli',
+  knexfile: 'cli',
+  validators: 'cli',
+  'log-error': 'cli',
+  logger: 'cli',
+  prettierrc: 'cli',
+  tsconfig: 'cli',
+  'default.json': 'cli',
+  'custom-environment-variables': 'cli',
+  // Schema files
+  resolvers: 'schema',
+  schema: 'schema',
+  typebox: 'schema',
+  // Database files
+  adapters: 'databases',
+  common: 'databases',
+  knex: 'databases',
+  memory: 'databases',
+  mongodb: 'databases',
+  querying: 'databases',
+};
+
+/**
+ * Tier 3: content-based heuristics (last resort).
+ * Each entry is [keywords to look for, category to assign].
+ */
+const CONTENT_CATEGORY_RULES: [string[], string][] = [
+  [['hook context', 'before hook', 'after hook', 'around hook'], 'hooks'],
+  [['service method', 'custom service', 'app.use'], 'services'],
+  [['jwt', 'oauth', 'local strategy', 'authenticationservice'], 'authentication'],
+  [['typebox', 'resolver', 'schema', 'validators'], 'schema'],
+  [['mongodb', 'postgresql', 'knex', 'database adapter'], 'databases'],
+  [['feathers client', 'rest client', 'socketio-client'], 'client'],
+  [['real-time', 'channel', 'publish'], 'channels'],
+  [['migration', 'upgrade', 'migrating'], 'migration'],
+  [['bun.serve', 'deno.serve', 'cloudflare worker'], 'runtime'],
+  [['docker', 'deploy'], 'deployment'],
+  [['testing', 'test runner', 'jest', 'mocha'], 'testing'],
+  [['security', 'cors', 'helmet', 'xss'], 'security'],
+  [['hook'], 'hooks'],
+  [['service'], 'services'],
+];
+
+function extractCategory(filePath: string, content: string): string {
+  // Tier 1: path-based
+  for (const [regex, cat] of PATH_CATEGORY_RULES) {
+    if (regex.test(filePath)) return cat;
+  }
+
+  // Tier 2: filename-based
+  const basename = path.basename(filePath, path.extname(filePath));
+  if (FILENAME_CATEGORY[basename]) return FILENAME_CATEGORY[basename];
+
+  // Also try filename with dots removed (e.g. "app.test" → "app.test" key)
+  const basenameNormalized = basename.replace(/\./g, '-');
+  if (FILENAME_CATEGORY[basenameNormalized]) return FILENAME_CATEGORY[basenameNormalized];
+
+  // Tier 3: content-based
+  const lower = content.toLowerCase();
+  for (const [keywords, cat] of CONTENT_CATEGORY_RULES) {
+    if (keywords.some((kw) => lower.includes(kw))) return cat;
+  }
+
+  return 'general';
+}
+
+// ============================================================================
+// Tag extraction — comprehensive FeathersJS concept list
+// ============================================================================
+
+const TAG_CONCEPTS: string[] = [
+  // Core
+  'hooks',
+  'services',
+  'application',
+  'context',
+  'params',
+  'provider',
+
+  // Hook types
+  'before hooks',
+  'after hooks',
+  'around hooks',
+  'error hooks',
+  'hook context',
+  'hook functions',
+  'hook flow',
+
+  // Service methods
+  'find',
+  'get',
+  'create',
+  'update',
+  'patch',
+  'remove',
+  'custom methods',
+  'setup',
+  'teardown',
+
+  // Authentication & authorization
+  'authentication',
+  'authorization',
+  'jwt',
+  'oauth',
+  'local strategy',
+  'api key',
+  'anonymous',
+  'stateless',
+  'revoke',
+
+  // OAuth providers
+  'google',
+  'facebook',
+  'github',
+  'auth0',
+  'discord',
+
+  // Schema & validation
+  'schema',
+  'resolver',
+  'typebox',
+  'validation',
+  'validators',
+
+  // Database & adapters
+  'database',
+  'adapter',
+  'mongodb',
+  'postgresql',
+  'knex',
+  'memory',
+  'pagination',
+  'querying',
+  'aggregation',
+  'collection',
+
+  // Real-time & channels
+  'real-time',
+  'websockets',
+  'channels',
+  'events',
+  'socket.io',
+  'publish',
+  'subscribe',
+
+  // Transport
+  'rest',
+  'http',
+  'transport',
+
+  // Frameworks
+  'express',
+  'koa',
+  'middleware',
+
+  // Runtimes / platforms
+  'bun',
+  'deno',
+  'cloudflare',
+  'browser',
+  'node.js',
+
+  // Client
+  'feathers client',
+  'client',
+
+  // Configuration
+  'configuration',
+  'environment variables',
+
+  // Error handling
+  'error handling',
+  'errors',
+
+  // TypeScript
+  'typescript',
+  'types',
+  'declarations',
+
+  // CLI & generator
+  'cli',
+  'generator',
+  'generate',
+
+  // Testing
+  'testing',
+  'test',
+
+  // Deployment & scaling
+  'docker',
+  'deployment',
+  'scaling',
+
+  // Security
+  'security',
+  'cors',
+  'helmet',
+
+  // Migration
+  'migration',
+  'upgrade',
+  'migrating',
+
+  // Misc features
+  'logging',
+  'logger',
+  'file upload',
+  'view engine',
+  'mixins',
+  'login',
+  'users',
+  'custom service',
+  'custom events',
+];
+
+function extractTags(content: string): string[] {
+  const tags = new Set<string>();
+  const lower = content.toLowerCase();
+  for (const concept of TAG_CONCEPTS) {
+    if (lower.includes(concept)) tags.add(concept);
+  }
+  return Array.from(tags);
+}
+
+// ============================================================================
+// SubHeading extraction — ##, ###, ####
+// ============================================================================
+
+function extractSubHeadings(content: string): string[] {
+  const headings: string[] = [];
+  let insideFence = false;
+  for (const line of content.split('\n')) {
+    if (line.match(/^```/)) {
+      insideFence = !insideFence;
+      continue;
+    }
+    if (insideFence) continue;
+    const m = line.match(/^#{2,4}\s+(.+)/);
+    if (m) headings.push(m[1].trim());
+  }
+  return headings;
+}
+
+// ============================================================================
+// Other extractors
 // ============================================================================
 
 function estimateTokens(text: string): number {
@@ -78,111 +416,17 @@ function generateChunkId(filePath: string, index: number): string {
   return `${version}-${basename}-${index}`;
 }
 
-function extractCategory(filePath: string, content: string): string {
-  const pathMatch = filePath.match(
-    /\/(hooks|services|authentication|databases|schema|client|api|guides|cookbook|ecosystem|koa|express)\//
-  );
-  if (pathMatch) return pathMatch[1];
-
-  const lower = content.toLowerCase();
-  if (
-    lower.includes('hook context') ||
-    lower.includes('before hook') ||
-    lower.includes('after hook')
-  )
-    return 'hooks';
-  if (lower.includes('service method') || lower.includes('custom service')) return 'services';
-  if (lower.includes('jwt') || lower.includes('oauth') || lower.includes('local strategy'))
-    return 'authentication';
-  if (lower.includes('typebox') || lower.includes('resolver') || lower.includes('schema'))
-    return 'schema';
-  if (lower.includes('mongodb') || lower.includes('postgresql') || lower.includes('knex'))
-    return 'databases';
-  if (lower.includes('feathers client') || lower.includes('rest client')) return 'client';
-  if (lower.includes('real-time') || lower.includes('channel') || lower.includes('publish'))
-    return 'events';
-  if (lower.includes('migration') || lower.includes('upgrade')) return 'migration';
-  if (lower.includes('hook')) return 'hooks';
-  if (lower.includes('service')) return 'services';
-  return 'general';
-}
-
-function extractTags(content: string): string[] {
-  const tags = new Set<string>();
-  const concepts = [
-    'hooks',
-    'services',
-    'context',
-    'params',
-    'provider',
-    'authentication',
-    'authorization',
-    'jwt',
-    'oauth',
-    'local strategy',
-    'schema',
-    'resolver',
-    'typebox',
-    'validation',
-    'database',
-    'adapter',
-    'mongodb',
-    'postgresql',
-    'knex',
-    'pagination',
-    'real-time',
-    'websockets',
-    'channels',
-    'events',
-    'rest',
-    'find',
-    'get',
-    'create',
-    'update',
-    'patch',
-    'remove',
-    'before hooks',
-    'after hooks',
-    'around hooks',
-    'error hooks',
-    'hook context',
-    'hook functions',
-    'custom methods',
-    'migrations',
-    'feathers client',
-    'socket.io',
-    'error handling',
-    'middleware',
-    'setup',
-    'teardown',
-    'application',
-  ];
-  const lower = content.toLowerCase();
-  for (const concept of concepts) {
-    if (lower.includes(concept)) tags.add(concept);
-  }
-  return Array.from(tags);
-}
-
 function extractCodeLanguages(content: string): string[] {
   const langs = new Set<string>();
   for (const match of content.matchAll(/^```(\S*)/gm)) {
     const lang = match[1].replace(/\{.*\}/, '').trim();
-    langs.add(lang || 'text'); // bare ``` fence gets 'text' instead of being skipped
+    langs.add(lang || 'text');
   }
   return Array.from(langs);
 }
 
 // ============================================================================
-// Pre-processor
-//
-// Normalizes the raw markdown before parsing:
-// - Strips YAML frontmatter
-// - Strips <Badges> blocks
-// - Strips image lines
-// - Strips <LanguageBlock> tags but keeps inner prose
-// - Converts ::tip/warning/info/danger callouts into <BlockQuote> format
-//   so the section splitter only has to handle one callout style
+// Pre-processor — handles frontmatter, Badges, images, LanguageBlock, callouts
 // ============================================================================
 
 function preprocess(markdown: string): string {
@@ -190,30 +434,30 @@ function preprocess(markdown: string): string {
   const out: string[] = [];
   let i = 0;
 
-  // Strip frontmatter
+  // Skip YAML frontmatter
   if (lines[0]?.trim() === '---') {
     i++;
     while (i < lines.length && lines[i].trim() !== '---') i++;
-    i++;
+    i++; // skip closing ---
   }
 
   while (i < lines.length) {
     const line = lines[i];
 
-    // Strip <Badges> blocks
+    // Skip <Badges> blocks
     if (line.match(/^<Badges>/)) {
       while (i < lines.length && !lines[i].match(/^<\/Badges>/)) i++;
       i++;
       continue;
     }
 
-    // Strip image lines
+    // Skip image-only lines
     if (line.match(/^!\[.*\]\(.*\)/)) {
       i++;
       continue;
     }
 
-    // Strip <LanguageBlock> tags, keep inner prose
+    // Inline <LanguageBlock> — keep inner content, strip wrapper tags
     if (line.match(/^<LanguageBlock/)) {
       i++;
       while (i < lines.length && !lines[i].match(/^<\/LanguageBlock>/)) {
@@ -225,17 +469,32 @@ function preprocess(markdown: string): string {
       continue;
     }
 
-    // Normalize ::callout into <BlockQuote> for uniform downstream parsing
+    // v5 callout: ::tip, ::warning, ::info, ::danger, ::note (with optional [label])
     const calloutMatch = line.match(/^::(tip|warning|info|danger|note)(\[.*?\])?\s*$/i);
     if (calloutMatch) {
-      out.push(`<BlockQuote type="${calloutMatch[1]}">`);
+      const type = calloutMatch[1];
+      const label = calloutMatch[2]?.slice(1, -1) || type;
+      out.push(`> **${label}:**`);
       i++;
       while (i < lines.length && !lines[i].match(/^::\s*$/)) {
-        out.push(lines[i]);
+        out.push(`> ${lines[i]}`);
         i++;
       }
-      out.push('</BlockQuote>');
       i++; // skip closing ::
+      continue;
+    }
+
+    // v5 <BlockQuote> elements
+    const bqMatch = line.match(/^<BlockQuote\s+type="(\w+)"(\s+label="([^"]*)")?/);
+    if (bqMatch) {
+      const label = bqMatch[3] || bqMatch[1];
+      out.push(`> **${label}:**`);
+      i++;
+      while (i < lines.length && !lines[i].match(/^<\/BlockQuote>/)) {
+        out.push(`> ${lines[i]}`);
+        i++;
+      }
+      i++; // skip </BlockQuote>
       continue;
     }
 
@@ -248,13 +507,10 @@ function preprocess(markdown: string): string {
 
 // ============================================================================
 // Section splitter
-//
-// Splits preprocessed markdown into sections keyed by heading level.
-// Code fences are tracked to avoid treating # inside code as headings.
 // ============================================================================
 
 interface Section {
-  level: number; // 1, 2, or 3
+  level: number; // 0 = preamble, 1 = #, 2 = ##, 3 = ###
   heading: string;
   body: string;
 }
@@ -263,21 +519,18 @@ function splitIntoSections(content: string): Section[] {
   const lines = content.split('\n');
   const sections: Section[] = [];
   let insideCodeFence = false;
-
   let currentLevel = 0;
   let currentHeading = '';
   let bodyLines: string[] = [];
 
   function flush() {
     const body = bodyLines.join('\n').trim();
-    if (currentHeading || body) {
+    if (currentHeading || body)
       sections.push({ level: currentLevel, heading: currentHeading, body });
-    }
     bodyLines = [];
   }
 
   for (const line of lines) {
-    // Track code fences so headings inside code blocks are ignored
     if (line.match(/^```/)) {
       insideCodeFence = !insideCodeFence;
       bodyLines.push(line);
@@ -288,7 +541,6 @@ function splitIntoSections(content: string): Section[] {
       const h1 = line.match(/^# (.+)/);
       const h2 = line.match(/^## (.+)/);
       const h3 = line.match(/^### (.+)/);
-
       if (h1) {
         flush();
         currentLevel = 1;
@@ -320,75 +572,111 @@ function splitIntoSections(content: string): Section[] {
 // Chunk builder
 // ============================================================================
 
+function buildContent(
+  heading: string,
+  breadcrumb: string,
+  subHeadings: string[],
+  tags: string[],
+  rawContent: string
+): string {
+  const parts: string[] = [];
+  parts.push(`# ${heading}`);
+  parts.push(`Breadcrumb: ${breadcrumb}`);
+  if (subHeadings.length > 0) parts.push(`Covers: ${subHeadings.join(' | ')}`);
+  if (tags.length > 0) parts.push(`Topics: ${tags.join(', ')}`);
+  parts.push('');
+  parts.push(rawContent);
+  return parts.join('\n');
+}
+
+function makeChunk(
+  heading: string,
+  docTitle: string,
+  rawContent: string,
+  sourceFile: string,
+  version: Version,
+  index: number
+): Chunk {
+  const subHeadings = extractSubHeadings(rawContent);
+  const tags = extractTags(rawContent);
+  const codeLanguages = extractCodeLanguages(rawContent);
+  const category = extractCategory(sourceFile, rawContent);
+  const breadcrumb = heading === docTitle ? docTitle : `${docTitle} > ${heading}`;
+  const content = buildContent(heading, breadcrumb, subHeadings, tags, rawContent);
+
+  return {
+    id: generateChunkId(sourceFile, index),
+    content,
+    rawContent,
+    breadcrumb,
+    version,
+    sourceFile,
+    heading,
+    subHeadings,
+    hasCode: rawContent.includes('```'),
+    codeLanguages,
+    tokens: estimateTokens(rawContent),
+    category,
+    tags,
+  };
+}
+
 function buildChunks(sections: Section[], sourceFile: string, docTitle: string): Chunk[] {
-  const chunks: Chunk[] = [];
   const version = extractVersion(sourceFile);
-  let chunkIndex = 0;
-  let currentH2 = '';
 
-  function makeChunk(heading: string, body: string, breadcrumb: string): Chunk | null {
-    const rawContent = body.trim();
-    if (!rawContent || estimateTokens(rawContent) < CONFIG.MIN_CHUNK_TOKENS) return null;
-
-    const fullContent = `Context: ${breadcrumb}\n\n${rawContent}`;
-    const codeLanguages = extractCodeLanguages(rawContent);
-
-    return {
-      id: generateChunkId(sourceFile, chunkIndex++),
-      content: fullContent,
-      rawContent,
-      breadcrumb,
-      version,
-      sourceFile,
-      heading,
-      hasCode: rawContent.includes('```'),
-      codeLanguages,
-      tokens: estimateTokens(fullContent),
-      category: extractCategory(sourceFile, rawContent),
-      tags: extractTags(rawContent),
-    };
-  }
+  // Reconstruct full file body, folding ### under their parent ##
+  const h2Blocks: { heading: string; body: string }[] = [];
+  let currentBlock: { heading: string; body: string } | null = null;
 
   for (const section of sections) {
-    // Level 1 — document title, used only for breadcrumbs
-    if (section.level === 1) continue;
+    if (section.level === 1) continue; // title already captured as docTitle
 
     if (section.level === 2) {
-      currentH2 = section.heading;
-      const breadcrumb = `${docTitle} > ${currentH2}`;
-
-      if (estimateTokens(section.body) <= CONFIG.MAX_SECTION_TOKENS) {
-        // Small enough — emit as a single chunk
-        const chunk = makeChunk(section.heading, section.body, breadcrumb);
-        if (chunk) chunks.push(chunk);
+      if (currentBlock) h2Blocks.push(currentBlock);
+      currentBlock = { heading: section.heading, body: `## ${section.heading}\n\n${section.body}` };
+    } else if (section.level === 3 && currentBlock) {
+      currentBlock.body += `\n\n### ${section.heading}\n\n${section.body}`;
+    } else if (section.level === 0) {
+      // Preamble (text before any ## heading)
+      if (!currentBlock) {
+        currentBlock = { heading: docTitle, body: section.body };
       } else {
-        // Large section — emit the lead content (before first ###) as its own chunk.
-        // The ### subsections will be emitted separately when we encounter level 3.
-        const leadBody = section.body.split(/\n(?=### )/)[0].trim();
-        if (leadBody && estimateTokens(leadBody) >= CONFIG.MIN_CHUNK_TOKENS) {
-          const chunk = makeChunk(section.heading, leadBody, breadcrumb);
-          if (chunk) chunks.push(chunk);
-        }
+        currentBlock.body += `\n\n${section.body}`;
       }
-      continue;
-    }
-
-    if (section.level === 3) {
-      const breadcrumb = currentH2
-        ? `${docTitle} > ${currentH2} > ${section.heading}`
-        : `${docTitle} > ${section.heading}`;
-
-      const chunk = makeChunk(section.heading, section.body, breadcrumb);
-      if (chunk) chunks.push(chunk);
-      continue;
     }
   }
+  if (currentBlock) h2Blocks.push(currentBlock);
 
-  // Link prev/next for contextual window retrieval
-  for (let i = 0; i < chunks.length; i++) {
-    if (i > 0) chunks[i].prevChunkId = chunks[i - 1].id;
-    if (i < chunks.length - 1) chunks[i].nextChunkId = chunks[i + 1].id;
+  const fullBody = h2Blocks
+    .map((b) => b.body)
+    .join('\n\n')
+    .trim();
+  const totalTokens = estimateTokens(fullBody);
+
+  // Single chunk — fits in BGE-M3's window
+  if (totalTokens <= CONFIG.MAX_EMBED_TOKENS) {
+    return [makeChunk(docTitle, docTitle, fullBody, sourceFile, version, 0)];
   }
+
+  // Overflow — split into 2 at midpoint ## heading
+  console.warn(`    ⚠  ${path.basename(sourceFile)} is ${totalTokens} tokens — splitting into 2`);
+  const midpoint = Math.floor(h2Blocks.length / 2);
+  const part1Body = h2Blocks
+    .slice(0, midpoint)
+    .map((b) => b.body)
+    .join('\n\n')
+    .trim();
+  const part2Body = h2Blocks
+    .slice(midpoint)
+    .map((b) => b.body)
+    .join('\n\n')
+    .trim();
+
+  const chunks: Chunk[] = [];
+  if (estimateTokens(part1Body) >= CONFIG.MIN_CHUNK_TOKENS)
+    chunks.push(makeChunk(`${docTitle} (part 1)`, docTitle, part1Body, sourceFile, version, 0));
+  if (estimateTokens(part2Body) >= CONFIG.MIN_CHUNK_TOKENS)
+    chunks.push(makeChunk(`${docTitle} (part 2)`, docTitle, part2Body, sourceFile, version, 1));
 
   return chunks;
 }
@@ -401,10 +689,8 @@ function processFile(filePath: string): { chunks: Chunk[]; meta: object } {
   const raw = fs.readFileSync(filePath, 'utf-8');
   const cleaned = preprocess(raw);
   const sections = splitIntoSections(cleaned);
-
   const titleSection = sections.find((s) => s.level === 1);
   const docTitle = titleSection?.heading || path.basename(filePath, '.md');
-
   const chunks = buildChunks(sections, filePath, docTitle);
 
   return {
@@ -414,7 +700,6 @@ function processFile(filePath: string): { chunks: Chunk[]; meta: object } {
       version: extractVersion(filePath),
       docTitle,
       totalChunks: chunks.length,
-      totalTokens: chunks.reduce((s, c) => s + c.tokens, 0),
     },
   };
 }
@@ -422,15 +707,17 @@ function processFile(filePath: string): { chunks: Chunk[]; meta: object } {
 function getAllMarkdownFiles(dir: string): string[] {
   if (!fs.existsSync(dir)) return [];
   const files: string[] = [];
-
   function walk(p: string) {
     for (const entry of fs.readdirSync(p, { withFileTypes: true })) {
-      const full = path.join(p, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (entry.name.endsWith('.md')) files.push(full);
+      // Skip hidden dirs and non-content dirs
+      if (entry.isDirectory()) {
+        if (entry.name.startsWith('.') || SKIP_DIRS.has(entry.name)) continue;
+        walk(path.join(p, entry.name));
+      } else if (entry.name.endsWith('.md')) {
+        files.push(path.join(p, entry.name));
+      }
     }
   }
-
   walk(dir);
   return files;
 }
@@ -440,16 +727,25 @@ function getAllMarkdownFiles(dir: string): string[] {
 // ============================================================================
 
 function main() {
-  console.log('🚀 FeathersJS hierarchical chunker starting...\n');
-
-  if (!fs.existsSync(CONFIG.OUTPUT_DIR)) {
-    fs.mkdirSync(CONFIG.OUTPUT_DIR, { recursive: true });
-  }
+  console.log('🚀 FeathersJS full-file chunker (BGE-M3 strategy)...\n');
+  if (!fs.existsSync(CONFIG.OUTPUT_DIR)) fs.mkdirSync(CONFIG.OUTPUT_DIR, { recursive: true });
 
   const allChunks: { v5: Chunk[]; v6: Chunk[] } = { v5: [], v6: [] };
   const stats = {
-    v5: { files: 0, chunks: 0, withCode: 0 },
-    v6: { files: 0, chunks: 0, withCode: 0 },
+    v5: {
+      files: 0,
+      chunks: 0,
+      withCode: 0,
+      categories: new Set<string>(),
+      tags: new Set<string>(),
+    },
+    v6: {
+      files: 0,
+      chunks: 0,
+      withCode: 0,
+      categories: new Set<string>(),
+      tags: new Set<string>(),
+    },
   };
 
   for (const dir of CONFIG.INPUT_DIRS) {
@@ -457,7 +753,6 @@ function main() {
       console.warn(`⚠️  Not found: ${dir}`);
       continue;
     }
-
     console.log(`📂 ${dir}`);
     const files = getAllMarkdownFiles(dir);
     console.log(`   ${files.length} markdown files\n`);
@@ -466,24 +761,35 @@ function main() {
       try {
         const { chunks } = processFile(file);
         const version = extractVersion(file);
+        const label = chunks.length > 1 ? ` → split ${chunks.length}` : '';
+        const cats = [...new Set(chunks.map((c) => c.category))].join(', ');
+        const tagCt = [...new Set(chunks.flatMap((c) => c.tags))].length;
+        const subCt = [...new Set(chunks.flatMap((c) => c.subHeadings))].length;
+        console.log(
+          `   ✓ ${path.basename(file).padEnd(35)} ${String(chunks[0].tokens).padStart(5)} tok` +
+            `  cat=${cats.padEnd(22)}  ${tagCt} tags  ${subCt} subs${label}`
+        );
 
         if (version === 'v5' || version === 'both') {
           allChunks.v5.push(...chunks);
           stats.v5.files++;
           stats.v5.chunks += chunks.length;
           stats.v5.withCode += chunks.filter((c) => c.hasCode).length;
+          chunks.forEach((c) => {
+            stats.v5.categories.add(c.category);
+            c.tags.forEach((t) => stats.v5.tags.add(t));
+          });
         }
         if (version === 'v6' || version === 'both') {
           allChunks.v6.push(...chunks);
           stats.v6.files++;
           stats.v6.chunks += chunks.length;
           stats.v6.withCode += chunks.filter((c) => c.hasCode).length;
+          chunks.forEach((c) => {
+            stats.v6.categories.add(c.category);
+            c.tags.forEach((t) => stats.v6.tags.add(t));
+          });
         }
-
-        const codeCount = chunks.filter((c) => c.hasCode).length;
-        console.log(
-          `   ✓ ${path.basename(file)}: ${chunks.length} chunks (${codeCount} with code)`
-        );
       } catch (err) {
         console.error(`   ✗ ${file}:`, err);
       }
@@ -491,36 +797,51 @@ function main() {
     console.log('');
   }
 
-  // Write version-namespaced output
-  console.log('💾 Writing output...\n');
   for (const version of ['v5', 'v6'] as const) {
     const outFile = path.join(CONFIG.OUTPUT_DIR, `${version}-chunks.json`);
     fs.writeFileSync(outFile, JSON.stringify(allChunks[version], null, 2));
-    console.log(`   ✓ ${version}: ${allChunks[version].length} chunks → ${outFile}`);
+    console.log(`✓ ${version}: ${allChunks[version].length} chunks → ${outFile}`);
   }
 
   fs.writeFileSync(
     path.join(CONFIG.OUTPUT_DIR, 'metadata.json'),
-    JSON.stringify({ generated: new Date().toISOString(), config: CONFIG, stats }, null, 2)
+    JSON.stringify(
+      {
+        generated: new Date().toISOString(),
+        config: CONFIG,
+        stats: {
+          v5: {
+            files: stats.v5.files,
+            chunks: stats.v5.chunks,
+            withCode: stats.v5.withCode,
+            categories: [...stats.v5.categories].sort(),
+            uniqueTags: stats.v5.tags.size,
+          },
+          v6: {
+            files: stats.v6.files,
+            chunks: stats.v6.chunks,
+            withCode: stats.v6.withCode,
+            categories: [...stats.v6.categories].sort(),
+            uniqueTags: stats.v6.tags.size,
+          },
+        },
+      },
+      null,
+      2
+    )
   );
 
-  console.log('\n' + '='.repeat(60));
-  console.log('✨ Done!\n');
-  console.log('📊 Summary:');
+  console.log('\n📊 Summary:');
   for (const [v, s] of Object.entries(stats)) {
-    if (s.files === 0) continue;
-    console.log(`   ${v}: ${s.chunks} chunks from ${s.files} files (${s.withCode} contain code)`);
+    if (s.files > 0) {
+      console.log(`   ${v}: ${s.chunks} chunks from ${s.files} files`);
+      console.log(`       categories: ${[...s.categories].sort().join(', ')}`);
+      console.log(`       unique tags: ${s.tags.size}`);
+    }
   }
-  console.log('\n💡 Tips:');
-  console.log('   • Embed using the `content` field — it includes the breadcrumb prefix');
-  console.log('   • At retrieval time, use `rawContent` for the LLM context window');
-  console.log('   • Use prevChunkId/nextChunkId to expand context when needed');
-  console.log('   • Filter by `version` to avoid v5/v6 cross-contamination');
-  console.log('='.repeat(60));
+  console.log('\n💡 Next: npm run generate:embeddings');
 }
 
-if (require.main === module) {
-  main();
-}
+if (require.main === module) main();
 
 export { preprocess, splitIntoSections, buildChunks, processFile };

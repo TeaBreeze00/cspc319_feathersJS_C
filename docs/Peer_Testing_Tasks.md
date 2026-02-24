@@ -84,10 +84,10 @@ export const logRuntime = async (context: HookContext, next: NextFunction) => {
 4. Now paste intentionally broken code (e.g. remove a closing brace) and validate again
 
 **Success Criteria:**
-- [ ] Valid code returns a passing result
-- [ ] Invalid code returns a clear failure with useful feedback
-- [ ] The response indicates which checks ran (TypeScript, ESLint, etc.)
-- [ ] System does not crash on bad input
+- [x] Valid code returns a passing result
+- [x] Invalid code returns a clear failure with useful feedback
+- [x] The response indicates which checks ran (TypeScript, ESLint, etc.)
+- [x] System does not crash on bad input
 
 ---
 
@@ -110,10 +110,10 @@ export const logRuntime = async (context: HookContext, next: NextFunction) => {
 4. Check that all fields appear correctly in the schema file
 
 **Success Criteria:**
-- [ ] Generates 4 files: service, hooks, schema, and test
-- [ ] All requested fields appear in the schema with correct types
-- [ ] Code appears syntactically reasonable
-- [ ] Files have appropriate import statements
+- [x] Generates 4 files: service, hooks, schema, and test
+- [x] All requested fields appear in the schema with correct types
+- [x] Code appears syntactically reasonable
+- [x] Files have appropriate import statements
 
 ---
 
@@ -129,9 +129,9 @@ export const logRuntime = async (context: HookContext, next: NextFunction) => {
 3. Review the names, descriptions, and input schemas for each tool
 
 **Success Criteria:**
-- [ ] Returns all 5 tools with names and descriptions
-- [ ] Each tool shows its required and optional parameters
-- [ ] Descriptions are clear enough that you'd know when to use each tool
+- [x] Returns all 5 tools with names and descriptions
+- [x] Each tool shows its required and optional parameters
+- [x] Descriptions are clear enough that you'd know when to use each tool
 
 ---
 
@@ -148,9 +148,9 @@ export const logRuntime = async (context: HookContext, next: NextFunction) => {
 4. In **Explain Concept**, submit a completely nonsensical term like "xyzfoo123"
 
 **Success Criteria:**
-- [ ] System returns a clear, helpful message for each case
-- [ ] System does NOT crash or show a blank screen
-- [ ] Error messages explain what went wrong or what to try instead
+- [x] System returns a clear, helpful message for each case
+- [x] System does NOT crash or show a blank screen
+- [x] Error messages explain what went wrong or what to try instead
 
 ---
 

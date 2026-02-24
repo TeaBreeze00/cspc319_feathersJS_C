@@ -24,6 +24,7 @@ export interface DocEntry {
   hasCode: boolean;
   codeLanguages: string[];
   tags?: string[];
+  subHeadings?: string[]; // ← NEW: all ## and ### headings in this chunk
   embedding?: number[];
 }
 
@@ -81,14 +82,8 @@ export interface KnowledgeIndex {
   bestPractices?: BestPractice[];
 }
 
-// Minimal runtime type guard for DocEntry
 export function isDocEntry(obj: unknown): obj is DocEntry {
   return (
-    typeof obj === 'object' &&
-    obj !== null &&
-    'id' in obj &&
-    'title' in obj &&
-    'content' in obj &&
-    'version' in obj
+    typeof obj === 'object' && obj !== null && 'id' in obj && 'content' in obj && 'version' in obj
   );
 }
