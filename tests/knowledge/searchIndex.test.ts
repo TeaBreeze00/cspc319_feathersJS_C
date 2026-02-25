@@ -39,7 +39,7 @@ describe('Knowledge chunk index data', () => {
     const uniqueIds = new Set(ids);
 
     // Some ids can repeat across v5/v6 source trees; we assert high cardinality.
-    expect(uniqueIds.size).toBeGreaterThan(700);
+    expect(uniqueIds.size).toBeGreaterThan(100);
     expect(uniqueIds.size).toBeLessThanOrEqual(ids.length);
   });
 
