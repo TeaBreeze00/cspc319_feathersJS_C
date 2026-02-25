@@ -1,7 +1,7 @@
 {
-  "generated": "2026-02-24T00:30:03.376Z",
+  "generated": "2026-02-25T00:59:07.762Z",
   "config": {
-    "MAX_SECTION_TOKENS": 500,
+    "MAX_EMBED_TOKENS": 7500,
     "MIN_CHUNK_TOKENS": 40,
     "INPUT_DIRS": [
       "docs/v5_docs",
@@ -13,13 +13,62 @@
   "stats": {
     "v5": {
       "files": 97,
-      "chunks": 561,
-      "withCode": 342
+      "chunks": 98,
+      "withCode": 69,
+      "categories": [
+        "application",
+        "authentication",
+        "channels",
+        "cli",
+        "client",
+        "comparison",
+        "configuration",
+        "cookbook",
+        "cookbook-authentication",
+        "cookbook-express",
+        "databases",
+        "deployment",
+        "ecosystem",
+        "errors",
+        "events",
+        "express",
+        "frontend",
+        "general",
+        "guides",
+        "help",
+        "hooks",
+        "koa",
+        "schema",
+        "services",
+        "socketio"
+      ],
+      "uniqueTags": 98
     },
     "v6": {
       "files": 49,
-      "chunks": 307,
-      "withCode": 189
+      "chunks": 49,
+      "withCode": 39,
+      "categories": [
+        "application",
+        "authentication",
+        "channels",
+        "client",
+        "cookbook",
+        "cookbook-authentication",
+        "cookbook-express",
+        "deployment",
+        "ecosystem",
+        "errors",
+        "events",
+        "frontend",
+        "guides",
+        "help",
+        "hooks",
+        "runtime",
+        "services",
+        "transport"
+      ],
+      "uniqueTags": 97
     }
   }
 }
