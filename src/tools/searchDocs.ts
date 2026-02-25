@@ -15,22 +15,38 @@ interface SearchDocsParams {
   query: string;
   version?: VersionFilter;
   limit?: number;
+  /**
+   * Optional token budget.  When provided, results are trimmed (greedily,
+   * best-score first) so that the cumulative token count stays within this
+   * value.  Helps callers fill a fixed context window without overflowing.
+   */
+  tokensBudget?: number;
 }
 
 interface SearchResult {
   id: string;
-  heading: string; // was title
+  heading: string;
   version: string;
   category: string;
   score: number;
   snippet: string;
-  breadcrumb: string; // replaces url + headingPath
+  breadcrumb: string;
+  /** All ## / ### headings inside the chunk — lets the agent see scope at a glance */
+  covers: string[];
+  /** Concept tags extracted from the chunk */
+  tags: string[];
+  /** Estimated token count (useful alongside tokensBudget) */
+  tokens: number;
+  /** Source markdown file — useful for grouping related results */
+  sourceFile: string;
 }
 
 interface SearchResponse {
   query: string;
   version: VersionFilter;
   results: SearchResult[];
+  /** Sum of tokens across all returned results */
+  totalTokens: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -39,6 +55,7 @@ interface SearchResponse {
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 50;
+const DEFAULT_VERSION: VersionFilter = 'all';
 const VALID_VERSIONS = new Set<VersionFilter>(['v5', 'v6', 'both', 'all']);
 
 // ---------------------------------------------------------------------------
@@ -46,28 +63,28 @@ const VALID_VERSIONS = new Set<VersionFilter>(['v5', 'v6', 'both', 'all']);
 // ---------------------------------------------------------------------------
 
 /**
- * SearchDocsTool
+ * SearchDocsTool — dense BGE-M3 semantic search over the FeathersJS knowledge base.
  *
- * Semantic search over the FeathersJS knowledge base using vector embeddings.
- * Loads all DocEntry objects from the KnowledgeLoader, filters by version,
- * then delegates ranking to VectorSearch (cosine similarity with all-MiniLM-L6-v2).
+ * Pipeline (all in-process, no external calls):
+ *   1. BGE-M3 vector search  → ranked candidates by cosine similarity
+ *   2. Source deduplication  → at most 2 results from the same source file
+ *   3. Token-budget trim     → optional; honour a caller-supplied token budget
+ *   4. Slice to `limit`      → return the top N results
  *
  * Returned JSON shape:
  * {
- *   query: string,
- *   version: string,
- *   results: Array<{
- *     id, title, version, category, score, snippet, url, headingPath
- *   }>
+ *   query, version, totalTokens,
+ *   results: [{ id, heading, version, category, score, snippet,
+ *               breadcrumb, covers, tags, tokens, sourceFile }]
  * }
  */
 export class SearchDocsTool extends BaseTool {
   name = 'search_docs';
 
   description =
-    'Search the FeathersJS documentation using semantic vector search. ' +
-    'Returns the most relevant documentation sections for a given query, ' +
-    'optionally filtered by version (v4, v5, v6, both, all).';
+    'Search the FeathersJS documentation using BGE-M3 dense semantic search. ' +
+    'Returns the most relevant documentation chunks for a given query, ' +
+    'optionally filtered by version (v5, v6, both, all) and capped by a token budget.';
 
   inputSchema: JsonSchema = {
     type: 'object',
@@ -80,12 +97,18 @@ export class SearchDocsTool extends BaseTool {
         type: 'string',
         enum: ['v5', 'v6', 'both', 'all'],
         description:
-          'FeathersJS version to search (default: v6). ' +
+          'FeathersJS version to search (default: all). ' +
           'Use "all" or "both" to search across all versions.',
       },
       limit: {
         type: 'number',
-        description: `Maximum number of results to return (default: ${DEFAULT_LIMIT}, max: ${MAX_LIMIT}).`,
+        description: `Maximum results to return (default: ${DEFAULT_LIMIT}, max: ${MAX_LIMIT}).`,
+      },
+      tokensBudget: {
+        type: 'number',
+        description:
+          'Optional. Trim the result list so the cumulative chunk token count ' +
+          'does not exceed this value. Useful for filling a fixed context window.',
       },
     },
     required: ['query'],
@@ -103,55 +126,78 @@ export class SearchDocsTool extends BaseTool {
   // ---------------------------------------------------------------------------
 
   async execute(params: unknown): Promise<ToolResult> {
-    // Safely normalize params — handle null, undefined, non-object inputs
-    const normalized = this.normalizeParams(params);
-    const { query, version, limit } = normalized;
+    const { query, version, limit, tokensBudget } = this.normalizeParams(params);
 
-    // Empty query → return empty results immediately
-    if (!query) {
-      return this.buildResult(query, version, []);
-    }
+    if (!query) return this.buildResult(query, version, [], 0);
 
-    // Load all docs from the knowledge base
-    const allDocs = await this.loader.load<DocEntry>('chunks'); // ← should be 'chunks'
-
-    // Filter by the requested version
+    // Load and version-filter docs
+    const allDocs = await this.loader.load<DocEntry>('chunks');
     const filteredDocs = this.filterByVersion(allDocs, version);
 
-    // Delegate ranking to vector search
-    const ranked = await vectorSearch.search(query, filteredDocs, limit);
+    // ── Stage 1: BGE-M3 dense vector search ───────────────────────────────
+    // Request up to MAX_LIMIT candidates so we have headroom for dedup + budget
+    const candidates = await vectorSearch.search(query, filteredDocs, MAX_LIMIT);
 
-    // Build the full result objects by joining ranked ids back to their DocEntry
+    // ── Stage 2: Source deduplication — max 2 per source file ─────────────
     const docMap = new Map<string, DocEntry>(filteredDocs.map((d) => [d.id, d]));
+    const seenSources = new Map<string, number>();
+    const deduped: typeof candidates = [];
 
+    for (const c of candidates) {
+      const doc = docMap.get(c.id);
+      const src = doc?.sourceFile ?? c.id;
+      const n = seenSources.get(src) ?? 0;
+      if (n < 2) {
+        deduped.push(c);
+        seenSources.set(src, n + 1);
+      }
+    }
+
+    // ── Stage 3: Token-budget trimming ────────────────────────────────────
+    let pool = deduped;
+    if (tokensBudget > 0) {
+      let remaining = tokensBudget;
+      pool = deduped.filter((c) => {
+        if (remaining <= 0) return false;
+        remaining -= docMap.get(c.id)?.tokens ?? 0;
+        return true;
+      });
+    }
+
+    // ── Stage 4: Slice to final limit and build output ────────────────────
+    const topN = pool.slice(0, limit);
     const results: SearchResult[] = [];
-    for (const { id, score } of ranked) {
+    let totalTokens = 0;
+
+    for (const { id, score } of topN) {
       const doc = docMap.get(id);
       if (!doc) continue;
 
+      totalTokens += doc.tokens ?? 0;
       results.push({
         id: doc.id,
         heading: doc.heading,
         version: doc.version as string,
         category: (doc.category as string) ?? 'uncategorized',
         score,
-        snippet: this.generateSnippet(doc.rawContent, query),
+        snippet: doc.rawContent,
         breadcrumb: doc.breadcrumb,
+        covers: doc.subHeadings ?? [],
+        tags: doc.tags ?? [],
+        tokens: doc.tokens ?? 0,
+        sourceFile: doc.sourceFile ?? '',
       });
     }
 
-    return this.buildResult(query, version, results);
+    return this.buildResult(query, version, results, totalTokens);
   }
 
   // ---------------------------------------------------------------------------
-  // register (MCP protocol registration)
+  // register
   // ---------------------------------------------------------------------------
 
   register(): ToolRegistration {
-    const handler: ToolHandler = async (params: unknown) => {
-      return this.execute(params);
-    };
-
+    const handler: ToolHandler = async (params: unknown) => this.execute(params);
     return {
       name: this.name,
       description: this.description,
@@ -164,66 +210,66 @@ export class SearchDocsTool extends BaseTool {
   // Private helpers
   // ---------------------------------------------------------------------------
 
-  /**
-   * Safely extract and validate params from an unknown input.
-   * Returns safe defaults for every field.
-   */
   private normalizeParams(params: unknown): Required<SearchDocsParams> {
     if (params === null || params === undefined || typeof params !== 'object') {
-      return { query: '', version: 'v5', limit: DEFAULT_LIMIT };
+      return { query: '', version: DEFAULT_VERSION, limit: DEFAULT_LIMIT, tokensBudget: 0 };
     }
 
     const obj = params as Record<string, unknown>;
 
-    // query — trim whitespace, default to empty string
     const rawQuery = typeof obj.query === 'string' ? obj.query.trim() : '';
 
-    // version — validate against allowed set, fall back to 'v6'
     const rawVersion = obj.version;
     const version: VersionFilter =
       typeof rawVersion === 'string' && VALID_VERSIONS.has(rawVersion as VersionFilter)
         ? (rawVersion as VersionFilter)
-        : 'v6';
+        : DEFAULT_VERSION;
 
-    // limit — must be a positive integer, cap at MAX_LIMIT, fall back to DEFAULT_LIMIT
-    const rawLimit = obj.limit;
     let limit = DEFAULT_LIMIT;
+    const rawLimit = obj.limit;
     if (typeof rawLimit === 'number' && Number.isFinite(rawLimit) && rawLimit > 0) {
       limit = Math.min(Math.floor(rawLimit), MAX_LIMIT);
     }
 
-    return { query: rawQuery, version, limit };
-  }
-
-  /**
-   * Filter docs by version.
-   *
-   * - 'all' / 'both' → include everything
-   * - 'v5'           → include v5 + docs marked 'both'
-   * - 'v6'           → include v6 + docs marked 'both'
-   */
-  private filterByVersion(docs: DocEntry[], version: VersionFilter): DocEntry[] {
-    if (version === 'all' || version === 'both') {
-      return docs;
+    let tokensBudget = 0;
+    const rawBudget = obj.tokensBudget;
+    if (typeof rawBudget === 'number' && Number.isFinite(rawBudget) && rawBudget > 0) {
+      tokensBudget = Math.floor(rawBudget);
     }
 
-    return docs.filter((doc) => doc.version === version || doc.version === 'both');
+    return { query: rawQuery, version, limit, tokensBudget };
+  }
+
+  private filterByVersion(docs: DocEntry[], version: VersionFilter): DocEntry[] {
+    if (version === 'all' || version === 'both') return docs;
+    return docs.filter((d) => d.version === version || d.version === 'both');
   }
 
   /**
-   * Extract a short snippet from content centred around the first occurrence
-   * of any query word. Falls back to the start of the content.
+   * Extract a ≤300-char snippet centred around the first query-term hit.
+   * Falls back to the first 300 chars if no term is found.
    */
   private generateSnippet(content: string, query: string): string {
-    return content ?? '';
+    if (!content) return '';
+    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const lower = content.toLowerCase();
+    let bestIdx = -1;
+    for (const w of words) {
+      const idx = lower.indexOf(w);
+      if (idx !== -1 && (bestIdx === -1 || idx < bestIdx)) bestIdx = idx;
+    }
+    const start = Math.max(0, (bestIdx === -1 ? 0 : bestIdx) - 60);
+    const raw = content.slice(start, start + 300).trim();
+    return start > 0 ? `\u2026${raw}` : raw;
   }
 
-  /**
-   * Build the final ToolResult with content JSON and metadata.
-   */
-  private buildResult(query: string, version: VersionFilter, results: SearchResult[]): ToolResult {
-    const response: SearchResponse = { query, version, results };
-
+  private buildResult(
+    query: string,
+    version: VersionFilter,
+    results: SearchResult[],
+    totalTokens: number
+  ): ToolResult {
+    const response: SearchResponse = { query, version, results, totalTokens };
     return {
       content: JSON.stringify(response, null, 2),
       metadata: {
@@ -231,8 +277,10 @@ export class SearchDocsTool extends BaseTool {
         query,
         version,
         count: results.length,
+        totalTokens,
       },
     };
   }
 }
+
 export default SearchDocsTool;

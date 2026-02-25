@@ -209,16 +209,16 @@ describe('SearchDocsTool', () => {
   });
 
   describe('version filtering', () => {
-    it('defaults to v6 when no version specified', async () => {
+    it('defaults to all when no version specified', async () => {
       const result = await searchDocsTool.execute({ query: 'services' });
 
       const parsed = JSON.parse(result.content);
-      expect(parsed.version).toBe('v6');
+      expect(parsed.version).toBe('all');
 
-      // Should include v6 and 'both' docs, but not v5-only docs
+      // Should include any matching docs across versions
       const versions = parsed.results.map((r: any) => r.version);
       versions.forEach((v: string) => {
-        expect(v === 'v6' || v === 'both').toBe(true);
+        expect(v === 'v5' || v === 'v6' || v === 'both').toBe(true);
       });
     });
 
@@ -437,9 +437,9 @@ describe('SearchDocsTool', () => {
     it('handles invalid version parameter', async () => {
       const result = await searchDocsTool.execute({ query: 'services', version: 'invalid' as any });
 
-      // Should fall back to default version (v6)
+      // Should fall back to default version (all)
       const parsed = JSON.parse(result.content);
-      expect(parsed.version).toBe('v6');
+      expect(parsed.version).toBe('all');
     });
 
     it('handles negative limit parameter', async () => {

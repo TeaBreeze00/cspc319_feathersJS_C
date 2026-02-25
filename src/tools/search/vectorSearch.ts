@@ -1,24 +1,20 @@
 /**
  * vectorSearch.ts
  *
- * Semantic search engine for the FeathersJS MCP knowledge base.
+ * Dense semantic search for the FeathersJS MCP knowledge base using BGE-M3.
  *
- * Replaces BM25 entirely. Uses a locally-running sentence-transformer model
- * (all-MiniLM-L6-v2 via @xenova/transformers) to embed the user's query at
- * search time, then ranks every pre-embedded DocEntry by cosine similarity.
+ * BGE-M3 (Xenova/bge-m3) is used at BOTH embedding generation time
+ * (scripts/generate-embeddings.ts) and at query time here — they MUST stay
+ * in sync.  Key settings:
+ *   - Pooling : CLS  (not mean — BGE-M3 requirement)
+ *   - Dims    : 1024
+ *   - Window  : 8192 tokens
+ *   - Norm    : L2-normalised → cosine similarity = dot product
  *
- * Key design decisions:
- *   - The embedding model is loaded lazily on the first search call and then
- *     kept in memory for the lifetime of the process. Subsequent calls are
- *     fast (~40-80 ms for the embed step; similarity is sub-millisecond).
- *   - Embeddings in the knowledge-base JSON files are pre-computed by the
- *     `npm run generate:embeddings` script. The server never trains or fine-
- *     tunes anything at runtime.
- *   - Docs that have no `embedding` field are skipped gracefully so that a
- *     partially-migrated knowledge base still works.
- *   - Because the embeddings are L2-normalised (normalize: true in the script),
- *     cosine similarity reduces to a plain dot product, which is cheaper to
- *     compute.
+ * The model is loaded lazily on the first call and kept resident for the
+ * lifetime of the process (~40-80 ms per query after warm-up).
+ * Pre-computed embeddings live in the knowledge-base JSON chunk files.
+ * Docs without an `embedding` field are skipped gracefully.
  */
 
 import { DocEntry } from '../../knowledge/types';
@@ -29,18 +25,21 @@ import { DocEntry } from '../../knowledge/types';
 
 export interface VectorSearchResult {
   id: string;
-  score: number; // cosine similarity in [0, 1], higher = more relevant
+  score: number; // normalised cosine similarity in [0, 1], higher = more relevant
 }
 
 // ---------------------------------------------------------------------------
 // Module-level model cache
 // ---------------------------------------------------------------------------
 
-/** Cached pipeline function — initialised once, reused on every search. */
 let cachedEmbedder: ((text: string, opts: object) => Promise<{ data: Float32Array }>) | null = null;
 let initPromise: Promise<void> | null = null;
 
-const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
+/**
+ * BGE-M3 — must match scripts/generate-embeddings.ts exactly.
+ * First run downloads ~568 MB (int8 quantised) and caches locally.
+ */
+const MODEL_NAME = 'Xenova/bge-m3';
 
 // ---------------------------------------------------------------------------
 // VectorSearch
@@ -48,31 +47,24 @@ const MODEL_NAME = 'Xenova/all-MiniLM-L6-v2';
 
 export class VectorSearch {
   /**
-   * Ensure the embedding model is loaded exactly once, even if multiple
+   * Ensure the embedding model is loaded exactly once, even when multiple
    * concurrent calls arrive before the model is ready.
    */
   private async ensureModel(): Promise<void> {
     if (cachedEmbedder !== null) return;
-
     if (initPromise !== null) {
-      // Another call is already initialising — wait for it
       await initPromise;
       return;
     }
 
     initPromise = (async () => {
       try {
-        // Dynamic import keeps CommonJS compatibility while consuming the
-        // ESM @xenova/transformers package.
         const { pipeline } = await import('@xenova/transformers');
-
         cachedEmbedder = (await pipeline('feature-extraction', MODEL_NAME, {
-          progress_callback: undefined, // suppress download progress bars
+          progress_callback: undefined, // suppress download-progress bars
         })) as (text: string, opts: object) => Promise<{ data: Float32Array }>;
-
-        console.error(`[VectorSearch] Model "${MODEL_NAME}" loaded.`);
+        console.error(`[VectorSearch] Model "${MODEL_NAME}" loaded (1024-dim, CLS pooling).`);
       } catch (err) {
-        // Reset so the next call can try again
         initPromise = null;
         throw new Error(
           `[VectorSearch] Failed to load embedding model "${MODEL_NAME}": ${String(err)}`
@@ -84,61 +76,42 @@ export class VectorSearch {
   }
 
   /**
-   * Embed a single query string into a normalised 384-dimensional vector.
-   *
-   * @param query  Raw query text from the user.
-   * @returns      Float32Array of length 384.
+   * Embed a single query string into a normalised 1024-dimensional vector.
+   * Uses CLS pooling — must match generate-embeddings.ts.
    */
   private async embedQuery(query: string): Promise<Float32Array> {
     await this.ensureModel();
-
     if (!cachedEmbedder) {
       throw new Error('[VectorSearch] Embedder is not available after initialisation.');
     }
-
     const output = await cachedEmbedder(query.trim(), {
-      pooling: 'mean',
-      normalize: true, // must match the setting used at generation time
+      pooling: 'cls', // BGE-M3 requirement — do NOT change to 'mean'
+      normalize: true, // L2-normalise; must match generate-embeddings.ts
     });
-
     return output.data as Float32Array;
   }
 
   /**
-   * Compute the cosine similarity between two vectors.
+   * Dot product of two L2-normalised vectors = cosine similarity.
    *
-   * Because both vectors are L2-normalised (||v|| = 1), this is equivalent
-   * to a plain dot product and avoids the expensive square-root divisions.
-   *
-   * @param a  Query embedding (Float32Array, length 384).
-   * @param b  Document embedding (number[], length 384).
-   * @returns  Similarity score in the range [-1, 1].  In practice, with
-   *           normalised sentence embeddings, scores land in [0, 1].
+   * @param a  Query vector      (Float32Array, length 1024)
+   * @param b  Stored embedding  (number[],     length 1024)
    */
   private dotProduct(a: Float32Array, b: number[]): number {
     if (a.length !== b.length) return 0;
-
     let dot = 0;
-    for (let i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-    }
+    for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
     return dot;
   }
 
   /**
-   * Normalise an array of raw scores so that the top result has a score of
-   * exactly 1.0 and all others are expressed as fractions of that maximum.
-   * This mirrors the behaviour of the previous BM25 implementation so that
-   * callers do not need to change how they interpret scores.
-   *
-   * If every score is zero (no matches at all), the array is returned as-is.
+   * Normalise scores so the top result = 1.0 and the rest are fractions.
+   * Returns the input unchanged if it is empty or max ≤ 0.
    */
   private normaliseScores(results: VectorSearchResult[]): VectorSearchResult[] {
     if (results.length === 0) return results;
-
-    const max = results[0].score; // already sorted descending
+    const max = results[0].score;
     if (max <= 0) return results;
-
     return results.map((r) => ({
       id: r.id,
       score: Math.round((r.score / max) * 1_000_000) / 1_000_000,
@@ -146,23 +119,18 @@ export class VectorSearch {
   }
 
   /**
-   * Search a collection of DocEntry objects using semantic similarity.
+   * Search docs using pure BGE-M3 dense cosine similarity (dense-only mode).
    *
    * Steps:
-   *   1. Embed the query with the same model used to pre-compute doc embeddings.
-   *   2. Compute dot-product similarity between the query vector and each doc's
-   *      pre-stored embedding.
-   *   3. Filter out docs with no embedding and those below `minScore`.
-   *   4. Sort descending by score, take the top `limit`, then normalise.
+   *   1. Embed the query (CLS pooling, L2-normalised).
+   *   2. Dot-product against every pre-stored 1024-dim embedding.
+   *   3. Drop results below minScore, sort descending, take top `limit`.
+   *   4. Normalise to [0, 1] relative to the top result.
    *
-   * @param query     User's free-text query.
-   * @param docs      Candidate documents (filtered by version before this call).
-   * @param limit     Maximum number of results to return (default 10).
-   * @param minScore  Minimum raw cosine similarity to include (default 0.15).
-   *                  Raise this to get only high-confidence matches; lower it
-   *                  to broaden results for sparse knowledge bases.
-   * @returns         Array of { id, score } sorted by descending score, with
-   *                  scores normalised to [0, 1] relative to the top result.
+   * @param query     Free-text query.
+   * @param docs      Version-filtered candidate documents.
+   * @param limit     Max results (default 10).
+   * @param minScore  Minimum cosine similarity threshold (default 0.05).
    */
   async search(
     query: string,
@@ -173,31 +141,17 @@ export class VectorSearch {
     if (!query || query.trim().length === 0) return [];
     if (docs.length === 0) return [];
 
-    // Embed the query
     const queryVec = await this.embedQuery(query);
-
-    // Score every doc that has a pre-computed embedding
     const scored: VectorSearchResult[] = [];
 
     for (const doc of docs) {
-      if (!Array.isArray(doc.embedding) || doc.embedding.length === 0) {
-        // Skip docs that have not been embedded yet
-        continue;
-      }
-
+      if (!Array.isArray(doc.embedding) || doc.embedding.length === 0) continue;
       const score = this.dotProduct(queryVec, doc.embedding);
-
-      if (score >= minScore) {
-        scored.push({ id: doc.id, score });
-      }
+      if (score >= minScore) scored.push({ id: doc.id, score });
     }
 
-    // Sort descending by score
     scored.sort((a, b) => b.score - a.score);
-
-    // Take the top N and normalise so the best result = 1.0
-    const topN = scored.slice(0, limit);
-    return this.normaliseScores(topN);
+    return this.normaliseScores(scored.slice(0, limit));
   }
 }
 
@@ -205,8 +159,4 @@ export class VectorSearch {
 // Singleton export
 // ---------------------------------------------------------------------------
 
-/**
- * Shared VectorSearch instance — keeps the model loaded in memory across
- * all calls within a single server process.
- */
 export const vectorSearch = new VectorSearch();
