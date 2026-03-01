@@ -42,4 +42,6 @@ export interface ToolRegistration {
   description: string;
   inputSchema: JsonSchema;
   handler: ToolHandler;
+  /** Whether this tool requires network access (G1.5 exemption). */
+  requiresNetwork?: boolean;
 }

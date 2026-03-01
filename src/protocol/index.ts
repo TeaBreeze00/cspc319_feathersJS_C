@@ -6,22 +6,11 @@ export { callToolHandler } from './handlers/callTool';
 
 import ToolRegistry from './registry';
 
-import {
-  ExplainConceptTool,
-  GenerateServiceTool,
-  SearchDocsTool,
-  ListToolsTool,
-  ValidateCodeTool,
-} from '../tools';
+import { SearchDocsTool, SubmitDocumentationTool } from '../tools';
 
 const registry = new ToolRegistry();
 
-// Register support tools
-
-registry.register(new ExplainConceptTool().register());
-registry.register(new ValidateCodeTool().register());
-registry.register(new ListToolsTool().register());
-registry.register(new GenerateServiceTool().register());
 registry.register(new SearchDocsTool().register());
+registry.register(new SubmitDocumentationTool().register());
 
 export { registry };

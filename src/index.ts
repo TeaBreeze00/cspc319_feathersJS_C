@@ -1,13 +1,7 @@
 import { McpServer, ToolRegistry, listToolsHandler } from './protocol';
 import { ToolHandlerRegistry, ParameterValidator, ErrorHandler, Router } from './routing';
 import { callToolHandler } from './protocol/handlers/callTool';
-import {
-  SearchDocsTool,
-  GenerateServiceTool,
-  ExplainConceptTool,
-  ListToolsTool,
-  ValidateCodeTool,
-} from './tools';
+import { SearchDocsTool, SubmitDocumentationTool } from './tools';
 
 // Protocol-level registry (metadata + implementations)
 const registry = new ToolRegistry();
@@ -20,17 +14,11 @@ const router = new Router(routingRegistry, validator, errorHandler);
 
 // Create tool instances
 const searchDocsTool = new SearchDocsTool();
-const generateServiceTool = new GenerateServiceTool();
-const explainConceptTool = new ExplainConceptTool();
-const listToolsTool = new ListToolsTool();
-const validateCodeTool = new ValidateCodeTool();
+const submitDocTool = new SubmitDocumentationTool();
 
 // Register tools with protocol registry (metadata + handler for MCP)
 registry.register(searchDocsTool.register());
-registry.register(generateServiceTool.register());
-registry.register(explainConceptTool.register());
-registry.register(listToolsTool.register());
-registry.register(validateCodeTool.register());
+registry.register(submitDocTool.register());
 
 // Register tools with routing registry (handler + schema for routing layer)
 routingRegistry.register(
@@ -40,26 +28,10 @@ routingRegistry.register(
 );
 
 routingRegistry.register(
-  'generate_service',
-  (params: unknown) => generateServiceTool.execute(params),
-  generateServiceTool.inputSchema
-);
-
-routingRegistry.register(
-  'explain_concept',
-  (params: unknown) => explainConceptTool.execute(params),
-  explainConceptTool.inputSchema
-);
-
-routingRegistry.register(
-  'list_available_tools',
-  (params: unknown) => listToolsTool.execute(params),
-  listToolsTool.inputSchema
-);
-routingRegistry.register(
-  'validate_code',
-  (params: unknown) => validateCodeTool.execute(params),
-  validateCodeTool.inputSchema
+  'submit_documentation',
+  (params: unknown) => submitDocTool.execute(params),
+  submitDocTool.inputSchema,
+  true // requiresNetwork = true
 );
 
 // Create protocol handlers wired to routing

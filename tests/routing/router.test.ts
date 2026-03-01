@@ -75,4 +75,72 @@ describe('Router', () => {
     expect(res.error).toBeDefined();
     expect(res.error!.code).toBe('TIMEOUT');
   });
+
+  // =========================================================================
+  // Network-tier gate (G1.5)
+  // =========================================================================
+
+  describe('network-tier gate', () => {
+    const originalEnv = process.env;
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    test('blocks network-tier tool when ALLOW_NETWORK_TOOLS is not set', async () => {
+      delete process.env.ALLOW_NETWORK_TOOLS;
+
+      const schema = { type: 'object' };
+      registry.register(
+        'net_tool',
+        async () => ({ content: 'should not run' }),
+        schema,
+        true // requiresNetwork
+      );
+
+      const res = await router.route({ toolName: 'net_tool', params: {} });
+      expect(res.success).toBe(false);
+      expect(res.error).toBeDefined();
+      expect(res.error!.code).toBe('NETWORK_NOT_ALLOWED');
+      expect(res.error!.message).toContain('net_tool');
+    });
+
+    test('blocks network-tier tool when ALLOW_NETWORK_TOOLS is "false"', async () => {
+      process.env.ALLOW_NETWORK_TOOLS = 'false';
+
+      const schema = { type: 'object' };
+      registry.register('net_tool2', async () => ({ content: 'should not run' }), schema, true);
+
+      const res = await router.route({ toolName: 'net_tool2', params: {} });
+      expect(res.success).toBe(false);
+      expect(res.error!.code).toBe('NETWORK_NOT_ALLOWED');
+    });
+
+    test('allows network-tier tool when ALLOW_NETWORK_TOOLS is "true"', async () => {
+      process.env.ALLOW_NETWORK_TOOLS = 'true';
+
+      const schema = { type: 'object' };
+      registry.register('net_tool3', async () => ({ content: 'network result' }), schema, true);
+
+      const res = await router.route({ toolName: 'net_tool3', params: {} });
+      expect(res.success).toBe(true);
+      expect((res.data as any).content).toBe('network result');
+    });
+
+    test('always allows non-network tools regardless of env var', async () => {
+      delete process.env.ALLOW_NETWORK_TOOLS;
+
+      const schema = { type: 'object' };
+      registry.register(
+        'local_tool',
+        async () => ({ content: 'local result' }),
+        schema,
+        false // requiresNetwork = false
+      );
+
+      const res = await router.route({ toolName: 'local_tool', params: {} });
+      expect(res.success).toBe(true);
+      expect((res.data as any).content).toBe('local result');
+    });
+  });
 });

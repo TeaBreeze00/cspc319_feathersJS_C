@@ -7,16 +7,18 @@ export type ToolHandler = (params: unknown) => Promise<unknown>;
 export interface ToolHandlerEntry {
   handler: ToolHandler;
   schema: object;
+  /** Whether this tool requires network access (G1.5 exemption). */
+  requiresNetwork?: boolean;
 }
 
 export class ToolHandlerRegistry {
   private handlers: Map<string, ToolHandlerEntry> = new Map();
 
-  register(name: string, handler: ToolHandler, schema: object): void {
+  register(name: string, handler: ToolHandler, schema: object, requiresNetwork = false): void {
     if (this.handlers.has(name)) {
       throw new Error(`Handler for "${name}" is already registered`);
     }
-    this.handlers.set(name, { handler, schema });
+    this.handlers.set(name, { handler, schema, requiresNetwork });
   }
 
   lookup(name: string): ToolHandlerEntry | undefined {

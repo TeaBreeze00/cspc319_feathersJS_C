@@ -32,6 +32,20 @@ export class Router {
         throw new Error(`Unknown tool: ${request.toolName}`);
       }
 
+      // Network-tier gate (G1.5): tools that require network are only
+      // dispatched when the ALLOW_NETWORK_TOOLS env var is set to 'true'.
+      if (entry.requiresNetwork && process.env.ALLOW_NETWORK_TOOLS !== 'true') {
+        return {
+          success: false,
+          error: {
+            code: 'NETWORK_NOT_ALLOWED',
+            message:
+              `Tool "${request.toolName}" requires network access. ` +
+              `Set ALLOW_NETWORK_TOOLS=true to enable contributor submissions.`,
+          },
+        };
+      }
+
       // Validate parameters against schema
       const validation = this.validator.validate(request.params, entry.schema);
       if (!validation.valid) {

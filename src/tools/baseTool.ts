@@ -19,6 +19,13 @@ export abstract class BaseTool {
   abstract inputSchema: JsonSchema;
 
   /**
+   * Whether this tool requires network access (default: false).
+   * Network-tier tools are only dispatched when ALLOW_NETWORK_TOOLS=true.
+   * This is a scoped exemption to guardrail G1 (offline-first).
+   */
+  requiresNetwork: boolean = false;
+
+  /**
    * Execute the tool with the given parameters.
    *
    * @param params - Validated input parameters (shape defined by `inputSchema`)
@@ -37,6 +44,7 @@ export abstract class BaseTool {
       description: this.description,
       inputSchema: this.inputSchema,
       handler: (params: unknown) => this.execute(params),
+      requiresNetwork: this.requiresNetwork,
     };
   }
 }
