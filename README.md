@@ -246,7 +246,26 @@ The codebase enforces strict constraints:
 
 ## Contributing
 
-[Contributing guidelines to be added]
+### Contributing Documentation
+
+The MCP server includes a built-in `submit_documentation` tool that lets contributors submit documentation updates as GitHub Pull Requests directly through the MCP interface.
+
+**Quick example:**
+```json
+{
+  "name": "submit_documentation",
+  "arguments": {
+    "title": "Add Koa middleware guide",
+    "filePath": "docs/v6_docs/cookbook/koa-middleware.md",
+    "content": "# Koa Middleware\n\nGuide content here...",
+    "version": "v6"
+  }
+}
+```
+
+Submissions are validated locally (path safety, content sanitization, markdown lint) and auto-create a PR for admin review. See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
+
+**For admins:** Set `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, and `ALLOW_NETWORK_TOOLS=true` environment variables to enable the GitHub PR pipeline. Without `GITHUB_TOKEN`, submissions are saved locally to `pending-contributions/`.
 
 ## Support
 

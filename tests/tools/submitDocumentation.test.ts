@@ -1,7 +1,4 @@
-import {
-  SubmitDocumentationTool,
-  _resetRateLimit,
-} from '../../src/tools/submitDocumentation';
+import { SubmitDocumentationTool, _resetRateLimit } from '../../src/tools/submitDocumentation';
 import { KnowledgeLoader } from '../../src/knowledge';
 import { GitHubClient } from '../../src/tools/github/githubClient';
 import * as fs from 'fs';
@@ -211,17 +208,13 @@ describe('SubmitDocumentationTool', () => {
     });
 
     it('rejects double slashes', async () => {
-      const result = await tool.execute(
-        validParams({ filePath: 'docs/v6_docs//evil.md' })
-      );
+      const result = await tool.execute(validParams({ filePath: 'docs/v6_docs//evil.md' }));
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(false);
     });
 
     it('rejects non-markdown files', async () => {
-      const result = await tool.execute(
-        validParams({ filePath: 'docs/v6_docs/evil.js' })
-      );
+      const result = await tool.execute(validParams({ filePath: 'docs/v6_docs/evil.js' }));
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(false);
     });
@@ -318,8 +311,7 @@ describe('SubmitDocumentationTool', () => {
     });
 
     it('rejects content that is mostly code blocks', async () => {
-      const content =
-        '# Title\n\n```typescript\n' + 'const x = 1;\n'.repeat(50) + '```';
+      const content = '# Title\n\n```typescript\n' + 'const x = 1;\n'.repeat(50) + '```';
       const result = await tool.execute(validParams({ content }));
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(false);
@@ -450,6 +442,16 @@ describe('SubmitDocumentationTool', () => {
   // =========================================================================
 
   describe('GitHub PR dispatch', () => {
+    it('returns error when ALLOW_NETWORK_TOOLS is not set (defense-in-depth gate)', async () => {
+      // GITHUB_TOKEN is set (from beforeEach) but ALLOW_NETWORK_TOOLS is removed
+      delete process.env.ALLOW_NETWORK_TOOLS;
+
+      const result = await tool.execute(validParams());
+      const parsed = JSON.parse(result.content);
+      expect(parsed.success).toBe(false);
+      expect(parsed.errors.some((e: string) => /ALLOW_NETWORK_TOOLS/i.test(e))).toBe(true);
+    });
+
     it('returns PR details on success', async () => {
       mockGithubClient.createDocsPR.mockResolvedValue({
         success: true,
@@ -551,9 +553,7 @@ describe('SubmitDocumentationTool', () => {
       const files = fs.readdirSync(stagingDir);
       expect(files.length).toBe(1);
 
-      const payload = JSON.parse(
-        fs.readFileSync(path.join(stagingDir, files[0]), 'utf-8')
-      );
+      const payload = JSON.parse(fs.readFileSync(path.join(stagingDir, files[0]), 'utf-8'));
       expect(payload.title).toBe('Add a new Koa middleware guide for FeathersJS');
       expect(payload.filePath).toBe('docs/v6_docs/cookbook/koa-middleware.md');
       expect(payload.version).toBe('v6');
@@ -600,7 +600,8 @@ describe('SubmitDocumentationTool', () => {
     });
 
     it('rejects markdown without any heading', () => {
-      const md = 'Just paragraphs without any heading at all, no matter how long they are in total.';
+      const md =
+        'Just paragraphs without any heading at all, no matter how long they are in total.';
       const errors = tool.lintMarkdown(md);
       expect(errors.some((e) => /heading/i.test(e))).toBe(true);
     });

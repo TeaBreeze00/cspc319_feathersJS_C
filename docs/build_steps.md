@@ -3188,3 +3188,74 @@ On clean machine:
 - After Step 78: All tests passing
 - After Step 91: All NFRs verified
 - After Step 98: Released and verified
+
+---
+
+## PHASE 11: CONTRIBUTOR DOCUMENTATION PIPELINE
+
+This phase implements the contributor documentation pipeline, enabling external contributors to submit documentation updates through the MCP server as GitHub Pull Requests.
+
+**Reference:** `docs/CONTRIBUTOR_PIPELINE_PLAN.md` for full technical plan.
+
+### G1.5 Exemption
+
+The contributor pipeline introduces a scoped exemption to guardrail G1 (offline-first):
+
+> **G1.5:** Network calls are permitted ONLY for contributor-submission tools, gated by:
+> 1. The tool declares `requiresNetwork = true` on the `BaseTool` class.
+> 2. The environment variable `ALLOW_NETWORK_TOOLS=true` must be set at server start.
+> 3. If the env var is absent, the tool returns a structured error (never crashes).
+> 4. All existing tools remain `requiresNetwork = false` (unchanged behavior).
+
+### Step 99: Add `requiresNetwork` to BaseTool
+Modify `src/tools/baseTool.ts` to add `requiresNetwork: boolean = false` property and include it in the `register()` return object.
+
+**Verify**: Existing tools still register without `requiresNetwork` flag.
+**Artifact**: `src/tools/baseTool.ts` updated.
+
+### Step 100: Add network-tier gate to Router
+Modify `src/routing/router.ts` to check `entry.requiresNetwork` and `ALLOW_NETWORK_TOOLS` env var before dispatch.
+
+**Verify**: Tools with `requiresNetwork = true` are blocked when env var is absent.
+**Artifact**: `src/routing/router.ts` updated.
+
+### Step 101: Create content sanitizer
+Create `src/tools/github/sanitizer.ts` with `sanitizeContent()` function that rejects `<script>`, `<iframe>`, `javascript:` URIs, and large base64 data URIs.
+
+**Verify**: Unit tests in `tests/tools/github/sanitizer.test.ts` pass.
+**Artifact**: `src/tools/github/sanitizer.ts`, `tests/tools/github/sanitizer.test.ts`.
+
+### Step 102: Create GitHub API client
+Create `src/tools/github/githubClient.ts` with `GitHubClient.createDocsPR()` method that makes 4 API calls (get main SHA, create branch, commit file, open PR).
+
+**Verify**: Unit tests in `tests/tools/github/githubClient.test.ts` pass (mocked https).
+**Artifact**: `src/tools/github/githubClient.ts`, `tests/tools/github/githubClient.test.ts`.
+
+### Step 103: Create SubmitDocumentationTool
+Create `src/tools/submitDocumentation.ts` implementing the 6-stage validation pipeline (schema, path, sanitization, markdown lint, duplication, rate limit) and dispatch to GitHub or local staging.
+
+**Verify**: Unit tests in `tests/tools/submitDocumentation.test.ts` pass (all 6 stages + both dispatch paths).
+**Artifact**: `src/tools/submitDocumentation.ts`, `tests/tools/submitDocumentation.test.ts`.
+
+### Step 104: Wire up and register the tool
+Modify `src/index.ts` to import, instantiate, and register `SubmitDocumentationTool`. Update `src/tools/index.ts` barrel export. Add to `listTools.ts` catalog.
+
+**Verify**: Integration test in `tests/integration/submitDocumentation.integration.test.ts` passes.
+**Artifact**: `src/index.ts`, `src/tools/index.ts`, `src/tools/listTools.ts` updated.
+
+### Step 105: Create GitHub Actions workflow
+Create `.github/workflows/rebuild-knowledge-base.yml` to auto-rebuild the knowledge base on merge to main when docs change.
+
+**Verify**: Workflow YAML is valid.
+**Artifact**: `.github/workflows/rebuild-knowledge-base.yml`.
+
+### Step 106: Documentation updates
+- Create `CONTRIBUTING.md` with contributor guide
+- Update `docs/IMPLEMENTATION_PLAN.md` with G1.5 rule
+- Update `docs/TECHNICAL_DOCUMENTATION.md` with contributor pipeline section
+- Update `README.md` with contributing documentation section
+- Add `pending-contributions/` to `.gitignore`
+
+**Verify**: All documents updated and accurate.
+**Artifact**: Documentation files updated.
+

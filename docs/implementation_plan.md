@@ -26,6 +26,7 @@ The following constraints are **non-negotiable**. Any code that violates these g
 | G1.2 | **NEVER fetch documentation, templates, or examples from external URLs.** | Assumption A-002 states offline operation is required. |
 | G1.3 | **NEVER require internet connectivity after `npm install`.** | Users may work in air-gapped environments. |
 | G1.4 | **ALL knowledge base content MUST be JSON files shipped with the package.** | Embedded content guarantees availability and performance. |
+| G1.5 | **Network calls are permitted ONLY for contributor-submission tools**, gated by: (1) the tool declares `requiresNetwork = true`, (2) `ALLOW_NETWORK_TOOLS=true` env var is set, (3) if env var is absent the tool returns a structured error (never crashes), (4) all existing tools remain `requiresNetwork = false`. | Enables the contributor pipeline while preserving offline-first for all other tools. See `docs/CONTRIBUTOR_PIPELINE_PLAN.md`. |
 
 **Violation Example (FORBIDDEN):**
 ```typescript

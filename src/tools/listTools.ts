@@ -1,7 +1,7 @@
 import { BaseTool } from './baseTool';
 import { JsonSchema, ToolResult } from '../protocol/types';
 
-type ToolCategory = 'search' | 'generate' | 'validate' | 'support' | 'advanced';
+type ToolCategory = 'search' | 'generate' | 'validate' | 'support' | 'advanced' | 'submit';
 
 interface ListToolsParams {
   category?: ToolCategory;
@@ -26,7 +26,7 @@ export class ListToolsTool extends BaseTool {
     properties: {
       category: {
         type: 'string',
-        enum: ['search', 'generate', 'validate', 'support', 'advanced'],
+        enum: ['search', 'generate', 'validate', 'support', 'advanced', 'submit'],
       },
     },
     required: [],
@@ -80,7 +80,8 @@ export class ListToolsTool extends BaseTool {
       category !== 'generate' &&
       category !== 'validate' &&
       category !== 'support' &&
-      category !== 'advanced'
+      category !== 'advanced' &&
+      category !== 'submit'
     ) {
       throw new Error(`Invalid category: ${category}`);
     }
@@ -134,7 +135,7 @@ export class ListToolsTool extends BaseTool {
           properties: {
             category: {
               type: 'string',
-              enum: ['search', 'generate', 'validate', 'support', 'advanced'],
+              enum: ['search', 'generate', 'validate', 'support', 'advanced', 'submit'],
             },
           },
           required: [],
@@ -156,6 +157,27 @@ export class ListToolsTool extends BaseTool {
           required: ['code'],
         },
         example: `{"name":"validate_code_tools","arguments":{"code":"const x = 1;","language":"typescript","checks":["syntax","linting","formatting","feathersjs"]}}`,
+      },
+      {
+        name: 'submit_documentation',
+        category: 'submit',
+        description:
+          'Submit a documentation update or new doc as a GitHub PR for admin review. ' +
+          'Content is validated locally, then a PR is automatically created.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            title: { type: 'string' },
+            filePath: { type: 'string' },
+            content: { type: 'string' },
+            version: { type: 'string', enum: ['v5', 'v6'] },
+            category: { type: 'string' },
+            description: { type: 'string' },
+            contributorName: { type: 'string' },
+          },
+          required: ['title', 'filePath', 'content', 'version'],
+        },
+        example: `{"name":"submit_documentation","arguments":{"title":"Add Koa middleware guide","filePath":"docs/v6_docs/cookbook/koa-middleware.md","content":"# Koa Middleware\\n...","version":"v6"}}`,
       },
     ];
   }

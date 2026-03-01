@@ -439,3 +439,80 @@ Output JSON: `knowledge-base/`
 2. Align `package.json` scripts and `bin` metadata with onboarding docs.
 3. Reconcile roadmap docs with current implementation status (or gate roadmap sections clearly as future work).
 4. Add compile/validation tests for generated service outputs to catch template/codegen regressions.
+
+---
+
+## 14. Contributor Documentation Pipeline
+
+### 14.1 Overview
+
+The contributor documentation pipeline allows external contributors to submit documentation updates through the MCP server itself. Submissions are automatically turned into GitHub Pull Requests, reviewed by admins, and upon merge trigger automated rebuilding of the knowledge base.
+
+**Full technical plan:** See `docs/CONTRIBUTOR_PIPELINE_PLAN.md`.
+
+### 14.2 Architecture
+
+```text
+Contributor (MCP client)
+        │
+        │ submit_documentation { title, filePath, content, version }
+        ▼
+Protocol Layer → Router (G1.5 network-tier gate)
+        │
+        ▼
+SubmitDocumentationTool (6-stage validation)
+        │
+   ┌────┴────┐
+   ▼         ▼
+GitHub    Local Staging
+(PR)      (pending-contributions/)
+```
+
+### 14.3 G1.5 Exemption
+
+The tool declares `requiresNetwork = true` and is gated by the `ALLOW_NETWORK_TOOLS=true` environment variable. All existing tools remain `requiresNetwork = false` and are unaffected.
+
+### 14.4 Six-Stage Validation Pipeline
+
+1. **Schema validation** — Ajv + defense-in-depth field checks
+2. **Path restriction** — 4-layer path validation (regex, normalize, dangerous chars, version consistency)
+3. **Content sanitization** — Rejects `<script>`, `<iframe>`, `javascript:` URIs, large `data:` URIs
+4. **Markdown lint** — Requires top-level heading, minimum prose content
+5. **Duplication detection** — Checks existing knowledge base for matching `sourceFile`
+6. **Rate limiting** — 1 submission per 60 seconds per server instance
+
+### 14.5 Key Components
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| `SubmitDocumentationTool` | `src/tools/submitDocumentation.ts` | Tool implementing the 6-stage pipeline |
+| `GitHubClient` | `src/tools/github/githubClient.ts` | GitHub REST API adapter (4 API calls per PR) |
+| `sanitizeContent()` | `src/tools/github/sanitizer.ts` | Content sanitization (accept/reject, never modify) |
+| GitHub types | `src/tools/github/types.ts` | `CreatePRParams`, `GitHubPRResult`, etc. |
+
+### 14.6 Security Model
+
+- **Path traversal prevention:** 4-layer validation (regex, normalize, dangerous chars, version match)
+- **XSS prevention:** Hard reject on `<script>`, `<iframe>`, `javascript:` URIs
+- **Token security:** `GITHUB_TOKEN` never appears in tool results or error messages
+- **Rate limiting:** 1 submission/60s per instance + GitHub's 5,000 req/hr
+- **Content size:** 50KB maximum per submission
+- **Branch naming:** Server-generated only (`docs/contrib/<timestamp>-<slug>`)
+
+### 14.7 Environment Variables
+
+```bash
+GITHUB_TOKEN=ghp_xxx          # Fine-grained PAT (contents:write, pull_requests:write)
+GITHUB_OWNER=<repo-owner>     # Defaults to 'owner'
+GITHUB_REPO=cspc319_feathersJS_C  # Defaults to repo name
+ALLOW_NETWORK_TOOLS=true      # Enables G1.5 network-tier gate
+```
+
+### 14.8 Offline Fallback
+
+When `GITHUB_TOKEN` is absent, submissions are saved as JSON files in `pending-contributions/` (gitignored). Admins can batch-submit these later.
+
+### 14.9 Post-Merge Knowledge Base Rebuild
+
+A GitHub Actions workflow (`.github/workflows/rebuild-knowledge-base.yml`) triggers on push to `main` when `docs/v5_docs/**` or `docs/v6_docs/**` change. It re-chunks and re-embeds the documentation, committing the updated `knowledge-base/chunks/*.json` files.
+

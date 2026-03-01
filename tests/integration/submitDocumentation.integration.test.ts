@@ -9,10 +9,7 @@ import { Router } from '../../src/routing/router';
 import { ToolHandlerRegistry } from '../../src/routing/toolRegistry';
 import { ParameterValidator } from '../../src/routing/validator';
 import { ErrorHandler } from '../../src/routing/errorHandler';
-import {
-  SubmitDocumentationTool,
-  _resetRateLimit,
-} from '../../src/tools/submitDocumentation';
+import { SubmitDocumentationTool, _resetRateLimit } from '../../src/tools/submitDocumentation';
 import { KnowledgeLoader } from '../../src/knowledge';
 
 // Mock GitHubClient
@@ -124,18 +121,16 @@ describe('submit_documentation integration (Router → Tool → mock GitHub)', (
     const res = await router.route({
       toolName: 'submit_documentation',
       params: {
-        // Missing required fields: title, filePath, content, version
-        title: 'x', // too short for tool validation but might pass schema
+        // Missing required fields: filePath, content, version
+        title: 'x',
       },
     });
 
-    // The router-level Ajv validation or the tool itself should catch this
-    expect(res.success).toBe(true); // Router passes because Ajv schema doesn't enforce minLength
-    // But the tool's defense-in-depth catches it
-    const toolResult = res.data as { content: string };
-    const parsed = JSON.parse(toolResult.content);
-    expect(parsed.success).toBe(false);
-    expect(parsed.errors.length).toBeGreaterThan(0);
+    // Ajv enforces the `required` array — filePath, content, version are missing
+    // so the router returns INVALID_PARAMS before the tool even runs.
+    expect(res.success).toBe(false);
+    expect(res.error).toBeDefined();
+    expect(res.error!.code).toBe('INVALID_PARAMS');
   });
 
   it('handles empty params gracefully', async () => {

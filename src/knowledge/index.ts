@@ -3,5 +3,4 @@ export * from './types';
 
 export default {
   KnowledgeLoader: require('./loader').default,
-  SearchIndex: require('./searchIndex').default,
 };

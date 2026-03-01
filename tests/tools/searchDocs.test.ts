@@ -165,8 +165,8 @@ describe('SearchDocsTool', () => {
       expect(parsed.results.length).toBeGreaterThan(0);
 
       // Should find service-related docs
-      const titles = parsed.results.map((r: any) => r.title);
-      expect(titles.some((t: string) => t.toLowerCase().includes('service'))).toBe(true);
+      const headings = parsed.results.map((r: any) => r.heading);
+      expect(headings.some((h: string) => h.toLowerCase().includes('service'))).toBe(true);
     });
 
     it('returns empty results for non-matching query', async () => {
@@ -323,7 +323,7 @@ describe('SearchDocsTool', () => {
       if (parsed.results.length > 0) {
         const firstResult = parsed.results[0];
         expect(firstResult).toHaveProperty('id');
-        expect(firstResult).toHaveProperty('title');
+        expect(firstResult).toHaveProperty('heading');
         expect(firstResult).toHaveProperty('version');
         expect(firstResult).toHaveProperty('category');
         expect(firstResult).toHaveProperty('score');

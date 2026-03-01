@@ -240,6 +240,14 @@ export class SubmitDocumentationTool extends BaseTool {
       return this.stageLocally(p, dupeInfo, sanitization.warnings);
     }
 
+    // Defense-in-depth: G1.5 gate also enforced inside the tool so it fires
+    // even when McpServer calls execute() directly (bypassing the Router).
+    if (process.env.ALLOW_NETWORK_TOOLS !== 'true') {
+      return this.errorResult([
+        'Network access not enabled. Set ALLOW_NETWORK_TOOLS=true to enable GitHub PR submissions.',
+      ]);
+    }
+
     // Mark the submission time BEFORE making the API call
     lastSubmissionTime = now;
 
