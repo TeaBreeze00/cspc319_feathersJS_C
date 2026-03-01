@@ -15,7 +15,7 @@ import { BaseTool } from './baseTool';
 import { ToolResult, JsonSchema } from '../protocol/types';
 import { KnowledgeLoader } from '../knowledge';
 import { DocEntry } from '../knowledge/types';
-import { GitHubClient, GitHubPRResult } from './github/githubClient';
+import { GitHubClient } from './github/githubClient';
 import { sanitizeContent } from './github/sanitizer';
 
 // ---------------------------------------------------------------------------
@@ -164,7 +164,9 @@ export class SubmitDocumentationTool extends BaseTool {
 
   async execute(params: unknown): Promise<ToolResult> {
     if (!params || typeof params !== 'object') {
-      return this.errorResult(['Invalid input: expected an object with title, filePath, content, version.']);
+      return this.errorResult([
+        'Invalid input: expected an object with title, filePath, content, version.',
+      ]);
     }
 
     const p = params as SubmitDocParams;
@@ -194,7 +196,9 @@ export class SubmitDocumentationTool extends BaseTool {
     }
 
     if (p.category && !ALLOWED_CATEGORIES.has(p.category)) {
-      errors.push(`Invalid category "${p.category}". Allowed: ${[...ALLOWED_CATEGORIES].join(', ')}`);
+      errors.push(
+        `Invalid category "${p.category}". Allowed: ${[...ALLOWED_CATEGORIES].join(', ')}`
+      );
     }
 
     // Stop early on basic schema errors
@@ -291,9 +295,7 @@ export class SubmitDocumentationTool extends BaseTool {
 
     // Layer 1: regex allowlist
     if (!ALLOWED_PATH_PATTERN.test(filePath)) {
-      errors.push(
-        'filePath must match pattern docs/(v5_docs|v6_docs)/.../*.md'
-      );
+      errors.push('filePath must match pattern docs/(v5_docs|v6_docs)/.../*.md');
     }
 
     // Layer 2: normalized path must equal original (rejects ".." and ".")
@@ -309,10 +311,14 @@ export class SubmitDocumentationTool extends BaseTool {
 
     // Layer 4: version-path consistency
     if (filePath.startsWith('docs/v5_docs/') && version !== 'v5') {
-      errors.push('Version mismatch: filePath targets v5_docs but version field is "' + version + '".');
+      errors.push(
+        'Version mismatch: filePath targets v5_docs but version field is "' + version + '".'
+      );
     }
     if (filePath.startsWith('docs/v6_docs/') && version !== 'v6') {
-      errors.push('Version mismatch: filePath targets v6_docs but version field is "' + version + '".');
+      errors.push(
+        'Version mismatch: filePath targets v6_docs but version field is "' + version + '".'
+      );
     }
 
     return errors;
@@ -333,7 +339,9 @@ export class SubmitDocumentationTool extends BaseTool {
     // Must not be empty after stripping code fences
     const stripped = content.replace(/```[\s\S]*?```/g, '').trim();
     if (stripped.length < 50) {
-      errors.push('Markdown content is too short after removing code blocks (min 50 chars of prose).');
+      errors.push(
+        'Markdown content is too short after removing code blocks (min 50 chars of prose).'
+      );
     }
 
     return errors;
@@ -374,7 +382,10 @@ export class SubmitDocumentationTool extends BaseTool {
     warnings: string[]
   ): ToolResult {
     const stagingDir = path.join(process.cwd(), 'pending-contributions');
-    const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z');
+    const timestamp = new Date()
+      .toISOString()
+      .replace(/[-:]/g, '')
+      .replace(/\.\d+Z$/, 'Z');
     const slug = params.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
