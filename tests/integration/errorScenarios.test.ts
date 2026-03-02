@@ -22,13 +22,12 @@ describe('Integration error scenarios', () => {
     expect(response.error?.message).toContain('Unknown tool');
   });
 
-  test('returns invalid params for malformed tool arguments', async () => {
+  test('returns invalid params for malformed search_docs arguments', async () => {
     const response = await sendMcpRequest('tools/call', {
-      name: 'generate_service',
+      name: 'search_docs',
       arguments: {
-        name: 'broken-service',
-        database: 'mongodb',
-        // fields is required and intentionally omitted
+        // query is required and intentionally omitted
+        version: 'v6',
       },
     });
 
@@ -38,7 +37,8 @@ describe('Integration error scenarios', () => {
 
   test('returns timeout for slow handlers and keeps server usable', async () => {
     const context = getIntegrationServer();
-    const originalTimeout = (context.router as unknown as { defaultTimeoutMs: number }).defaultTimeoutMs;
+    const originalTimeout = (context.router as unknown as { defaultTimeoutMs: number })
+      .defaultTimeoutMs;
 
     const slowToolName = `slow_tool_${Date.now()}`;
     context.routingRegistry.register(
@@ -62,12 +62,12 @@ describe('Integration error scenarios', () => {
 
     (context.router as unknown as { defaultTimeoutMs: number }).defaultTimeoutMs = originalTimeout;
 
+    // Verify server is still healthy after timeout
     const healthyResponse = await sendMcpRequest('tools/call', {
-      name: 'list_available_tools',
-      arguments: {},
+      name: 'search_docs',
+      arguments: { query: 'hooks', version: 'v6' },
     });
 
     expect(healthyResponse.error).toBeUndefined();
-    expect((healthyResponse.result as { content: string }).content).toContain('Available tools');
   });
 });

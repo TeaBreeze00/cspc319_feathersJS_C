@@ -1,278 +1,212 @@
 # FeathersJS MCP Server
 
-A Model Context Protocol (MCP) server that provides AI coding assistants with structured FeathersJS documentation, templates, and code generation capabilities.
+A Model Context Protocol (MCP) server that provides AI coding assistants with structured FeathersJS documentation search and a contributor documentation pipeline.
 
 ## Overview
 
-The FeathersJS MCP Server enhances AI-assisted developer workflows by replacing rigid CLI scaffolding with a flexible, LLM-driven approach. It enables AI assistants like Claude Code and Cline to generate working FeathersJS projects, provide contextual documentation, and troubleshoot errors—all through natural language interactions.
+The FeathersJS MCP Server connects AI assistants (Claude Desktop, VS Code Copilot, Cline) to a curated FeathersJS knowledge base via the MCP standard. It exposes **2 tools**:
 
-### Key Features
+| Tool | Description |
+|------|-------------|
+| `search_docs` | Search FeathersJS v5/v6 documentation with BM25 + vector ranking |
+| `submit_documentation` | Submit new docs or updates as GitHub PRs for admin review |
 
-- **Offline-First Operation**: All knowledge embedded in the package—no network requests at runtime
-- **15 MCP Tools**: Documentation search, template generation, service creation, code validation, hook examples, troubleshooting, and more
-- **Version-Aware**: Full support for both FeathersJS v4 and v5 with automatic version detection
-- **Fast & Lightweight**: <2s response time (p95), <200MB memory usage, <3s startup
-- **Validation-First**: All generated code passes TypeScript, ESLint, and Prettier validation
-- **Comprehensive Knowledge Base**: Pre-tokenized documentation, templates, snippets, and error solutions
-
-## Target Users
-
-- **Full-Stack Developers**: Build MVPs rapidly with AI-assisted FeathersJS development
-- **FeathersJS Contributors**: Ensure LLM outputs follow best practices and expert patterns
-- **Student Developers**: Learn FeathersJS through AI assistance with quality code examples
-
-## Installation
+## Quick Start
 
 ### Prerequisites
 
-- Node.js 20 or higher
-- An MCP-compatible AI coding assistant (Claude Code, Cline, or Claude Desktop)
+- **Node.js 20+**
+- An MCP-compatible AI client (Claude Desktop, VS Code, Cline)
 
-### Install Package
+### 1. Clone & Install
 
 ```bash
-npm install -g feathers-mcp-server
+git clone <repository-url>
+cd cspc319_feathersJS_C
+npm install
 ```
 
-### Configure AI Assistant
+### 2. Build
 
-Add the server to your AI assistant's MCP configuration file:
+```bash
+npm run build
+```
 
-**For Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+### 3. Configure Your AI Client
+
+#### Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
 ```json
 {
   "mcpServers": {
     "feathers": {
-      "command": "feathers-mcp-server",
-      "args": []
+      "command": "node",
+      "args": ["/absolute/path/to/cspc319_feathersJS_C/dist/index.js"]
     }
   }
 }
 ```
 
-**For VS Code Extensions** (Cline/Claude Code):
+#### VS Code (Copilot / Cline)
 
-Add to your extension settings or workspace `.vscode/settings.json`:
+Add to `.vscode/settings.json` or your extension settings:
 
 ```json
 {
   "mcp.servers": {
     "feathers": {
-      "command": "feathers-mcp-server"
+      "command": "node",
+      "args": ["./dist/index.js"],
+      "cwd": "/absolute/path/to/cspc319_feathersJS_C"
     }
   }
 }
 ```
 
-### Verify Installation
+### 4. Restart your AI client
 
-Restart your AI assistant and try a prompt like:
+The assistant now has access to FeathersJS documentation search and contribution tools.
 
-```
-Create a FeathersJS service for managing user profiles with MongoDB
-```
-
-The assistant should now have access to FeathersJS-specific tools and documentation.
-
-## Quick Start
-
-### Example Prompts
-
-**Generate a complete project:**
-```
-Create a new FeathersJS v5 project with authentication, MongoDB database, and a users service
-```
-
-**Add a service:**
-```
-Add a messages service with real-time updates and user associations
-```
-
-**Get documentation:**
-```
-Show me how to implement custom hooks in FeathersJS v5
-```
-
-**Troubleshoot errors:**
-```
-I'm getting "Service not found" error. Help me debug it.
-```
-
-**Validate code:**
-```
-Check if this FeathersJS service follows best practices: [paste code]
-```
-
-## Architecture
-
-The system follows a 4-layer architecture for clean separation of concerns:
+### 5. Try it
 
 ```
-┌─────────────────────────────────────────┐
-│   AI Client (Claude Code/Cline)        │
-└──────────────┬──────────────────────────┘
-               │ JSON-RPC (stdin/stdout)
-┌──────────────▼──────────────────────────┐
-│   PROTOCOL LAYER                        │
-│   MCP Server & Transport                │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│   TOOL ROUTING LAYER                    │
-│   Validation & Error Handling           │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│   TOOL IMPLEMENTATION LAYER             │
-│   15 MCP Tools (search, generate, etc)  │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────▼──────────────────────────┐
-│   KNOWLEDGE BASE LAYER                  │
-│   Docs, Templates, Snippets, Errors     │
-└─────────────────────────────────────────┘
+Search the FeathersJS docs for how hooks work in v6
 ```
 
-### Available Tools
+## Tools
 
-1. `search_docs` - Search FeathersJS documentation with BM25 ranking
-2. `get_feathers_template` - Retrieve project templates with fragment composition
-3. `generate_service` - Generate complete service implementations
-4. `generate_hook` - Create custom hook implementations
-5. `validate_code` - AST-based validation against best practices
-6. `get_hook_example` - Retrieve hook pattern examples
-7. `troubleshoot_error` - Match errors against solution database
-8. `get_best_practices` - Query architectural best practices
-9. `generate_authentication` - Create authentication setup
-10. `list_databases` - Show supported database adapters
-11. `generate_schema` - Create TypeScript schemas and validation
-12. `get_migration_guide` - v4 to v5 migration assistance
-13. `explain_concept` - Detailed explanations of FeathersJS concepts
-14. `generate_test` - Create service test suites
-15. `get_deployment_guide` - Production deployment guidance
+### `search_docs`
 
-## Development
+Searches the embedded FeathersJS knowledge base using BM25 keyword matching combined with BGE-M3 vector similarity.
 
-### Setup Development Environment
+**Parameters:**
 
-```bash
-# Clone repository
-git clone [repository-url]
-cd cspc319_feathersJS_C
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `query` | string | yes | Search query |
+| `version` | `"v5"` \| `"v6"` \| `"all"` | no | Filter by version (default: `"all"`) |
+| `limit` | number | no | Max results (default: 10, max: 20) |
 
-# Install dependencies
-npm install
-
-# Build TypeScript
-npm run build
-
-# Run tests
-npm test
-
-# Lint code
-npm run lint
-
-# Format code
-npm run format
+**Example:**
+```json
+{
+  "name": "search_docs",
+  "arguments": { "query": "authentication jwt", "version": "v6", "limit": 5 }
+}
 ```
 
-### Project Structure
+### `submit_documentation`
 
-```
-├── src/
-│   ├── protocol/         # MCP protocol layer
-│   ├── routing/          # Tool routing & validation
-│   ├── tools/            # Tool implementations
-│   └── knowledge/        # Knowledge base loader
-├── knowledge-base/       # Embedded content (JSON)
-│   ├── docs/            # Documentation
-│   ├── templates/       # Code templates
-│   ├── snippets/        # Code examples
-│   ├── errors/          # Error solutions
-│   └── best-practices/  # Best practices
-├── tests/               # Test suites
-│   ├── unit/
-│   ├── integration/
-│   ├── e2e/
-│   └── performance/
-└── docs/                # Design documentation
-    ├── requirements_report.md
-    ├── implementation_plan.md
-    └── build_steps.md
-```
+Submits documentation as a GitHub Pull Request (or saves locally if no token is set). Content passes a 6-stage validation pipeline before dispatch.
 
-### Architectural Guardrails
+**Parameters:**
 
-The codebase enforces strict constraints:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string (10–120 chars) | yes | PR title |
+| `filePath` | string | yes | Path under `docs/(v5_docs\|v6_docs)/.../*.md` |
+| `content` | string (100–50K chars) | yes | Full markdown content |
+| `version` | `"v5"` \| `"v6"` | yes | Must match filePath prefix |
+| `category` | string | no | Knowledge-base category |
+| `description` | string (max 500) | no | PR body text |
+| `contributorName` | string (max 100) | no | Attribution |
 
-- **G1**: No network requests at runtime (offline-first)
-- **G2**: Stateless tool design (no session persistence)
-- **G3**: Version-aware knowledge handling (v4/v5 separation)
-- **G4**: Response time limits (<2s p95)
-- **G5**: Memory limits (<200MB peak)
-- **G6**: Validation-first code generation
-- **G7**: Unidirectional layer dependencies
-- **G8**: stdout reserved for MCP JSON-RPC only
-- **G9**: Test coverage ≥80%
-- **G10**: Strict TypeScript, modern Node.js
-
-## Documentation
-
-- [Requirements Report](docs/requirements_report.md) - Functional and non-functional requirements
-- [Implementation Plan](docs/implementation_plan.md) - Architecture and development phases
-- [Build Steps](docs/build_steps.md) - Linear build sequence for development
-
-## Performance Targets
-
-- **Startup Time**: <3 seconds
-- **Response Time**: <2 seconds (p95 latency)
-- **Memory Usage**: <200MB peak
-- **Installation**: 3 commands, <5 minutes
-- **Code Generation**: <5 seconds for complete services
-
-## Technology Stack
-
-- **Runtime**: Node.js 20+
-- **Language**: TypeScript (strict mode)
-- **MCP SDK**: @modelcontextprotocol/sdk
-- **Validation**: Ajv (JSON Schema)
-- **Testing**: Jest with ts-jest
-- **Linting**: ESLint, Prettier
-
-## License
-
-[License information to be added]
-
-## Contributing
-
-### Contributing Documentation
-
-The MCP server includes a built-in `submit_documentation` tool that lets contributors submit documentation updates as GitHub Pull Requests directly through the MCP interface.
-
-**Quick example:**
+**Example:**
 ```json
 {
   "name": "submit_documentation",
   "arguments": {
     "title": "Add Koa middleware guide",
     "filePath": "docs/v6_docs/cookbook/koa-middleware.md",
-    "content": "# Koa Middleware\n\nGuide content here...",
-    "version": "v6"
+    "content": "# Koa Middleware\n\nGuide content here...\n\n## Steps\n\n1. Install\n2. Configure\n3. Run\n",
+    "version": "v6",
+    "category": "cookbook",
+    "contributorName": "Jane Doe"
   }
 }
 ```
 
-Submissions are validated locally (path safety, content sanitization, markdown lint) and auto-create a PR for admin review. See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full content guidelines.
 
-**For admins:** Set `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, and `ALLOW_NETWORK_TOOLS=true` environment variables to enable the GitHub PR pipeline. Without `GITHUB_TOKEN`, submissions are saved locally to `pending-contributions/`.
+## Environment Variables
 
-## Support
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GITHUB_TOKEN` | No | Fine-grained PAT for creating PRs. Without it, submissions save locally to `pending-contributions/` |
+| `GITHUB_OWNER` | No | GitHub repo owner (default: `owner`) |
+| `GITHUB_REPO` | No | GitHub repo name (default: `cspc319_feathersJS_C`) |
+| `ALLOW_NETWORK_TOOLS` | No | Set to `true` to enable `submit_documentation` GitHub integration |
 
-For issues, questions, or contributions, please see the project documentation or contact the development team.
+## Development
+
+```bash
+npm install          # install dependencies
+npm run build        # compile TypeScript
+npm test             # run tests with coverage
+npm run lint         # lint code
+npm run format       # format code
+```
+
+### Knowledge Base Scripts
+
+```bash
+npm run rebuild:kb   # full re-chunk + re-embed all docs
+npm run update:kb    # incremental: chunk + embed only changed files
+npm run test:submit  # run the submit_documentation manual test suite
+```
+
+### Project Structure
+
+```
+src/
+├── protocol/        # MCP protocol layer (server, registry, handlers)
+├── routing/         # Tool routing, validation, error handling, timeout
+├── tools/           # Tool implementations
+│   ├── searchDocs.ts
+│   ├── submitDocumentation.ts
+│   ├── github/      # GitHub client + content sanitizer
+│   └── search/      # BM25 + vector search
+└── knowledge/       # Knowledge base loader + types
+knowledge-base/
+└── chunks/          # Pre-chunked v5/v6 docs with embeddings
+tests/
+├── tools/           # Unit tests
+├── integration/     # Full-flow integration tests
+├── e2e/             # Developer scenario tests
+└── performance/     # Response-time benchmarks
+```
+
+## Architecture
+
+```
+AI Client (Claude / VS Code / Cline)
+        │  JSON-RPC over stdin/stdout
+        ▼
+┌─ Protocol Layer ──────────────┐
+│  MCP Server + Transport       │
+└───────────┬───────────────────┘
+            ▼
+┌─ Routing Layer ───────────────┐
+│  Validation · Timeout · Errors│
+└───────────┬───────────────────┘
+            ▼
+┌─ Tool Layer ──────────────────┐
+│  search_docs                  │
+│  submit_documentation         │
+└───────────┬───────────────────┘
+            ▼
+┌─ Knowledge Layer ─────────────┐
+│  Chunked docs · Embeddings    │
+└───────────────────────────────┘
+```
+
+## License
+
+MIT
 
 ---
 
-**CPSC 319 Project - University of British Columbia**  
-*Department of Computer Science*  
-*February 2026*
+**CPSC 319 Project — University of British Columbia**
+*Department of Computer Science — March 2026*

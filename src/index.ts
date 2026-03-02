@@ -1,6 +1,5 @@
-import { McpServer, ToolRegistry, listToolsHandler } from './protocol';
+import { McpServer, ToolRegistry } from './protocol';
 import { ToolHandlerRegistry, ParameterValidator, ErrorHandler, Router } from './routing';
-import { callToolHandler } from './protocol/handlers/callTool';
 import { SearchDocsTool, SubmitDocumentationTool } from './tools';
 
 // Protocol-level registry (metadata + implementations)
@@ -33,10 +32,6 @@ routingRegistry.register(
   submitDocTool.inputSchema,
   true // requiresNetwork = true
 );
-
-// Create protocol handlers wired to routing
-const listHandler = listToolsHandler(registry);
-const callHandler = callToolHandler(router);
 
 // Create MCP server (protocol layer)
 const server = new McpServer(registry);

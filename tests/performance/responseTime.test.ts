@@ -16,10 +16,7 @@ const mockedVectorSearch = vectorSearchModule.vectorSearch as jest.Mocked<
 
 function percentile(sortedValues: number[], pct: number): number {
   if (sortedValues.length === 0) return 0;
-  const index = Math.min(
-    sortedValues.length - 1,
-    Math.ceil((pct / 100) * sortedValues.length) - 1
-  );
+  const index = Math.min(sortedValues.length - 1, Math.ceil((pct / 100) * sortedValues.length) - 1);
   return sortedValues[index];
 }
 
@@ -60,7 +57,11 @@ describe('Performance: response time', () => {
   beforeEach(() => {
     resetIntegrationServer();
     mockedVectorSearch.search.mockImplementation(
-      async (query: string, docs: DocEntry[], limit = 10): Promise<Array<{ id: string; score: number }>> => {
+      async (
+        query: string,
+        docs: DocEntry[],
+        limit = 10
+      ): Promise<Array<{ id: string; score: number }>> => {
         const q = query.toLowerCase();
         const hits = docs
           .map((doc) => {
@@ -74,56 +75,17 @@ describe('Performance: response time', () => {
     );
   });
 
-  test('all implemented tools meet p95 < 2000ms', async () => {
-    const metricsByTool: Record<string, { p50: number; p95: number; p99: number }> = {};
-
-    metricsByTool.search_docs = await measure('search_docs', async () => {
+  test('search_docs meets p95 < 2000ms', async () => {
+    const metrics = await measure('search_docs', async () => {
       await sendMcpRequest('tools/call', {
         name: 'search_docs',
         arguments: { query: 'hooks', version: 'v6', limit: 5 },
       });
     });
 
-    metricsByTool.generate_service = await measure('generate_service', async () => {
-      await sendMcpRequest('tools/call', {
-        name: 'generate_service',
-        arguments: {
-          name: 'perfsvc',
-          database: 'sqlite',
-          fields: [{ name: 'title', type: 'string', required: true }],
-        },
-      });
-    });
-
-    metricsByTool.validate_code = await measure('validate_code', async () => {
-      await sendMcpRequest('tools/call', {
-        name: 'validate_code',
-        arguments: {
-          code: 'const value: number = 1;\nconsole.log(value);',
-          checks: ['typescript'],
-        },
-      });
-    });
-
-    metricsByTool.explain_concept = await measure('explain_concept', async () => {
-      await sendMcpRequest('tools/call', {
-        name: 'explain_concept',
-        arguments: { concept: 'services' },
-      });
-    });
-
-    metricsByTool.list_available_tools = await measure('list_available_tools', async () => {
-      await sendMcpRequest('tools/call', {
-        name: 'list_available_tools',
-        arguments: {},
-      });
-    });
-
-    for (const [tool, metrics] of Object.entries(metricsByTool)) {
-      expect(metrics.p95).toBeLessThan(2000);
-      expect(metrics.p50).toBeGreaterThanOrEqual(0);
-      expect(metrics.p99).toBeGreaterThanOrEqual(metrics.p95);
-      console.log(`[perf-threshold] ${tool} p95=${metrics.p95.toFixed(2)}ms`);
-    }
+    expect(metrics.p95).toBeLessThan(2000);
+    expect(metrics.p50).toBeGreaterThanOrEqual(0);
+    expect(metrics.p99).toBeGreaterThanOrEqual(metrics.p95);
+    console.log(`[perf-threshold] search_docs p95=${metrics.p95.toFixed(2)}ms`);
   });
 });

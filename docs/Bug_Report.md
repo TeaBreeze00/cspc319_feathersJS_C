@@ -1,4 +1,4 @@
-## Bug Report - Peer Testing
+<!-- # Bug Report - Peer Testing
 
 **Discovered By:** [Your Full Name]  
 **Date:** [Date of Testing Session]  
@@ -27,4 +27,4 @@
 
 ---
 
-**Labels:** `peer-testing`, `bug`
+**Labels:** `peer-testing`, `bug` -->
