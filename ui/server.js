@@ -17,6 +17,33 @@ const PORT = process.env.PORT || 4000;
 const PROJECT_ROOT = path.join(__dirname, '..');
 const MCP_ENTRY = path.join(PROJECT_ROOT, 'dist', 'index.js');
 
+// ---------------------------------------------------------------------------
+// Load .env file (no external dependency)
+// ---------------------------------------------------------------------------
+const ENV_PATH = path.join(__dirname, '.env');
+const envVars = {};
+if (fs.existsSync(ENV_PATH)) {
+  const lines = fs.readFileSync(ENV_PATH, 'utf8').split('\n');
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIdx = trimmed.indexOf('=');
+    if (eqIdx === -1) continue;
+    const key = trimmed.slice(0, eqIdx).trim();
+    const val = trimmed.slice(eqIdx + 1).trim();
+    envVars[key] = val;
+  }
+  console.log(`  [env] Loaded ${Object.keys(envVars).length} vars from ui/.env`);
+  if (envVars.GITHUB_TOKEN) {
+    console.log('  [env] GITHUB_TOKEN is set — submit_documentation will create GitHub PRs');
+  }
+} else {
+  console.log('  [env] No ui/.env file found — submit_documentation will use local staging');
+}
+
+// Merge into a child-process env: inherit current process.env + overlay .env vars
+const childEnv = { ...process.env, ...envVars };
+
 app.use(express.json());
 app.use(express.static(__dirname));
 
@@ -46,6 +73,7 @@ function ensureMCP() {
     mcpChild = spawn('node', [MCP_ENTRY], {
       cwd: PROJECT_ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
+      env: childEnv,
     });
 
     mcpChild.stdout.on('data', (chunk) => {

@@ -3,5 +3,6 @@ dist/
 coverage/
 *.log
 .env
+ui/.env
 .DS_Store
 pending-contributions/
