@@ -1,5 +1,5 @@
 {
-  "generated": "2026-03-02T00:14:56.002Z",
+  "generated": "2026-03-02T00:48:39.542Z",
   "config": {
     "MAX_EMBED_TOKENS": 7500,
     "MIN_CHUNK_TOKENS": 40,
@@ -47,7 +47,7 @@
     "v6": {
       "files": 50,
       "chunks": 50,
-      "withCode": 40,
+      "withCode": 39,
       "categories": [
         "application",
         "authentication",
