@@ -39,6 +39,16 @@ export interface GitHubContentResponse {
   path: string;
 }
 
+export interface DeletePRParams {
+  token: string;
+  owner: string;
+  repo: string;
+  filePath: string;
+  reason: string;
+  version: string;
+  contributorName?: string;
+}
+
 export interface GitHubPullRequest {
   number: number;
   html_url: string;

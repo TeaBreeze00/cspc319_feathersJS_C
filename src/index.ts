@@ -1,6 +1,11 @@
 import { McpServer, ToolRegistry } from './protocol';
 import { ToolHandlerRegistry, ParameterValidator, ErrorHandler, Router } from './routing';
-import { SearchDocsTool, SubmitDocumentationTool } from './tools';
+import {
+  SearchDocsTool,
+  SubmitDocumentationTool,
+  RemoveDocumentationTool,
+  UpdateDocumentationTool,
+} from './tools';
 
 // Protocol-level registry (metadata + implementations)
 const registry = new ToolRegistry();
@@ -14,10 +19,14 @@ const router = new Router(routingRegistry, validator, errorHandler);
 // Create tool instances
 const searchDocsTool = new SearchDocsTool();
 const submitDocTool = new SubmitDocumentationTool();
+const removeDocTool = new RemoveDocumentationTool();
+const updateDocTool = new UpdateDocumentationTool();
 
 // Register tools with protocol registry (metadata + handler for MCP)
 registry.register(searchDocsTool.register());
 registry.register(submitDocTool.register());
+registry.register(removeDocTool.register());
+registry.register(updateDocTool.register());
 
 // Register tools with routing registry (handler + schema for routing layer)
 routingRegistry.register(
@@ -30,6 +39,20 @@ routingRegistry.register(
   'submit_documentation',
   (params: unknown) => submitDocTool.execute(params),
   submitDocTool.inputSchema,
+  true // requiresNetwork = true
+);
+
+routingRegistry.register(
+  'remove_documentation',
+  (params: unknown) => removeDocTool.execute(params),
+  removeDocTool.inputSchema,
+  true // requiresNetwork = true
+);
+
+routingRegistry.register(
+  'update_documentation',
+  (params: unknown) => updateDocTool.execute(params),
+  updateDocTool.inputSchema,
   true // requiresNetwork = true
 );
 
