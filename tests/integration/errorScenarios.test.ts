@@ -1,9 +1,39 @@
+// tests/integration/errorScenarios.test.ts
+import { DocEntry } from '../../src/knowledge/types';
 import { sendMcpRequest, sendRawMcpRequest } from './helpers';
 import { getIntegrationServer, resetIntegrationServer } from './setup';
+import * as vectorSearchModule from '../../src/tools/search/vectorSearch';
+
+jest.mock('../../src/tools/search/vectorSearch', () => ({
+  vectorSearch: {
+    search: jest.fn(),
+  },
+}));
+
+const mockedVectorSearch = vectorSearchModule.vectorSearch as jest.Mocked<
+  typeof vectorSearchModule.vectorSearch
+>;
 
 describe('Integration error scenarios', () => {
   beforeEach(() => {
     resetIntegrationServer();
+    mockedVectorSearch.search.mockImplementation(
+      async (
+        query: string,
+        docs: DocEntry[],
+        limit = 10
+      ): Promise<Array<{ id: string; score: number }>> => {
+        const q = query.toLowerCase();
+        const hits = docs
+          .map((doc) => ({
+            id: doc.id,
+            score: `${doc.heading} ${doc.rawContent}`.toLowerCase().includes(q) ? 1 : 0,
+          }))
+          .filter((entry) => entry.score > 0)
+          .slice(0, limit);
+        return hits;
+      }
+    );
   });
 
   test('returns parse error for malformed JSON-RPC payload', async () => {

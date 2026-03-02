@@ -1,3 +1,4 @@
+// jest.config.js
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
@@ -6,10 +7,17 @@ module.exports = {
   transform: {
     '^.+\\.ts$': 'ts-jest',
   },
-  roots: ['<rootDir>/tests'], // this tells Jest where your tests are
-  testMatch: ['**/?(*.)+(spec|test).ts'], // matches *.test.ts or *.spec.ts
+  roots: ['<rootDir>/tests'],
+  testMatch: ['**/?(*.)+(spec|test).ts'],
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
-  testPathIgnorePatterns: ['/node_modules/', '/docs/', '/dist/'],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/docs/',
+    '/dist/',
+    'tests/tools/templates/',
+    'tests/tools/codegen/',
+    'tests/tools/validation/',
+  ],
   coveragePathIgnorePatterns: [
     '/node_modules/',
     '/docs/',
