@@ -1359,10 +1359,16 @@
           const txt = $('status-text');
           if (data.ok) {
             dot.className = 'status-dot online';
-            txt.textContent = 'MCP server ready';
+            if (data.githubMode) {
+              txt.innerHTML =
+                'MCP ready · <span style="color:var(--c-green);font-weight:600;">GitHub PR mode ✓</span>';
+            } else {
+              txt.innerHTML =
+                'MCP ready · <span style="color:var(--c-amber);font-weight:600;">Local staging</span>';
+            }
           } else {
             dot.className = 'status-dot offline';
-            txt.textContent = 'Build not found — run npm run build';
+            txt.textContent = data.message || 'Build not found — run npm run build';
           }
         } catch {
           $('status-dot').className = 'status-dot offline';
