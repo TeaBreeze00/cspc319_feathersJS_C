@@ -140,10 +140,15 @@ function listMCPTools() {
     child.stdin.end();
 
     let stdout = '';
-    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
     child.stderr.on('data', () => {});
 
-    const timer = setTimeout(() => { child.kill(); reject(new Error('Timed out')); }, 10000);
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error('Timed out'));
+    }, 10000);
 
     child.on('close', () => {
       clearTimeout(timer);
@@ -233,8 +238,8 @@ app.get('*', (req, res) => {
 // ---------------------------------------------------------------------------
 app.listen(PORT, () => {
   console.log('');
-  console.log('  🪶  FeathersJS MCP  —  Peer Testing UI');
-  console.log('  ─────────────────────────────────────');
+  console.log('  🪶  FeathersJS MCP  —  Testing UI');
+  console.log('  ─────────────────────────────────');
   console.log(`  Local:   http://localhost:${PORT}`);
   console.log(`  Project: ${PROJECT_ROOT}`);
   console.log('');

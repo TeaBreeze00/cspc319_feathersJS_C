@@ -1,7 +1,7 @@
 {
   "name": "feathers-mcp-ui",
   "version": "1.0.0",
-  "description": "Peer testing UI for FeathersJS MCP Server",
+  "description": "Testing UI for FeathersJS MCP Server (search_docs + submit_documentation)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"

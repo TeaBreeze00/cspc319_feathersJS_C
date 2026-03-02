@@ -1100,45 +1100,16 @@
           role="tab"
         >
           <span class="tab-icon">🔍</span>
-          <span>Search</span>
+          <span>Search Docs</span>
         </button>
         <button
           class="tool-tab"
-          data-tool="explain_concept"
-          onclick="switchTool('explain_concept')"
+          data-tool="submit_documentation"
+          onclick="switchTool('submit_documentation')"
           role="tab"
         >
-          <span class="tab-icon">💡</span>
-          <span>Explain</span>
-        </button>
-
-        <button
-          class="tool-tab"
-          data-tool="validate_code"
-          onclick="switchTool('validate_code')"
-          role="tab"
-        >
-          <span class="tab-icon">✔️</span>
-          <span>Validate</span>
-        </button>
-
-        <button
-          class="tool-tab"
-          data-tool="generate_service"
-          onclick="switchTool('generate_service')"
-          role="tab"
-        >
-          <span class="tab-icon">⚙️</span>
-          <span>Service</span>
-        </button>
-        <button
-          class="tool-tab"
-          data-tool="list_tools"
-          onclick="switchTool('list_tools')"
-          role="tab"
-        >
-          <span class="tab-icon">📋</span>
-          <span>List Tools</span>
+          <span class="tab-icon">📝</span>
+          <span>Submit Docs</span>
         </button>
       </div>
 
@@ -1187,155 +1158,108 @@
         <div id="results-search_docs"></div>
       </div>
 
-      <!-- ── Tool Panel: explain_concept ────────────────────────── -->
-      <div id="panel-explain_concept" class="tool-panel" style="display: none">
+      <!-- ── Tool Panel: submit_documentation ──────────────────── -->
+      <div id="panel-submit_documentation" class="tool-panel" style="display: none">
         <div class="card">
           <div class="card-header">
-            <div class="card-title">💡 Explain Concept</div>
+            <div class="card-title">📝 Submit Documentation</div>
           </div>
           <div class="card-body">
             <div class="form-group">
-              <label for="ec-concept"
-                >Concept
-                <span class="label-hint"
-                  >What FeathersJS concept do you want explained?</span
-                ></label
+              <label for="sd-title"
+                >Title
+                <span class="label-hint">10–120 characters, describes the change</span></label
               >
               <input
                 type="text"
-                id="ec-concept"
-                placeholder="e.g. hooks, services, authentication, channels…"
+                id="sd-title"
+                placeholder="e.g. Add Koa middleware guide for FeathersJS v6"
               />
             </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="runExplainConcept()">
-                <span>▶</span> Explain
-              </button>
-              <button class="btn-example" onclick="exampleExplainConcept()">
-                Try example → "services"
-              </button>
-            </div>
-          </div>
-        </div>
-        <div id="results-explain_concept"></div>
-      </div>
-
-      <!-- ── Tool Panel: validate_code ──────────────────────────── -->
-      <div id="panel-validate_code" class="tool-panel" style="display: none">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">✔️ Validate Code</div>
-          </div>
-          <div class="card-body">
-            <div class="form-group">
-              <label for="vc-code"
-                >Code <span class="label-hint">Paste your FeathersJS code to validate</span></label
-              >
-              <textarea
-                id="vc-code"
-                rows="10"
-                placeholder="// Paste your TypeScript or JavaScript code here…"
-                style="font-family: var(--font-mono); font-size: 13px"
-              ></textarea>
-            </div>
-            <div class="form-group">
-              <label>Checks to Run</label>
-              <div class="toggle-row">
-                <label class="toggle-label">
-                  <input type="checkbox" id="vc-typescript" checked />
-                  TypeScript
-                </label>
-                <label class="toggle-label">
-                  <input type="checkbox" id="vc-eslint" checked />
-                  ESLint
-                </label>
-                <label class="toggle-label">
-                  <input type="checkbox" id="vc-prettier" />
-                  Prettier
-                </label>
-                <label class="toggle-label">
-                  <input type="checkbox" id="vc-bestpractices" checked />
-                  Best Practices
-                </label>
-              </div>
-            </div>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="runValidateCode()">
-                <span>▶</span> Validate
-              </button>
-              <button class="btn-example" onclick="exampleValidateCode()">
-                Try example → sample hook code
-              </button>
-            </div>
-          </div>
-        </div>
-        <div id="results-validate_code"></div>
-      </div>
-
-      <!-- ── Tool Panel: generate_service ───────────────────── -->
-      <div id="panel-generate_service" class="tool-panel" style="display: none">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">⚙️ Generate Service</div>
-          </div>
-          <div class="card-body">
             <div class="form-row">
               <div class="form-group">
-                <label for="gs-name">Service Name</label>
-                <input type="text" id="gs-name" placeholder="e.g. products, users, messages" />
+                <label for="sd-filepath">File Path</label>
+                <input
+                  type="text"
+                  id="sd-filepath"
+                  placeholder="docs/v6_docs/cookbook/my-guide.md"
+                />
               </div>
               <div class="form-group">
-                <label for="gs-database">Database Adapter</label>
-                <select id="gs-database">
-                  <option value="mongodb" selected>MongoDB</option>
-                  <option value="postgresql">PostgreSQL</option>
-                  <option value="sqlite">SQLite</option>
+                <label for="sd-docversion">Version</label>
+                <select id="sd-docversion">
+                  <option value="v6" selected>v6</option>
+                  <option value="v5">v5</option>
                 </select>
               </div>
             </div>
-
-            <div class="form-group">
-              <label>Fields <span class="label-hint">Define the service schema fields</span></label>
-              <div class="fields-header">
-                <span>Field Name</span><span>Type</span
-                ><span style="text-align: center">Required</span><span></span>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="sd-category">Category <span class="label-hint">optional</span></label>
+                <select id="sd-category">
+                  <option value="">(auto-detect)</option>
+                  <option value="application">application</option>
+                  <option value="authentication">authentication</option>
+                  <option value="channels">channels</option>
+                  <option value="cli">cli</option>
+                  <option value="client">client</option>
+                  <option value="cookbook">cookbook</option>
+                  <option value="databases">databases</option>
+                  <option value="deployment">deployment</option>
+                  <option value="errors">errors</option>
+                  <option value="events">events</option>
+                  <option value="express">express</option>
+                  <option value="guides">guides</option>
+                  <option value="hooks">hooks</option>
+                  <option value="koa">koa</option>
+                  <option value="migration">migration</option>
+                  <option value="schema">schema</option>
+                  <option value="security">security</option>
+                  <option value="services">services</option>
+                  <option value="testing">testing</option>
+                  <option value="transport">transport</option>
+                </select>
               </div>
-              <div class="fields-list" id="fields-list"></div>
-              <button class="btn-add-field" onclick="addField()">＋ Add Field</button>
+              <div class="form-group">
+                <label for="sd-contributor"
+                  >Contributor <span class="label-hint">optional</span></label
+                >
+                <input type="text" id="sd-contributor" placeholder="Your name" />
+              </div>
             </div>
-
+            <div class="form-group">
+              <label for="sd-description"
+                >Description <span class="label-hint">optional PR body text</span></label
+              >
+              <input
+                type="text"
+                id="sd-description"
+                placeholder="Brief explanation of the change"
+              />
+            </div>
+            <div class="form-group">
+              <label for="sd-content"
+                >Markdown Content
+                <span class="label-hint">100–50,000 chars, must start with # Heading</span></label
+              >
+              <textarea
+                id="sd-content"
+                rows="12"
+                placeholder="# My Guide&#10;&#10;Introduction paragraph...&#10;&#10;## Section 1&#10;&#10;Content here..."
+                style="font-family: var(--font-mono); font-size: 13px"
+              ></textarea>
+            </div>
             <div class="form-actions">
-              <button class="btn btn-primary" onclick="runGenerateService()">
-                <span>▶</span> Generate Service
+              <button class="btn btn-primary" onclick="runSubmitDocumentation()">
+                <span>▶</span> Submit Documentation
               </button>
-              <button class="btn-example" onclick="exampleGenerateService()">
-                Try example → products (4 fields)
+              <button class="btn-example" onclick="exampleSubmitDocumentation()">
+                Try example → Koa middleware guide
               </button>
             </div>
           </div>
         </div>
-        <div id="results-generate_service"></div>
-      </div>
-
-      <!-- ── Tool Panel: list_tools ─────────────────────────────── -->
-      <div id="panel-list_tools" class="tool-panel" style="display: none">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">📋 List All Tools</div>
-          </div>
-          <div class="card-body">
-            <p style="color: var(--c-text-2); margin-bottom: 16px">
-              Fetch the complete list of available MCP tools from the server, including their
-              descriptions and input schemas.
-            </p>
-            <div class="form-actions">
-              <button class="btn btn-primary" onclick="runListTools()">
-                <span>▶</span> Fetch Tools
-              </button>
-            </div>
-          </div>
-        </div>
-        <div id="results-list_tools"></div>
+        <div id="results-submit_documentation"></div>
       </div>
     </main>
 
@@ -1710,357 +1634,146 @@
         runSearchDocs();
       }
       // ════════════════════════════════════════════════════════════════
-      // TOOL 2 — explain_concept
+      // TOOL 2 — submit_documentation
       // ════════════════════════════════════════════════════════════════
 
-      async function runExplainConcept() {
-        const concept = $('ec-concept').value.trim();
-        const panel = $('results-explain_concept');
+      async function runSubmitDocumentation() {
+        const title = $('sd-title').value.trim();
+        const filePath = $('sd-filepath').value.trim();
+        const version = $('sd-docversion').value;
+        const category = $('sd-category').value || undefined;
+        const contributorName = $('sd-contributor').value.trim() || undefined;
+        const description = $('sd-description').value.trim() || undefined;
+        const content = $('sd-content').value;
+        const panel = $('results-submit_documentation');
 
-        if (!concept) {
-          toast('Please enter a concept to explain.');
-          $('ec-concept').focus();
+        if (!title || title.length < 10) {
+          toast('Title must be at least 10 characters.');
+          $('sd-title').focus();
+          return;
+        }
+        if (!filePath) {
+          toast('Please enter a file path.');
+          $('sd-filepath').focus();
+          return;
+        }
+        if (!content || content.length < 100) {
+          toast('Content must be at least 100 characters.');
+          $('sd-content').focus();
           return;
         }
 
-        showLoading('results-explain_concept', `Looking up "${concept}"…`);
+        showLoading('results-submit_documentation', 'Submitting documentation…');
 
         try {
-          const raw = await callTool('explain_concept', { concept });
-          const content = parseMCPResult(raw);
-          renderExplainResult(panel, content, concept);
-        } catch (err) {
-          showError('results-explain_concept', err.message);
-        }
-      }
+          const args = { title, filePath, content, version };
+          if (category) args.category = category;
+          if (contributorName) args.contributorName = contributorName;
+          if (description) args.description = description;
 
-      function renderExplainResult(panel, content, concept) {
-        // content is plain text from the tool
-        const escaped = escHtml(content).replace(/\n/g, '<br>');
-        panel.innerHTML = `
-          <div id="results-panel">
-            <div class="result-meta">
-              Explanation for <strong>"${escHtml(concept)}"</strong>
-            </div>
-            <div class="card">
-              <div class="card-body" style="white-space: pre-wrap; font-size: 14px; line-height: 1.7;">
-${escaped}
-              </div>
-            </div>
-          </div>`;
-      }
-
-      function exampleExplainConcept() {
-        $('ec-concept').value = 'services';
-        runExplainConcept();
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // TOOL 7 — validate_code
-      // ════════════════════════════════════════════════════════════════
-
-      async function runValidateCode() {
-        const code = $('vc-code').value;
-        const panel = $('results-validate_code');
-
-        if (!code.trim()) {
-          toast('Please enter some code to validate.');
-          $('vc-code').focus();
-          return;
-        }
-
-        const checks = [];
-        if ($('vc-typescript').checked) checks.push('typescript');
-        if ($('vc-eslint').checked) checks.push('eslint');
-        if ($('vc-prettier').checked) checks.push('prettier');
-        if ($('vc-bestpractices').checked) checks.push('bestPractices');
-
-        showLoading('results-validate_code', 'Validating code…');
-
-        try {
-          const raw = await callTool('validate_code', { code, checks });
+          const raw = await callTool('submit_documentation', args);
           const parsed = parseMCPResult(raw);
-          renderValidation(panel, parsed);
+          renderSubmitResult(panel, parsed);
         } catch (err) {
-          showError('results-validate_code', err.message);
+          showError('results-submit_documentation', err.message);
         }
       }
 
-      function renderValidation(panel, data) {
-        const valid = data.valid;
-        const results = data.results || {};
+      function renderSubmitResult(panel, data) {
+        if (data.success) {
+          const mode = data.mode === 'local-staging' ? 'Local Staging' : 'GitHub PR';
+          const modeBadge =
+            data.mode === 'local-staging'
+              ? '<span class="badge badge-amber">Local Staging</span>'
+              : '<span class="badge badge-green">GitHub PR</span>';
 
-        const statusBadge = valid
-          ? '<span class="badge badge-green">✓ Valid</span>'
-          : '<span class="badge badge-red">✗ Issues Found</span>';
+          const warnings = (data.warnings || [])
+            .map((w) => `<li style="color: var(--c-amber);">${escHtml(w)}</li>`)
+            .join('');
 
-        const checkRows = ['typescript', 'eslint', 'prettier', 'bestPractices']
-          .map((key) => {
-            const result = results[key];
-            if (!result) return '';
-            const ok = result.valid !== false && !result.errors?.length;
-            const icon = ok ? '✓' : '✗';
-            const color = ok ? 'var(--c-green)' : 'var(--c-red)';
-            const errors = result.errors || [];
-            const errorList =
-              errors.length > 0
-                ? `<ul style="margin: 8px 0 0 20px; color: var(--c-red);">${errors.map((e) => `<li>${escHtml(typeof e === 'string' ? e : e.message || JSON.stringify(e))}</li>`).join('')}</ul>`
-                : '';
-            return `
-            <div style="margin-bottom: 12px;">
-              <strong style="color: ${color};">${icon} ${key}</strong>
-              ${errorList}
-            </div>`;
-          })
-          .join('');
-
-        const formattedCode = data.formattedCode
-          ? `<div class="code-block" style="margin-top: 16px;">
-              <div class="file-path-bar">Formatted Code</div>
-              <pre><code class="hljs language-typescript">${hljs.highlight(data.formattedCode, { language: 'typescript', ignoreIllegals: true }).value}</code></pre>
-            </div>`
-          : '';
-
-        panel.innerHTML = `
-          <div id="results-panel">
-            <div class="result-meta">
-              ${statusBadge}
-            </div>
-            <div class="card">
-              <div class="card-body">
-                ${checkRows}
-                ${formattedCode}
-              </div>
-            </div>
-          </div>`;
-      }
-
-      function exampleValidateCode() {
-        $('vc-code').value = `import { HookContext, NextFunction } from '@feathersjs/feathers';
-
-export const logRequest = async (context: HookContext, next: NextFunction) => {
-  console.log('Service:', context.path);
-  console.log('Method:', context.method);
-  await next();
-};`;
-        $('vc-typescript').checked = true;
-        $('vc-eslint').checked = true;
-        $('vc-prettier').checked = false;
-        $('vc-bestpractices').checked = true;
-        runValidateCode();
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // TOOL 9 — generate_service
-      // ════════════════════════════════════════════════════════════════
-
-      // ── Field builder ─────────────────────────────────────────────
-
-      const FIELD_TYPES = ['string', 'number', 'boolean', 'date', 'objectId', 'array', 'object'];
-
-      function addField(name = '', type = 'string', required = false) {
-        const list = $('fields-list');
-        const row = document.createElement('div');
-        row.className = 'field-row';
-        row.innerHTML = `
-      <input type="text" class="field-name" placeholder="fieldName" value="${escHtml(name)}" />
-      <select class="field-type">
-        ${FIELD_TYPES.map(
-          (t) => `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`
-        ).join('')}
-      </select>
-      <div class="field-required-wrap">
-        <input type="checkbox" class="field-required" ${required ? 'checked' : ''} />
-        <span>Req.</span>
-      </div>
-      <button class="btn-danger-ghost" onclick="this.closest('.field-row').remove()">✕</button>`;
-        list.appendChild(row);
-      }
-
-      function getFields() {
-        return Array.from(document.querySelectorAll('.field-row'))
-          .map((row) => ({
-            name: row.querySelector('.field-name').value.trim(),
-            type: row.querySelector('.field-type').value,
-            required: row.querySelector('.field-required').checked,
-          }))
-          .filter((f) => f.name);
-      }
-
-      // Seed one empty field on load
-      addField();
-
-      async function runGenerateService() {
-        const name = $('gs-name').value.trim();
-        const database = $('gs-database').value;
-        const fields = getFields();
-        const panel = $('results-generate_service');
-
-        if (!name) {
-          toast('Please enter a service name.');
-          $('gs-name').focus();
-          return;
-        }
-        if (fields.length === 0) {
-          toast('Please add at least one field.');
-          return;
-        }
-
-        showLoading('results-generate_service', `Generating "${name}" service…`);
-
-        try {
-          const raw = await callTool('generate_service', { name, database, fields });
-          const parsed = parseMCPResult(raw);
-          renderServiceResult(panel, parsed);
-        } catch (err) {
-          showError('results-generate_service', err.message);
-        }
-      }
-
-      function renderServiceResult(panel, data) {
-        const files = data.files || {};
-        const fields = getFields();
-
-        const dbColor = { mongodb: 'badge-green', postgresql: 'badge-blue', sqlite: 'badge-amber' };
-        const dbBadge = `<span class="badge ${dbColor[data.database] || 'badge-grey'}">${data.database}</span>`;
-
-        const fieldPills = fields
-          .map((f) => {
-            const tc = TYPE_COLOR[f.type] || 'badge-grey';
-            return `<div class="field-pill">
-        ${escHtml(f.name)}
-        <span class="fp-type ${tc}">${f.type}</span>
-        ${f.required ? '<span class="fp-req" title="required">*</span>' : ''}
-      </div>`;
-          })
-          .join('');
-
-        panel.innerHTML = `
-      <div id="results-panel">
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">✅ Service Generated</div>
-          </div>
-          <div class="card-body">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <span class="si-label">Service</span>
-                <span class="si-value">${escHtml(data.name)}</span>
-              </div>
-              <div class="summary-item">
-                <span class="si-label">Database</span>
-                <span class="si-value">${escHtml(data.database)}</span>
-              </div>
-              <div class="summary-item">
-                <span class="si-label">Fields</span>
-                <span class="si-value">${data.fieldCount ?? fields.length}</span>
-              </div>
-              <div class="summary-item">
-                <span class="si-label">Files</span>
-                <span class="si-value">${Object.keys(files).length}</span>
-              </div>
-            </div>
-
-            <div class="result-section-title">Schema Fields</div>
-            <div class="fields-summary">${fieldPills}</div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <div class="card-title">📁 Generated Files</div>
-            <span style="font-size:0.78rem;color:var(--c-text-3)">Click a tab to view each file</span>
-          </div>
-          <div class="card-body">
-            ${buildFileTabs(files)}
-          </div>
-        </div>
-      </div>`;
-      }
-
-      function exampleGenerateService() {
-        $('gs-name').value = 'products';
-        $('gs-database').value = 'mongodb';
-        $('fields-list').innerHTML = '';
-        addField('name', 'string', true);
-        addField('price', 'number', true);
-        addField('description', 'string', false);
-        addField('inStock', 'boolean', false);
-        runGenerateService();
-      }
-
-      // ════════════════════════════════════════════════════════════════
-      // TOOL 10 — list_tools
-      // ════════════════════════════════════════════════════════════════
-
-      async function runListTools() {
-        const panel = $('results-list_tools');
-
-        showLoading('results-list_tools', 'Fetching available tools…');
-
-        try {
-          const resp = await fetch('/api/tools');
-          const data = await resp.json();
-
-          if (!data.ok) {
-            throw new Error(data.error || 'Failed to fetch tools');
-          }
-
-          renderToolsList(panel, data.tools);
-        } catch (err) {
-          showError('results-list_tools', err.message);
-        }
-      }
-
-      function renderToolsList(panel, tools) {
-        if (!tools || tools.length === 0) {
           panel.innerHTML = `
-            <div class="card"><div class="card-body">
-              <div class="placeholder">
-                <div class="ph-icon">📋</div>
-                <div class="ph-title">No tools found</div>
-                <div class="ph-sub">The MCP server returned an empty tools list.</div>
+            <div id="results-panel">
+              <div class="result-meta">
+                <span class="badge badge-green">✓ Submitted</span> ${modeBadge}
               </div>
-            </div></div>`;
-          return;
+              <div class="card">
+                <div class="card-body">
+                  <p style="margin-bottom: 12px; color: var(--c-text-2);">${escHtml(data.message || 'Submission successful.')}</p>
+                  ${data.prUrl ? `<p><strong>PR URL:</strong> <a href="${escHtml(data.prUrl)}" target="_blank">${escHtml(data.prUrl)}</a></p>` : ''}
+                  ${data.prNumber ? `<p><strong>PR #:</strong> ${data.prNumber}</p>` : ''}
+                  ${data.branch ? `<p><strong>Branch:</strong> <code>${escHtml(data.branch)}</code></p>` : ''}
+                  ${data.file ? `<p><strong>Staged file:</strong> <code>${escHtml(data.file)}</code></p>` : ''}
+                  ${data.isUpdate ? '<p><span class="badge badge-blue">Update</span> This file already exists — the PR will update it.</p>' : ''}
+                  ${warnings ? `<div style="margin-top: 12px;"><strong style="color: var(--c-amber);">Warnings:</strong><ul style="margin: 4px 0 0 20px;">${warnings}</ul></div>` : ''}
+                </div>
+              </div>
+            </div>`;
+        } else {
+          const errors = (data.errors || ['Unknown error'])
+            .map((e) => `<li>${escHtml(e)}</li>`)
+            .join('');
+          panel.innerHTML = `
+            <div id="results-panel">
+              <div class="result-meta">
+                <span class="badge badge-red">✗ Validation Failed</span>
+              </div>
+              <div class="card">
+                <div class="card-body">
+                  <ul style="margin: 0 0 0 20px; color: var(--c-red);">${errors}</ul>
+                </div>
+              </div>
+            </div>`;
         }
+      }
 
-        const toolCards = tools
-          .map((tool) => {
-            const props = tool.inputSchema?.properties || {};
-            const required = tool.inputSchema?.required || [];
-            const params = Object.entries(props)
-              .map(([name, schema]) => {
-                const isRequired = required.includes(name);
-                const typeStr = schema.enum ? schema.enum.join(' | ') : schema.type || 'any';
-                return `<div style="margin: 4px 0; font-size: 13px;">
-                  <code style="background: var(--c-primary-l); padding: 2px 6px; border-radius: 4px;">${escHtml(name)}</code>
-                  <span style="color: var(--c-text-3); margin-left: 6px;">${escHtml(typeStr)}</span>
-                  ${isRequired ? '<span class="badge badge-amber" style="margin-left: 6px; font-size: 10px;">required</span>' : ''}
-                </div>`;
-              })
-              .join('');
+      function exampleSubmitDocumentation() {
+        $('sd-title').value = 'Add Koa middleware guide for FeathersJS v6';
+        $('sd-filepath').value = 'docs/v6_docs/cookbook/koa-middleware.md';
+        $('sd-docversion').value = 'v6';
+        $('sd-category').value = 'cookbook';
+        $('sd-contributor').value = 'Test User';
+        $('sd-description').value = 'Comprehensive guide for Koa middleware integration';
+        $('sd-content').value = `# Koa Middleware
 
-            return `
-              <div class="doc-card" style="margin-bottom: 12px;">
-                <div class="doc-card-header">
-                  <div class="doc-card-title" style="font-family: var(--font-mono);">${escHtml(tool.name)}</div>
-                </div>
-                <div class="doc-card-body">
-                  <p style="color: var(--c-text-2); margin-bottom: 12px;">${escHtml(tool.description || 'No description')}</p>
-                  ${params ? `<div style="border-top: 1px solid var(--c-border); padding-top: 12px;"><strong style="font-size: 12px; color: var(--c-text-3);">PARAMETERS</strong>${params}</div>` : ''}
-                </div>
-              </div>`;
-          })
-          .join('');
+This guide explains how to use Koa middleware with FeathersJS v6.
 
-        panel.innerHTML = `
-          <div id="results-panel">
-            <div class="result-meta">
-              Found <strong>${tools.length}</strong> available tool${tools.length !== 1 ? 's' : ''}
-            </div>
-            ${toolCards}
-          </div>`;
+## Prerequisites
+
+You need Node.js 20+ installed and a FeathersJS v6 project.
+
+## Steps
+
+1. Install the Koa adapter
+2. Configure middleware
+3. Run the server
+
+\`\`\`typescript
+import { feathers } from '@feathersjs/feathers';
+import { koa, rest, bodyParser, errorHandler } from '@feathersjs/koa';
+
+const app = koa(feathers());
+
+app.use(errorHandler());
+app.use(bodyParser());
+app.configure(rest());
+
+app.listen(3030).then(() => {
+  console.log('Server running on http://localhost:3030');
+});
+\`\`\`
+
+## Custom Middleware
+
+You can add custom Koa middleware before or after the FeathersJS configuration:
+
+\`\`\`typescript
+app.use(async (ctx, next) => {
+  console.log(\\\`Request: \\\${ctx.method} \\\${ctx.url}\\\`);
+  await next();
+});
+\`\`\`
+`;
+        runSubmitDocumentation();
       }
     </script>
   </body>
