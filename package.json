@@ -14,6 +14,7 @@
     "generate:embeddings": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/generate-embeddings.ts",
     "ingest:v6": "node scripts/ingest-v6-docs.js",
     "rebuild:kb": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/improved-chunking.ts && npm run generate:embeddings",
+    "update:kb": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/incremental-update.ts",
     "test:submit": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/test-submit.ts"
   },
   "author": "",

@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # need HEAD~1 for git diff
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -26,11 +28,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Re-chunk documentation
-        run: npx ts-node --compiler-options '{"module":"CommonJS","esModuleInterop":true,"target":"ES2020"}' scripts/improved-chunking.ts
-
-      - name: Generate embeddings
-        run: npm run generate:embeddings
+      - name: Incremental chunk + embed (changed files only)
+        run: |
+          npx ts-node \
+            --compiler-options '{"module":"CommonJS","esModuleInterop":true,"target":"ES2020"}' \
+            scripts/incremental-update.ts
 
       - name: Commit updated knowledge base
         run: |
@@ -40,6 +42,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No changes to knowledge base"
           else
-            git commit -m "chore: rebuild knowledge base after docs update"
+            git commit -m "chore: incremental knowledge base update"
             git push
           fi
