@@ -33,7 +33,7 @@ You can add custom Koa middleware before or after the FeathersJS configuration:
 
 ```typescript
 app.use(async (ctx, next) => {
-  console.log(\`Request: \${ctx.method} \${ctx.url}\`);
+  console.log(`Request: ${ctx.method} ${ctx.url}`);
   await next();
 });
 ```

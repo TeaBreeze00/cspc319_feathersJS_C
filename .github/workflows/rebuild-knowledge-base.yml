@@ -7,6 +7,10 @@ on:
       - 'docs/v5_docs/**'
       - 'docs/v6_docs/**'
 
+concurrency:
+  group: knowledge-base-update-${{ github.sha }}
+  cancel-in-progress: false
+
 jobs:
   rebuild:
     runs-on: ubuntu-latest
@@ -38,10 +42,18 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
           git add knowledge-base/chunks/
+
           if git diff --staged --quiet; then
             echo "No changes to knowledge base"
           else
             git commit -m "chore: incremental knowledge base update"
-            git push
+
+            # Retry loop - rebase and push up to 5 times
+            for i in {1..5}; do
+              git pull --rebase origin main && git push origin main && break
+              echo "Push failed, retrying ($i/5)..."
+              sleep $((i * 2))
+            done
           fi
