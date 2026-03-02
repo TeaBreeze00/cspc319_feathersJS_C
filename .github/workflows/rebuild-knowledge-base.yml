@@ -8,7 +8,7 @@ on:
       - 'docs/v6_docs/**'
 
 concurrency:
-  group: knowledge-base-update
+  group: knowledge-base-update-${{ github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -50,10 +50,10 @@ jobs:
           else
             git commit -m "chore: incremental knowledge base update"
 
-            # Fetch latest main and merge to avoid push rejection
-            git fetch origin main
-            git merge origin/main --no-edit
-
-            # Push merged result
-            git push origin main
+            # Retry loop - rebase and push up to 5 times
+            for i in {1..5}; do
+              git pull --rebase origin main && git push origin main && break
+              echo "Push failed, retrying ($i/5)..."
+              sleep $((i * 2))
+            done
           fi
