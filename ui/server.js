@@ -234,11 +234,14 @@ app.get('/api/tools', async (req, res) => {
  */
 app.get('/api/health', async (req, res) => {
   const built = fs.existsSync(MCP_ENTRY);
+  const githubMode = !!(envVars.GITHUB_TOKEN && envVars.ALLOW_NETWORK_TOOLS === 'true');
+
   if (!built) {
     return res.json({
       ok: false,
       message: 'dist/index.js not found. Run "npm run build" first.',
       mcpEntry: MCP_ENTRY,
+      githubMode,
     });
   }
 
@@ -246,14 +249,18 @@ app.get('/api/health', async (req, res) => {
     await ensureMCP();
     res.json({
       ok: true,
-      message: 'MCP server running and ready.',
+      message: githubMode
+        ? 'MCP server ready — GitHub PR mode active'
+        : 'MCP server ready — local staging mode (no GITHUB_TOKEN)',
       mcpEntry: MCP_ENTRY,
+      githubMode,
     });
   } catch (err) {
     res.json({
       ok: false,
       message: 'MCP server failed to start: ' + err.message,
       mcpEntry: MCP_ENTRY,
+      githubMode,
     });
   }
 });
