@@ -71,8 +71,8 @@
       "uniqueTags": 97
     }
   },
-  "lastIncrementalUpdate": "2026-03-02T09:50:34.107Z",
+  "lastIncrementalUpdate": "2026-03-02T23:05:43.753Z",
   "lastChangedFiles": [
-    "docs/v6_docs/guides/authentication-setup.md"
+    "docs/v6_docs/cookbook/koa-middleware.md"
   ]
 }
