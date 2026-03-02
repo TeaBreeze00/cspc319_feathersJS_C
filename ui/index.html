@@ -1253,9 +1253,27 @@
               <button class="btn btn-primary" onclick="runSubmitDocumentation()">
                 <span>▶</span> Submit Documentation
               </button>
-              <button class="btn-example" onclick="exampleSubmitDocumentation()">
-                Try example → Koa middleware guide
-              </button>
+              <select
+                id="sd-example-select"
+                style="
+                  padding: 6px 10px;
+                  border-radius: var(--radius-sm);
+                  border: 1px solid var(--c-border-m);
+                  font-family: var(--font-sans);
+                  font-size: 13px;
+                  color: var(--c-text-2);
+                  background: var(--c-surface);
+                  cursor: pointer;
+                "
+              >
+                <option value="">— load an example —</option>
+                <option value="koa">🥝 Koa middleware guide (v6, cookbook)</option>
+                <option value="auth">🔐 Authentication setup (v6, authentication)</option>
+                <option value="hooks">🪝 Custom hooks tutorial (v6, hooks)</option>
+                <option value="services">⚙️ Services &amp; real-time events (v6, services)</option>
+                <option value="migration">🚀 Migrating from v5 to v6 (v5→v6, migration)</option>
+              </select>
+              <button class="btn-example" onclick="loadSelectedExample()">Try example →</button>
             </div>
           </div>
         </div>
@@ -1732,7 +1750,24 @@
         }
       }
 
-      function exampleSubmitDocumentation() {
+      function loadSelectedExample() {
+        const key = $('sd-example-select').value;
+        if (!key) {
+          toast('Please select an example from the dropdown first.');
+          return;
+        }
+        const map = {
+          koa: exampleKoa,
+          auth: exampleAuth,
+          hooks: exampleHooks,
+          services: exampleServices,
+          migration: exampleMigration,
+        };
+        map[key]();
+      }
+
+      // ── Example 1: Koa middleware guide ──────────────────────────
+      function exampleKoa() {
         $('sd-title').value = 'Add Koa middleware guide for FeathersJS v6';
         $('sd-filepath').value = 'docs/v6_docs/cookbook/koa-middleware.md';
         $('sd-docversion').value = 'v6';
@@ -1774,10 +1809,299 @@ You can add custom Koa middleware before or after the FeathersJS configuration:
 
 \`\`\`typescript
 app.use(async (ctx, next) => {
-  console.log(\\\`Request: \\\${ctx.method} \\\${ctx.url}\\\`);
+  console.log(\`Request: \${ctx.method} \${ctx.url}\`);
   await next();
 });
 \`\`\`
+`;
+        runSubmitDocumentation();
+      }
+
+      // ── Example 2: Authentication setup ─────────────────────────
+      function exampleAuth() {
+        $('sd-title').value = 'Setting up local authentication in FeathersJS v6';
+        $('sd-filepath').value = 'docs/v6_docs/guides/authentication-setup.md';
+        $('sd-docversion').value = 'v6';
+        $('sd-category').value = 'authentication';
+        $('sd-contributor').value = 'Test User';
+        $('sd-description').value = 'Step-by-step guide for configuring local JWT authentication';
+        $('sd-content').value = `# Authentication Setup
+
+FeathersJS v6 ships with a flexible authentication system built on JWTs and
+pluggable strategies. This guide walks through adding local (email + password)
+authentication to a new application.
+
+## Install dependencies
+
+\`\`\`bash
+npm install @feathersjs/authentication @feathersjs/authentication-local
+\`\`\`
+
+## Configure the authentication service
+
+\`\`\`typescript
+// src/authentication.ts
+import { AuthenticationService, JWTStrategy } from '@feathersjs/authentication';
+import { LocalStrategy } from '@feathersjs/authentication-local';
+import type { Application } from './declarations';
+
+declare module './declarations' {
+  interface ServiceTypes {
+    authentication: AuthenticationService;
+  }
+}
+
+export const authentication = (app: Application) => {
+  const authService = new AuthenticationService(app);
+
+  authService.register('jwt', new JWTStrategy());
+  authService.register('local', new LocalStrategy());
+
+  app.use('authentication', authService);
+};
+\`\`\`
+
+## Protect a service
+
+\`\`\`typescript
+import { authenticate } from '@feathersjs/authentication';
+
+app.service('messages').hooks({
+  before: {
+    all: [authenticate('jwt')],
+  },
+});
+\`\`\`
+
+## Obtain a token
+
+\`\`\`bash
+curl -X POST http://localhost:3030/authentication \\
+  -H 'Content-Type: application/json' \\
+  -d '{"strategy":"local","email":"user@example.com","password":"secret"}'
+\`\`\`
+
+The response contains an \`accessToken\` you can pass as a \`Bearer\` header on
+subsequent requests.
+`;
+        runSubmitDocumentation();
+      }
+
+      // ── Example 3: Custom hooks tutorial ────────────────────────
+      function exampleHooks() {
+        $('sd-title').value = 'Writing and testing custom hooks in FeathersJS v6';
+        $('sd-filepath').value = 'docs/v6_docs/guides/custom-hooks.md';
+        $('sd-docversion').value = 'v6';
+        $('sd-category').value = 'hooks';
+        $('sd-contributor').value = 'Test User';
+        $('sd-description').value =
+          'Practical examples for creating, composing, and unit-testing hooks';
+        $('sd-content').value = `# Custom Hooks
+
+Hooks are the primary way to add cross-cutting logic in FeathersJS — think
+validation, authorization, logging, and data transformation.
+
+## Anatomy of a hook
+
+\`\`\`typescript
+import type { HookContext } from '../declarations';
+
+// A simple before-create hook that stamps a createdAt field
+export const addTimestamp = async (context: HookContext) => {
+  context.data = {
+    ...context.data,
+    createdAt: new Date().toISOString(),
+  };
+  return context;
+};
+\`\`\`
+
+## Registering hooks on a service
+
+\`\`\`typescript
+app.service('messages').hooks({
+  before: {
+    create: [addTimestamp],
+    patch: [addTimestamp],
+  },
+});
+\`\`\`
+
+## Around hooks (v6+)
+
+Around hooks wrap the entire method call, giving you control of both
+the before and after phases in one function:
+
+\`\`\`typescript
+export const logDuration = async (context: HookContext, next: Function) => {
+  const start = Date.now();
+  await next();
+  console.log(\`\${context.method} took \${Date.now() - start} ms\`);
+};
+\`\`\`
+
+## Unit-testing a hook
+
+\`\`\`typescript
+import { addTimestamp } from './hooks/addTimestamp';
+
+test('stamps createdAt', async () => {
+  const ctx: any = { data: { text: 'hello' } };
+  await addTimestamp(ctx);
+  expect(ctx.data.createdAt).toBeDefined();
+});
+\`\`\`
+`;
+        runSubmitDocumentation();
+      }
+
+      // ── Example 4: Services & real-time events ───────────────────
+      function exampleServices() {
+        $('sd-title').value = 'Creating services and emitting real-time events with Socket.IO';
+        $('sd-filepath').value = 'docs/v6_docs/guides/services-realtime.md';
+        $('sd-docversion').value = 'v6';
+        $('sd-category').value = 'services';
+        $('sd-contributor').value = 'Test User';
+        $('sd-description').value =
+          'Guide to defining services and pushing live updates over Socket.IO';
+        $('sd-content').value = `# Services & Real-Time Events
+
+Services are the heart of every FeathersJS application. Any object that
+implements one or more of the standard service methods (\`find\`, \`get\`,
+\`create\`, \`patch\`, \`update\`, \`remove\`) can be registered as a service.
+
+## Defining a minimal service
+
+\`\`\`typescript
+import type { Params } from '@feathersjs/feathers';
+
+class MessageService {
+  private messages: any[] = [];
+
+  async find(_params?: Params) {
+    return this.messages;
+  }
+
+  async create(data: any, _params?: Params) {
+    const message = { id: Date.now(), ...data };
+    this.messages.push(message);
+    return message;
+  }
+}
+
+app.use('messages', new MessageService());
+\`\`\`
+
+## Listening to real-time events on the client
+
+\`\`\`typescript
+import { io } from 'socket.io-client';
+import { feathers } from '@feathersjs/feathers';
+import socketio from '@feathersjs/socketio-client';
+
+const socket = io('http://localhost:3030');
+const client = feathers().configure(socketio(socket));
+
+client.service('messages').on('created', (message) => {
+  console.log('New message:', message);
+});
+\`\`\`
+
+## Channels — controlling who receives events
+
+\`\`\`typescript
+// src/channels.ts
+app.on('connection', (connection) => {
+  app.channel('anonymous').join(connection);
+});
+
+app.publish((data, context) => {
+  return app.channel('anonymous');
+});
+\`\`\`
+`;
+        runSubmitDocumentation();
+      }
+
+      // ── Example 5: Migrating from v5 to v6 ──────────────────────
+      function exampleMigration() {
+        $('sd-title').value = 'Migrating a FeathersJS application from v5 to v6';
+        $('sd-filepath').value = 'docs/v6_docs/guides/migration-v5-to-v6.md';
+        $('sd-docversion').value = 'v6';
+        $('sd-category').value = 'migration';
+        $('sd-contributor').value = 'Test User';
+        $('sd-description').value =
+          'Key breaking changes and upgrade steps when moving from Feathers v5 to v6';
+        $('sd-content').value = `# Migrating from v5 to v6
+
+FeathersJS v6 introduced a number of breaking changes alongside significant
+improvements to TypeScript support, composable hooks, and schema validation.
+
+## 1. Update dependencies
+
+\`\`\`bash
+npm install @feathersjs/feathers@6 @feathersjs/koa@6 \\
+            @feathersjs/socketio@6 @feathersjs/authentication@6
+\`\`\`
+
+## 2. Replace Express adapter with Koa (recommended)
+
+v6 ships a first-class Koa adapter. Express is still supported but the
+new generator defaults to Koa:
+
+\`\`\`typescript
+// v5
+import express from '@feathersjs/express';
+const app = express(feathers());
+
+// v6
+import { koa } from '@feathersjs/koa';
+const app = koa(feathers());
+\`\`\`
+
+## 3. Around hooks replace legacy before/after/error triples
+
+\`\`\`typescript
+// v5 — separate before & after
+app.service('messages').hooks({
+  before: { create: [validateData] },
+  after:  { create: [formatResponse] },
+});
+
+// v6 — single around hook
+app.service('messages').hooks({
+  around: {
+    create: [async (ctx, next) => {
+      validateData(ctx);
+      await next();
+      formatResponse(ctx);
+    }],
+  },
+});
+\`\`\`
+
+## 4. Schema & resolvers replace deprecated \`@feathersjs/schema\` v1
+
+Use the new \`@feathersjs/typebox\` or \`@feathersjs/schema\` v2 resolvers:
+
+\`\`\`typescript
+import { resolve } from '@feathersjs/schema';
+import { Type, getDataValidator } from '@feathersjs/typebox';
+
+export const messageSchema = Type.Object({
+  id:        Type.Number(),
+  text:      Type.String(),
+  createdAt: Type.String({ format: 'date-time' }),
+});
+\`\`\`
+
+## 5. Run the migration codemod (optional)
+
+\`\`\`bash
+npx @feathersjs/cli migrate
+\`\`\`
+
+This codemod handles the most common mechanical renames automatically.
 `;
         runSubmitDocumentation();
       }
