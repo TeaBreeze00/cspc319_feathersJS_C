@@ -1,14 +1,16 @@
+// ui/server.js
 /**
- * FeathersJS MCP Server - Peer Testing UI Bridge
+ * FeathersJS MCP Server - Testing UI Bridge
  *
- * This Express server acts as a bridge between the browser frontend and the
- * MCP server process. It spawns the MCP server as a child process, sends
- * JSON-RPC messages over stdio, and returns parsed results to the frontend.
+ * This Express server keeps a single persistent MCP server child process
+ * and sends JSON-RPC messages over stdio, returning parsed results to the
+ * browser frontend.
  */
 
 const express = require('express');
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -19,26 +21,94 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // ---------------------------------------------------------------------------
-// MCP stdio bridge
+// Persistent MCP child process
 // ---------------------------------------------------------------------------
 
-/**
- * Sends a single tool call to the MCP server via stdio and resolves with
- * the parsed result object from the JSON-RPC response.
- *
- * @param {string} toolName  - MCP tool name (e.g. "search_docs")
- * @param {object} toolArgs  - Arguments object for the tool
- * @returns {Promise<object>} - Resolves with { content, isError? }
- */
-function callMCP(toolName, toolArgs) {
+let mcpChild = null;
+let mcpReady = false;
+let nextId = 10; // start above the init handshake ids
+let pendingRequests = new Map(); // id → { resolve, reject, timer }
+let stdoutBuffer = '';
+
+function ensureMCP() {
+  if (mcpChild && !mcpChild.killed) return Promise.resolve();
+
   return new Promise((resolve, reject) => {
-    // Spawn the compiled MCP server
-    const child = spawn('node', [MCP_ENTRY], {
+    console.log('  [mcp] Spawning MCP server process…');
+    mcpReady = false;
+    stdoutBuffer = '';
+    pendingRequests.forEach((p) => {
+      clearTimeout(p.timer);
+      p.reject(new Error('MCP process restarting'));
+    });
+    pendingRequests.clear();
+
+    mcpChild = spawn('node', [MCP_ENTRY], {
       cwd: PROJECT_ROOT,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
-    // JSON-RPC message 1 – initialize handshake (required by MCP protocol)
+    mcpChild.stdout.on('data', (chunk) => {
+      stdoutBuffer += chunk.toString();
+
+      // Process complete JSON lines
+      let newlineIdx;
+      while ((newlineIdx = stdoutBuffer.indexOf('\n')) !== -1) {
+        const line = stdoutBuffer.slice(0, newlineIdx).trim();
+        stdoutBuffer = stdoutBuffer.slice(newlineIdx + 1);
+        if (!line) continue;
+
+        try {
+          const msg = JSON.parse(line);
+          // Init response
+          if (msg.id === 1 && !mcpReady) {
+            mcpReady = true;
+            console.log('  [mcp] Server initialized and ready.');
+            resolve();
+          }
+          // Pending request response
+          const pending = pendingRequests.get(msg.id);
+          if (pending) {
+            clearTimeout(pending.timer);
+            pendingRequests.delete(msg.id);
+            if (msg.error) {
+              pending.reject(new Error(msg.error.message || JSON.stringify(msg.error)));
+            } else {
+              pending.resolve(msg.result);
+            }
+          }
+        } catch {
+          // not valid JSON — ignore
+        }
+      }
+    });
+
+    mcpChild.stderr.on('data', (chunk) => {
+      // Log server debug output but don't fail
+      const text = chunk.toString().trim();
+      if (text) console.log('  [mcp:stderr]', text);
+    });
+
+    mcpChild.on('close', (code) => {
+      console.log(`  [mcp] Process exited (code ${code}).`);
+      mcpChild = null;
+      mcpReady = false;
+      // Reject all pending
+      pendingRequests.forEach((p) => {
+        clearTimeout(p.timer);
+        p.reject(new Error('MCP process exited unexpectedly'));
+      });
+      pendingRequests.clear();
+      if (!mcpReady) reject(new Error('MCP process exited before init'));
+    });
+
+    mcpChild.on('error', (err) => {
+      console.error('  [mcp] Spawn error:', err.message);
+      mcpChild = null;
+      reject(err);
+    });
+
+    // Send the initialize handshake
     const initMsg = JSON.stringify({
       jsonrpc: '2.0',
       id: 1,
@@ -49,127 +119,50 @@ function callMCP(toolName, toolArgs) {
         clientInfo: { name: 'feathers-mcp-ui', version: '1.0' },
       },
     });
+    mcpChild.stdin.write(initMsg + '\n');
 
-    // JSON-RPC message 2 – the actual tool call
-    const callMsg = JSON.stringify({
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/call',
-      params: { name: toolName, arguments: toolArgs },
-    });
-
-    child.stdin.write(initMsg + '\n');
-    child.stdin.write(callMsg + '\n');
-    child.stdin.end();
-
-    let stdout = '';
-
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
-    });
-
-    // Stderr is only server debug output – ignore silently
-    child.stderr.on('data', () => {});
-
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error('MCP server timed out after 15 seconds.'));
-    }, 15000);
-
-    child.on('close', () => {
-      clearTimeout(timer);
-      try {
-        const lines = stdout.trim().split('\n').filter(Boolean);
-        // Find the response whose id matches our tool call (id: 2)
-        for (const line of lines) {
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.id === 2) {
-              resolve(parsed.result);
-              return;
-            }
-          } catch {
-            // Not valid JSON on this line – skip
-          }
-        }
-        reject(new Error('No valid response received from the MCP server.'));
-      } catch (err) {
-        reject(err);
+    // Timeout for init
+    setTimeout(() => {
+      if (!mcpReady) {
+        if (mcpChild) mcpChild.kill();
+        reject(new Error('MCP server did not initialize within 30 seconds'));
       }
-    });
-
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      reject(new Error(`Failed to start MCP server: ${err.message}`));
-    });
+    }, 30000);
   });
 }
 
 /**
- * Sends a tools/list request to the MCP server.
- *
- * @returns {Promise<object[]>} - Resolves with the array of tool descriptors
+ * Send a JSON-RPC request to the persistent MCP process and return the result.
  */
-function listMCPTools() {
-  return new Promise((resolve, reject) => {
-    const child = spawn('node', [MCP_ENTRY], {
-      cwd: PROJECT_ROOT,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+function sendToMCP(method, params, timeoutMs = 60000) {
+  return new Promise(async (resolve, reject) => {
+    try {
+      await ensureMCP();
+    } catch (err) {
+      return reject(err);
+    }
 
-    const initMsg = JSON.stringify({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: {
-        protocolVersion: '2024-11-05',
-        capabilities: {},
-        clientInfo: { name: 'feathers-mcp-ui', version: '1.0' },
-      },
-    });
+    if (!mcpChild || mcpChild.killed) {
+      return reject(new Error('MCP process is not running'));
+    }
 
-    const listMsg = JSON.stringify({
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'tools/list',
-      params: {},
-    });
-
-    child.stdin.write(initMsg + '\n');
-    child.stdin.write(listMsg + '\n');
-    child.stdin.end();
-
-    let stdout = '';
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on('data', () => {});
+    const id = nextId++;
+    const msg = JSON.stringify({ jsonrpc: '2.0', id, method, params });
 
     const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error('Timed out'));
-    }, 10000);
+      pendingRequests.delete(id);
+      reject(new Error(`MCP request timed out after ${timeoutMs / 1000}s`));
+    }, timeoutMs);
 
-    child.on('close', () => {
+    pendingRequests.set(id, { resolve, reject, timer });
+
+    try {
+      mcpChild.stdin.write(msg + '\n');
+    } catch (err) {
       clearTimeout(timer);
-      try {
-        const lines = stdout.trim().split('\n').filter(Boolean);
-        for (const line of lines) {
-          try {
-            const parsed = JSON.parse(line);
-            if (parsed.id === 2 && parsed.result && parsed.result.tools) {
-              resolve(parsed.result.tools);
-              return;
-            }
-          } catch {}
-        }
-        reject(new Error('No tools list response'));
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    child.on('error', reject);
+      pendingRequests.delete(id);
+      reject(new Error('Failed to write to MCP stdin: ' + err.message));
+    }
   });
 }
 
@@ -180,7 +173,6 @@ function listMCPTools() {
 /**
  * POST /api/call
  * Body: { tool: string, args: object }
- * Response: { ok: true, result: object } | { ok: false, error: string }
  */
 app.post('/api/call', async (req, res) => {
   const { tool, args } = req.body;
@@ -190,7 +182,7 @@ app.post('/api/call', async (req, res) => {
   }
 
   try {
-    const result = await callMCP(tool, args || {});
+    const result = await sendToMCP('tools/call', { name: tool, arguments: args || {} });
     res.json({ ok: true, result });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
@@ -199,12 +191,11 @@ app.post('/api/call', async (req, res) => {
 
 /**
  * GET /api/tools
- * Returns the list of available MCP tools with their schemas.
  */
 app.get('/api/tools', async (req, res) => {
   try {
-    const tools = await listMCPTools();
-    res.json({ ok: true, tools });
+    const result = await sendToMCP('tools/list', {});
+    res.json({ ok: true, tools: result.tools || [] });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -212,18 +203,31 @@ app.get('/api/tools', async (req, res) => {
 
 /**
  * GET /api/health
- * Simple health check – verifies the dist/index.js file exists.
  */
-app.get('/api/health', (req, res) => {
-  const fs = require('fs');
+app.get('/api/health', async (req, res) => {
   const built = fs.existsSync(MCP_ENTRY);
-  res.json({
-    ok: built,
-    message: built
-      ? 'MCP server build found. Ready to test.'
-      : 'dist/index.js not found. Run "npm run build" first.',
-    mcpEntry: MCP_ENTRY,
-  });
+  if (!built) {
+    return res.json({
+      ok: false,
+      message: 'dist/index.js not found. Run "npm run build" first.',
+      mcpEntry: MCP_ENTRY,
+    });
+  }
+
+  try {
+    await ensureMCP();
+    res.json({
+      ok: true,
+      message: 'MCP server running and ready.',
+      mcpEntry: MCP_ENTRY,
+    });
+  } catch (err) {
+    res.json({
+      ok: false,
+      message: 'MCP server failed to start: ' + err.message,
+      mcpEntry: MCP_ENTRY,
+    });
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -245,4 +249,20 @@ app.listen(PORT, () => {
   console.log('');
   console.log('  Open the URL above in your browser to start testing.');
   console.log('  Press Ctrl+C to stop.\n');
+
+  // Pre-start the MCP process so the first request is fast
+  ensureMCP().catch((err) => {
+    console.error('  [mcp] Failed to pre-start:', err.message);
+    console.error('  [mcp] The server will retry on the first request.\n');
+  });
+});
+
+// Cleanup on exit
+process.on('SIGINT', () => {
+  if (mcpChild) mcpChild.kill();
+  process.exit(0);
+});
+process.on('SIGTERM', () => {
+  if (mcpChild) mcpChild.kill();
+  process.exit(0);
 });
