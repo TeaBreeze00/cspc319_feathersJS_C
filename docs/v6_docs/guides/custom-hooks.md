@@ -53,3 +53,4 @@ test('stamps createdAt', async () => {
   expect(ctx.data.createdAt).toBeDefined();
 });
 ```
+I am adding this just to make our lives easier
