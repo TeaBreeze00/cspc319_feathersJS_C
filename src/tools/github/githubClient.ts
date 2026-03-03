@@ -332,6 +332,13 @@ export class GitHubClient {
         (options.headers as Record<string, string>)['Content-Type'] = 'application/json';
       }
 
+      const bodyStr = body ? JSON.stringify(body) : undefined;
+      if (bodyStr) {
+        (options.headers as Record<string, string>)['Content-Length'] = String(
+          Buffer.byteLength(bodyStr, 'utf-8')
+        );
+      }
+
       const req = https.request(options, (res) => {
         let data = '';
         res.on('data', (chunk: Buffer) => {
@@ -375,8 +382,8 @@ export class GitHubClient {
         reject(new Error('GitHub API request timed out after 30 seconds.'));
       });
 
-      if (body) {
-        req.write(JSON.stringify(body));
+      if (bodyStr) {
+        req.write(bodyStr);
       }
       req.end();
     });
