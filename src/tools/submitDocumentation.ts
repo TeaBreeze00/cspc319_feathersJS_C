@@ -360,19 +360,32 @@ export class SubmitDocumentationTool extends BaseTool {
    */
   async checkDuplication(filePath: string, _content: string): Promise<DuplicationInfo> {
     try {
-      const existingDocs = await this.loader.load<DocEntry>('chunks');
-      const existingPaths = new Set(existingDocs.map((d) => d.sourceFile));
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) return { isUpdate: false };
 
-      if (existingPaths.has(filePath)) {
+      const owner = process.env.GITHUB_OWNER || 'owner';
+      const repo = process.env.GITHUB_REPO || 'cspc319_feathersJS_C';
+
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=main`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        }
+      );
+
+      if (response.ok) {
         return {
           isUpdate: true,
-          warning: `File "${filePath}" already exists in the knowledge base. This PR will update it.`,
+          warning: `File "${filePath}" already exists in the repository. This PR will update it.`,
         };
       }
 
       return { isUpdate: false };
     } catch {
-      // If knowledge base can't be loaded, proceed without duplication check
       return { isUpdate: false };
     }
   }
