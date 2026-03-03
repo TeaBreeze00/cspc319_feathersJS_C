@@ -52,7 +52,7 @@ jobs:
 
             # Retry loop - rebase and push up to 5 times
             for i in {1..5}; do
-              git pull --rebase origin main && git push origin main && break
+              git stash && git pull --rebase origin main && git stash pop && git push origin main && break
               echo "Push failed, retrying ($i/5)..."
               sleep $((i * 2))
             done
