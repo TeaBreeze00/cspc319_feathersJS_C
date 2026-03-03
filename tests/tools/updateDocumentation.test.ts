@@ -250,19 +250,19 @@ describe('UpdateDocumentationTool', () => {
   // Stage 5: Existence check (inverted — must exist)
   // =========================================================================
 
-  describe('Stage 5 — Existence check (must exist)', () => {
-    it('rejects update when doc does NOT exist in knowledge base', async () => {
-      const emptyLoader = createMockLoader([]);
-      const localTool = new UpdateDocumentationTool(emptyLoader, mockGithubClient);
+  describe('Stage 5 — Existence check (must exist in GitHub)', () => {
+    it('rejects update when doc does NOT exist in GitHub repo', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false });
 
-      const result = await localTool.execute(validParams());
+      const result = await tool.execute(validParams());
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(false);
       expect(parsed.errors.some((e: string) => /does not exist/i.test(e))).toBe(true);
       expect(parsed.errors.some((e: string) => /submit_documentation/i.test(e))).toBe(true);
     });
 
-    it('accepts update when doc exists in knowledge base', async () => {
+    it('accepts update when doc exists in GitHub repo', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true });
       mockGithubClient.createDocsPR.mockResolvedValue({
         success: true,
         prUrl: 'https://github.com/test/pull/20',
@@ -276,6 +276,7 @@ describe('UpdateDocumentationTool', () => {
     });
 
     it('always passes isUpdate = true to GitHub client', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true });
       mockGithubClient.createDocsPR.mockResolvedValue({
         success: true,
         prUrl: 'https://github.com/test/pull/21',
