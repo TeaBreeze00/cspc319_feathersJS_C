@@ -2323,6 +2323,348 @@ This codemod handles the most common mechanical renames automatically.
 `;
         runSubmitDocumentation();
       }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 3 — update_documentation
+      // ════════════════════════════════════════════════════════════════
+
+      async function runUpdateDocumentation() {
+        const title = $('ud-title').value.trim();
+        const filePath = $('ud-filepath').value.trim();
+        const version = $('ud-docversion').value;
+        const category = $('ud-category').value || undefined;
+        const contributorName = $('ud-contributor').value.trim() || undefined;
+        const description = $('ud-description').value.trim() || undefined;
+        const content = $('ud-content').value;
+        const panel = $('results-update_documentation');
+
+        if (!title || title.length < 10) {
+          toast('Title must be at least 10 characters.');
+          $('ud-title').focus();
+          return;
+        }
+        if (!filePath) {
+          toast('Please enter a file path (must already exist in repo).');
+          $('ud-filepath').focus();
+          return;
+        }
+        if (!content || content.length < 100) {
+          toast('Content must be at least 100 characters.');
+          $('ud-content').focus();
+          return;
+        }
+
+        showLoading('results-update_documentation', 'Updating documentation…');
+
+        try {
+          const args = { title, filePath, content, version };
+          if (category) args.category = category;
+          if (contributorName) args.contributorName = contributorName;
+          if (description) args.description = description;
+
+          const raw = await callTool('update_documentation', args);
+          const parsed = parseMCPResult(raw);
+          renderUpdateResult(panel, parsed);
+        } catch (err) {
+          showError('results-update_documentation', err.message);
+        }
+      }
+
+      function renderUpdateResult(panel, data) {
+        if (data.success) {
+          const mode = data.mode === 'local-staging' ? 'Local Staging' : 'GitHub PR';
+          const modeBadge =
+            data.mode === 'local-staging'
+              ? '<span class="badge badge-amber">Local Staging</span>'
+              : '<span class="badge badge-green">GitHub PR</span>';
+
+          const warnings = (data.warnings || [])
+            .map((w) => `<li style="color: var(--c-amber);">${escHtml(w)}</li>`)
+            .join('');
+
+          panel.innerHTML = `
+            <div id="results-panel">
+              <div class="result-meta">
+                <span class="badge badge-green">✓ Updated</span> ${modeBadge}
+              </div>
+              <div class="card">
+                <div class="card-body">
+                  <p style="margin-bottom: 12px; color: var(--c-text-2);">${escHtml(data.message || 'Update submitted successfully.')}</p>
+                  ${data.prUrl ? `<p><strong>PR URL:</strong> <a href="${escHtml(data.prUrl)}" target="_blank">${escHtml(data.prUrl)}</a></p>` : ''}
+                  ${data.prNumber ? `<p><strong>PR #:</strong> ${data.prNumber}</p>` : ''}
+                  ${data.branch ? `<p><strong>Branch:</strong> <code>${escHtml(data.branch)}</code></p>` : ''}
+                  ${data.file ? `<p><strong>Staged file:</strong> <code>${escHtml(data.file)}</code></p>` : ''}
+                  ${warnings ? `<div style="margin-top: 12px;"><strong style="color: var(--c-amber);">Warnings:</strong><ul style="margin: 4px 0 0 20px;">${warnings}</ul></div>` : ''}
+                </div>
+              </div>
+            </div>`;
+        } else {
+          const errors = (data.errors || (data.error ? [data.error] : ['Unknown error']))
+            .map((e) => `<li>${escHtml(e)}</li>`)
+            .join('');
+          panel.innerHTML = `
+            <div id="results-panel">
+              <div class="result-meta">
+                <span class="badge badge-red">✗ Validation Failed</span>
+              </div>
+              <div class="card">
+                <div class="card-body">
+                  <ul style="margin: 0 0 0 20px; color: var(--c-red);">${errors}</ul>
+                </div>
+              </div>
+            </div>`;
+        }
+      }
+
+      function loadUpdateExample() {
+        const key = $('ud-example-select').value;
+        if (!key) {
+          toast('Please select an example from the dropdown first.');
+          return;
+        }
+        if (key === 'hooks-update') exampleUpdateHooks();
+        if (key === 'auth-update') exampleUpdateAuth();
+      }
+
+      function exampleUpdateHooks() {
+        $('ud-title').value = 'Update custom hooks guide with around hooks patterns';
+        $('ud-filepath').value = 'docs/v6_docs/guides/custom-hooks.md';
+        $('ud-docversion').value = 'v6';
+        $('ud-category').value = 'hooks';
+        $('ud-contributor').value = 'Test User';
+        $('ud-description').value = 'Added around hooks section and updated examples for v6';
+        $('ud-content').value = `# Custom Hooks (Updated)
+
+Hooks are the primary way to add cross-cutting logic in FeathersJS — think
+validation, authorization, logging, and data transformation.
+
+## Anatomy of a hook
+
+\`\`\`typescript
+import type { HookContext } from '../declarations';
+
+export const addTimestamp = async (context: HookContext) => {
+  context.data = {
+    ...context.data,
+    createdAt: new Date().toISOString(),
+  };
+  return context;
+};
+\`\`\`
+
+## Registering hooks on a service
+
+\`\`\`typescript
+app.service('messages').hooks({
+  before: {
+    create: [addTimestamp],
+    patch: [addTimestamp],
+  },
+});
+\`\`\`
+
+## Around hooks (v6+ — NEW SECTION)
+
+Around hooks are the recommended pattern in v6. They wrap the entire method
+call, giving you control of both the before and after phases:
+
+\`\`\`typescript
+export const logDuration = async (context: HookContext, next: Function) => {
+  const start = Date.now();
+  await next();
+  const ms = Date.now() - start;
+  console.log(\`\${context.method} on \${context.path} took \${ms}ms\`);
+};
+\`\`\`
+
+## Composing multiple hooks
+
+\`\`\`typescript
+import { hooks } from '@feathersjs/hooks';
+
+const composed = hooks([validateData, addTimestamp, logDuration]);
+\`\`\`
+
+## Unit-testing a hook
+
+\`\`\`typescript
+import { addTimestamp } from './hooks/addTimestamp';
+
+test('stamps createdAt', async () => {
+  const ctx: any = { data: { text: 'hello' } };
+  await addTimestamp(ctx);
+  expect(ctx.data.createdAt).toBeDefined();
+});
+\`\`\`
+`;
+        runUpdateDocumentation();
+      }
+
+      function exampleUpdateAuth() {
+        $('ud-title').value = 'Update authentication guide with OAuth providers';
+        $('ud-filepath').value = 'docs/v6_docs/guides/authentication-setup.md';
+        $('ud-docversion').value = 'v6';
+        $('ud-category').value = 'authentication';
+        $('ud-contributor').value = 'Test User';
+        $('ud-description').value = 'Added Google and GitHub OAuth strategy sections';
+        $('ud-content').value = `# Authentication Setup (Updated)
+
+FeathersJS v6 ships with a flexible authentication system built on JWTs and
+pluggable strategies. This guide now covers local auth AND OAuth providers.
+
+## Install dependencies
+
+\`\`\`bash
+npm install @feathersjs/authentication @feathersjs/authentication-local @feathersjs/authentication-oauth
+\`\`\`
+
+## Local strategy
+
+\`\`\`typescript
+import { AuthenticationService, JWTStrategy } from '@feathersjs/authentication';
+import { LocalStrategy } from '@feathersjs/authentication-local';
+
+const authService = new AuthenticationService(app);
+authService.register('jwt', new JWTStrategy());
+authService.register('local', new LocalStrategy());
+app.use('authentication', authService);
+\`\`\`
+
+## Google OAuth (NEW)
+
+\`\`\`typescript
+import { OAuthStrategy } from '@feathersjs/authentication-oauth';
+
+class GoogleStrategy extends OAuthStrategy {
+  async getEntityData(profile: any) {
+    const base = await super.getEntityData(profile);
+    return { ...base, email: profile.email, name: profile.name };
+  }
+}
+
+authService.register('google', new GoogleStrategy());
+\`\`\`
+
+## Protect a service
+
+\`\`\`typescript
+import { authenticate } from '@feathersjs/authentication';
+
+app.service('messages').hooks({
+  before: { all: [authenticate('jwt')] },
+});
+\`\`\`
+`;
+        runUpdateDocumentation();
+      }
+
+      // ════════════════════════════════════════════════════════════════
+      // TOOL 4 — remove_documentation
+      // ════════════════════════════════════════════════════════════════
+
+      async function runRemoveDocumentation() {
+        const filePath = $('rd-filepath').value.trim();
+        const version = $('rd-version').value;
+        const reason = $('rd-reason').value.trim();
+        const contributorName = $('rd-contributor').value.trim() || undefined;
+        const panel = $('results-remove_documentation');
+
+        if (!filePath) {
+          toast('Please enter the file path to remove.');
+          $('rd-filepath').focus();
+          return;
+        }
+        if (!reason || reason.length < 10) {
+          toast('Reason must be at least 10 characters.');
+          $('rd-reason').focus();
+          return;
+        }
+
+        showLoading('results-remove_documentation', 'Requesting documentation removal…');
+
+        try {
+          const args = { filePath, version, reason };
+          if (contributorName) args.contributorName = contributorName;
+
+          const raw = await callTool('remove_documentation', args);
+          const parsed = parseMCPResult(raw);
+          renderRemoveResult(panel, parsed);
+        } catch (err) {
+          showError('results-remove_documentation', err.message);
+        }
+      }
+
+      function renderRemoveResult(panel, data) {
+        if (data.success) {
+          const mode = data.mode === 'local-staging' ? 'Local Staging' : 'GitHub PR';
+          const modeBadge =
+            data.mode === 'local-staging'
+              ? '<span class="badge badge-amber">Local Staging</span>'
+              : '<span class="badge badge-green">GitHub PR</span>';
+
+          panel.innerHTML = `
+            <div id="results-panel">
+              <div class="result-meta">
+                <span class="badge badge-red">🗑️ Removal Requested</span> ${modeBadge}
+              </div>
+              <div class="card">
+                <div class="card-body">
+                  <p style="margin-bottom: 12px; color: var(--c-text-2);">${escHtml(data.message || 'Removal PR created successfully.')}</p>
+                  ${data.prUrl ? `<p><strong>PR URL:</strong> <a href="${escHtml(data.prUrl)}" target="_blank">${escHtml(data.prUrl)}</a></p>` : ''}
+                  ${data.prNumber ? `<p><strong>PR #:</strong> ${data.prNumber}</p>` : ''}
+                  ${data.branch ? `<p><strong>Branch:</strong> <code>${escHtml(data.branch)}</code></p>` : ''}
+                  ${data.file ? `<p><strong>Staged file:</strong> <code>${escHtml(data.file)}</code></p>` : ''}
+                  <p style="margin-top: 10px; font-size: 0.85rem; color: var(--c-text-3);">
+                    ℹ️ The PR will delete the doc file <strong>and</strong> remove related chunks &amp; embeddings from the knowledge base.
+                  </p>
+                </div>
+              </div>
+            </div>`;
+        } else {
+          const errors = (data.errors || (data.error ? [data.error] : ['Unknown error']))
+            .map((e) => `<li>${escHtml(e)}</li>`)
+            .join('');
+          panel.innerHTML = `
+            <div id="results-panel">
+              <div class="result-meta">
+                <span class="badge badge-red">✗ Validation Failed</span>
+              </div>
+              <div class="card">
+                <div class="card-body">
+                  <ul style="margin: 0 0 0 20px; color: var(--c-red);">${errors}</ul>
+                </div>
+              </div>
+            </div>`;
+        }
+      }
+
+      function loadRemoveExample() {
+        const key = $('rd-example-select').value;
+        if (!key) {
+          toast('Please select an example from the dropdown first.');
+          return;
+        }
+        if (key === 'remove-old-guide') exampleRemoveOldGuide();
+        if (key === 'remove-deprecated') exampleRemoveDeprecated();
+      }
+
+      function exampleRemoveOldGuide() {
+        $('rd-filepath').value = 'docs/v6_docs/cookbook/koa-middleware.md';
+        $('rd-version').value = 'v6';
+        $('rd-reason').value =
+          'This cookbook guide is outdated and has been superseded by the official Koa integration docs in the guides section.';
+        $('rd-contributor').value = 'Test User';
+        runRemoveDocumentation();
+      }
+
+      function exampleRemoveDeprecated() {
+        $('rd-filepath').value = 'docs/v6_docs/guides/migration-v5-to-v6.md';
+        $('rd-version').value = 'v6';
+        $('rd-reason').value =
+          'The v5 to v6 migration guide is no longer relevant as v6 has been stable for over a year and the CLI handles migration automatically.';
+        $('rd-contributor').value = 'Test User';
+        runRemoveDocumentation();
+      }
     </script>
   </body>
 </html>
