@@ -1733,7 +1733,7 @@
               </div>
             </div>`;
         } else {
-          const errors = (data.errors || ['Unknown error'])
+          const errors = (data.errors || (data.error ? [data.error] : ['Unknown error']))
             .map((e) => `<li>${escHtml(e)}</li>`)
             .join('');
           panel.innerHTML = `

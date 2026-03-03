@@ -51,17 +51,15 @@ export class GitHubClient {
       };
 
       // If updating an existing file, we need the current file SHA
-      if (params.isUpdate) {
-        try {
-          const existing = await this.apiRequest<{ sha: string }>(
-            'GET',
-            params.token,
-            `/repos/${params.owner}/${params.repo}/contents/${params.filePath}?ref=main`
-          );
-          putBody.sha = existing.sha;
-        } catch {
-          // File doesn't exist on main — treat as new file
-        }
+      try {
+        const existing = await this.apiRequest<{ sha: string }>(
+          'GET',
+          params.token,
+          `/repos/${params.owner}/${params.repo}/contents/${params.filePath}?ref=main`
+        );
+        putBody.sha = existing.sha;
+      } catch {
+        // File doesn't exist on main — treat as new file
       }
 
       await this.apiRequest(
