@@ -1,5 +1,4 @@
 import { UpdateDocumentationTool, _resetRateLimit } from '../../src/tools/updateDocumentation';
-import { KnowledgeLoader } from '../../src/knowledge';
 import { GitHubClient } from '../../src/tools/github/githubClient';
 
 // ---------------------------------------------------------------------------
@@ -15,22 +14,15 @@ jest.mock('../../src/tools/github/githubClient', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Test helpers
+// Mock global fetch for GitHub API existence checks
 // ---------------------------------------------------------------------------
 
-const EXISTING_DOC = {
-  id: 'v6-hooks-guide-0',
-  heading: 'Custom Hooks Guide',
-  content: 'old hooks content',
-  rawContent: 'old hooks content',
-  breadcrumb: 'Guides > Custom Hooks',
-  version: 'v6',
-  tokens: 200,
-  category: 'hooks',
-  sourceFile: 'docs/v6_docs/guides/custom-hooks.md',
-  hasCode: true,
-  codeLanguages: ['typescript'],
-};
+const mockFetch = jest.fn();
+(global as any).fetch = mockFetch;
+
+// ---------------------------------------------------------------------------
+// Test helpers
+// ---------------------------------------------------------------------------
 
 function validParams(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -47,30 +39,22 @@ function validParams(overrides: Record<string, unknown> = {}): Record<string, un
   };
 }
 
-function createMockLoader(docs: any[] = [EXISTING_DOC]): jest.Mocked<KnowledgeLoader> {
-  return {
-    load: jest.fn().mockResolvedValue(docs),
-    preload: jest.fn(),
-    clearCache: jest.fn(),
-    buildIndex: jest.fn(),
-  } as any;
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe('UpdateDocumentationTool', () => {
   let tool: UpdateDocumentationTool;
-  let mockLoader: jest.Mocked<KnowledgeLoader>;
   let mockGithubClient: jest.Mocked<GitHubClient>;
   const originalEnv = process.env;
 
   beforeEach(() => {
     _resetRateLimit();
-    mockLoader = createMockLoader();
     mockGithubClient = new GitHubClient() as jest.Mocked<GitHubClient>;
-    tool = new UpdateDocumentationTool(mockLoader, mockGithubClient);
+    tool = new UpdateDocumentationTool(mockGithubClient);
+
+    // By default, mock fetch to return 200 (file exists in GitHub)
+    mockFetch.mockResolvedValue({ ok: true });
 
     process.env = {
       ...originalEnv,
@@ -86,6 +70,7 @@ describe('UpdateDocumentationTool', () => {
   afterEach(() => {
     process.env = originalEnv;
     jest.restoreAllMocks();
+    mockFetch.mockReset();
   });
 
   // =========================================================================

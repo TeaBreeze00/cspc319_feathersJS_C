@@ -181,18 +181,18 @@ describe('RemoveDocumentationTool', () => {
   // Stage 3: Existence check
   // =========================================================================
 
-  describe('Stage 3 — Existence check', () => {
-    it('rejects removal when doc does not exist in knowledge base', async () => {
-      const emptyLoader = createMockLoader([]);
-      const localTool = new RemoveDocumentationTool(emptyLoader, mockGithubClient);
+  describe('Stage 3 — Existence check (GitHub API)', () => {
+    it('rejects removal when doc does not exist in GitHub repo', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false });
 
-      const result = await localTool.execute(validParams());
+      const result = await tool.execute(validParams());
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(false);
       expect(parsed.errors.some((e: string) => /does not exist/i.test(e))).toBe(true);
     });
 
-    it('accepts removal when doc exists in knowledge base', async () => {
+    it('accepts removal when doc exists in GitHub repo', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true });
       (mockGithubClient as any).createRemovalPR.mockResolvedValue({
         success: true,
         prUrl: 'https://github.com/test/pull/10',
@@ -205,16 +205,10 @@ describe('RemoveDocumentationTool', () => {
       expect(parsed.success).toBe(true);
     });
 
-    it('rejects removal when knowledge base fails to load', async () => {
-      const failingLoader = {
-        load: jest.fn().mockRejectedValue(new Error('KB load error')),
-        preload: jest.fn(),
-        clearCache: jest.fn(),
-        buildIndex: jest.fn(),
-      } as any;
-      const localTool = new RemoveDocumentationTool(failingLoader, mockGithubClient);
+    it('rejects removal when fetch throws (network error)', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
-      const result = await localTool.execute(validParams());
+      const result = await tool.execute(validParams());
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(false);
       expect(parsed.errors.some((e: string) => /does not exist/i.test(e))).toBe(true);
