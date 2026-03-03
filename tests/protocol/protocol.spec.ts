@@ -42,3 +42,45 @@ describe('protocol handlers', () => {
     expect(res.content).toBe('6');
   });
 });
+
+describe('default registry exports all 4 tools', () => {
+  // Re-import the pre-built registry that protocol/index.ts exports
+  // We import lazily to avoid side-effects in other tests
+  let registry: ToolRegistry;
+
+  beforeAll(() => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const proto = require('../../src/protocol');
+    registry = proto.registry;
+  });
+
+  test('registry contains search_docs', () => {
+    expect(registry.has('search_docs')).toBe(true);
+  });
+
+  test('registry contains submit_documentation', () => {
+    expect(registry.has('submit_documentation')).toBe(true);
+  });
+
+  test('registry contains remove_documentation', () => {
+    expect(registry.has('remove_documentation')).toBe(true);
+  });
+
+  test('registry contains update_documentation', () => {
+    expect(registry.has('update_documentation')).toBe(true);
+  });
+
+  test('listTools returns metadata for all 4 tools', async () => {
+    const handler = listToolsHandler(registry);
+    const res = await handler();
+
+    expect(res.tools.length).toBe(4);
+    const names = res.tools.map((t) => t.name).sort();
+    expect(names).toEqual([
+      'remove_documentation',
+      'search_docs',
+      'submit_documentation',
+      'update_documentation',
+    ]);
+  });
+});

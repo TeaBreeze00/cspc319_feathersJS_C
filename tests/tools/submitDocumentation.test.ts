@@ -17,6 +17,13 @@ jest.mock('../../src/tools/github/githubClient', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Mock global fetch for GitHub API duplication checks
+// ---------------------------------------------------------------------------
+
+const mockFetch = jest.fn();
+(global as any).fetch = mockFetch;
+
+// ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 
@@ -61,6 +68,9 @@ describe('SubmitDocumentationTool', () => {
     mockGithubClient = new GitHubClient() as jest.Mocked<GitHubClient>;
     tool = new SubmitDocumentationTool(mockLoader, mockGithubClient);
 
+    // By default, mock fetch to return 404 (file does not exist = new submission)
+    mockFetch.mockResolvedValue({ ok: false });
+
     // Set required env vars for the GitHub path
     process.env = {
       ...originalEnv,
@@ -77,6 +87,7 @@ describe('SubmitDocumentationTool', () => {
   afterEach(() => {
     process.env = originalEnv;
     jest.restoreAllMocks();
+    mockFetch.mockReset();
   });
 
   // =========================================================================

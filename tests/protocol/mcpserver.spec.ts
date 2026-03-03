@@ -214,4 +214,44 @@ describe('McpServer (mocked SDK)', () => {
 
     await server.stop();
   });
+
+  test('tools/list returns all 4 registered tools when fully configured', async () => {
+    const registry = new ToolRegistry();
+
+    const toolDefs = [
+      { name: 'search_docs', description: 'Search documentation' },
+      { name: 'submit_documentation', description: 'Submit docs via PR' },
+      { name: 'remove_documentation', description: 'Remove docs via PR' },
+      { name: 'update_documentation', description: 'Update docs via PR' },
+    ];
+
+    for (const def of toolDefs) {
+      registry.register({
+        name: def.name,
+        description: def.description,
+        inputSchema: { type: 'object', properties: {} },
+        handler: async () => ({ content: 'ok' }),
+      });
+    }
+
+    const server = new McpServer(registry as any);
+    await server.start();
+
+    const MockServer = require('@modelcontextprotocol/sdk/server/index').Server;
+    const serverInstance = (MockServer as any).__lastInstance;
+
+    const listToolsHandler = serverInstance.setRequestHandler.mock.calls[0][1];
+    const result = await listToolsHandler({});
+
+    expect(result.tools).toHaveLength(4);
+    const names = result.tools.map((t: any) => t.name).sort();
+    expect(names).toEqual([
+      'remove_documentation',
+      'search_docs',
+      'submit_documentation',
+      'update_documentation',
+    ]);
+
+    await server.stop();
+  });
 });
