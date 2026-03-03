@@ -13,8 +13,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { BaseTool } from './baseTool';
 import { ToolResult, JsonSchema } from '../protocol/types';
-import { KnowledgeLoader } from '../knowledge';
-import { DocEntry } from '../knowledge/types';
 import { GitHubClient } from './github/githubClient';
 
 // ---------------------------------------------------------------------------
@@ -66,8 +64,7 @@ export class RemoveDocumentationTool extends BaseTool {
       filePath: {
         type: 'string',
         pattern: '^docs/(v5_docs|v6_docs)/[a-zA-Z0-9_][a-zA-Z0-9_/.-]*\\.md$',
-        description:
-          'Path of the file to remove (e.g., "docs/v6_docs/cookbook/old-guide.md").',
+        description: 'Path of the file to remove (e.g., "docs/v6_docs/cookbook/old-guide.md").',
       },
       version: {
         type: 'string',
@@ -90,12 +87,10 @@ export class RemoveDocumentationTool extends BaseTool {
     additionalProperties: false,
   };
 
-  private loader: KnowledgeLoader;
   private githubClient: GitHubClient;
 
-  constructor(loader?: KnowledgeLoader, githubClient?: GitHubClient) {
+  constructor(githubClient?: GitHubClient) {
     super();
-    this.loader = loader ?? new KnowledgeLoader();
     this.githubClient = githubClient ?? new GitHubClient();
   }
 
@@ -239,14 +234,29 @@ export class RemoveDocumentationTool extends BaseTool {
   }
 
   /**
-   * Check if the file exists in the knowledge base.
+   * Check if the file exists in the GitHub repository.
    */
   async checkExists(filePath: string): Promise<boolean> {
     try {
-      const existingDocs = await this.loader.load<DocEntry>('chunks');
-      return existingDocs.some((d) => d.sourceFile === filePath);
+      const token = process.env.GITHUB_TOKEN;
+      if (!token) return false;
+
+      const owner = process.env.GITHUB_OWNER || 'owner';
+      const repo = process.env.GITHUB_REPO || 'cspc319_feathersJS_C';
+
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=main`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github+json',
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        }
+      );
+
+      return response.ok;
     } catch {
-      // If knowledge base can't be loaded, assume it doesn't exist
       return false;
     }
   }
@@ -285,11 +295,7 @@ export class RemoveDocumentationTool extends BaseTool {
         contributorName: params.contributorName,
       };
 
-      fs.writeFileSync(
-        path.join(stagingDir, fileName),
-        JSON.stringify(payload, null, 2),
-        'utf-8'
-      );
+      fs.writeFileSync(path.join(stagingDir, fileName), JSON.stringify(payload, null, 2), 'utf-8');
 
       return {
         content: JSON.stringify(
