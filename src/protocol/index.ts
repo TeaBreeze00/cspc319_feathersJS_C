@@ -6,11 +6,18 @@ export { callToolHandler } from './handlers/callTool';
 
 import ToolRegistry from './registry';
 
-import { SearchDocsTool, SubmitDocumentationTool } from '../tools';
+import {
+  SearchDocsTool,
+  SubmitDocumentationTool,
+  RemoveDocumentationTool,
+  UpdateDocumentationTool,
+} from '../tools';
 
 const registry = new ToolRegistry();
 
 registry.register(new SearchDocsTool().register());
 registry.register(new SubmitDocumentationTool().register());
+registry.register(new RemoveDocumentationTool().register());
+registry.register(new UpdateDocumentationTool().register());
 
 export { registry };

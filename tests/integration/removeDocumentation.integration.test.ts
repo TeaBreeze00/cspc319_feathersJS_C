@@ -10,7 +10,6 @@ import { ToolHandlerRegistry } from '../../src/routing/toolRegistry';
 import { ParameterValidator } from '../../src/routing/validator';
 import { ErrorHandler } from '../../src/routing/errorHandler';
 import { RemoveDocumentationTool, _resetRateLimit } from '../../src/tools/removeDocumentation';
-import { KnowledgeLoader } from '../../src/knowledge';
 
 // Mock GitHubClient
 jest.mock('../../src/tools/github/githubClient', () => {
@@ -26,19 +25,9 @@ jest.mock('../../src/tools/github/githubClient', () => {
   };
 });
 
-const EXISTING_DOC = {
-  id: 'v6-old-guide-0',
-  heading: 'Old Guide',
-  content: 'old content',
-  rawContent: 'old content',
-  breadcrumb: 'Cookbook > Old Guide',
-  version: 'v6',
-  tokens: 100,
-  category: 'cookbook',
-  sourceFile: 'docs/v6_docs/cookbook/old-guide.md',
-  hasCode: false,
-  codeLanguages: [],
-};
+// Mock global fetch for GitHub API existence checks
+const mockFetch = jest.fn();
+(global as any).fetch = mockFetch;
 
 function validParams() {
   return {
@@ -56,14 +45,10 @@ describe('remove_documentation integration (Router → Tool → mock GitHub)', (
   beforeEach(() => {
     _resetRateLimit();
 
-    const mockLoader = {
-      load: jest.fn().mockResolvedValue([EXISTING_DOC]),
-      preload: jest.fn(),
-      clearCache: jest.fn(),
-      buildIndex: jest.fn(),
-    } as any;
+    // By default, mock fetch to return 200 (file exists in GitHub)
+    mockFetch.mockResolvedValue({ ok: true });
 
-    const tool = new RemoveDocumentationTool(mockLoader);
+    const tool = new RemoveDocumentationTool();
 
     const routingRegistry = new ToolHandlerRegistry();
     const validator = new ParameterValidator();
@@ -91,6 +76,7 @@ describe('remove_documentation integration (Router → Tool → mock GitHub)', (
   afterEach(() => {
     process.env = originalEnv;
     jest.restoreAllMocks();
+    mockFetch.mockReset();
   });
 
   it('successfully routes a valid removal and returns PR details', async () => {
@@ -134,28 +120,10 @@ describe('remove_documentation integration (Router → Tool → mock GitHub)', (
     expect(res.error!.code).toBe('INVALID_PARAMS');
   });
 
-  it('rejects when doc does not exist in knowledge base', async () => {
-    // Create a new tool with an empty loader
-    const emptyLoader = {
-      load: jest.fn().mockResolvedValue([]),
-      preload: jest.fn(),
-      clearCache: jest.fn(),
-      buildIndex: jest.fn(),
-    } as any;
-    const emptyTool = new RemoveDocumentationTool(emptyLoader);
+  it('rejects when doc does not exist in GitHub', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false });
 
-    const routingRegistry = new ToolHandlerRegistry();
-    const validator = new ParameterValidator();
-    const errorHandler = new ErrorHandler();
-    const emptyRouter = new Router(routingRegistry, validator, errorHandler);
-    routingRegistry.register(
-      'remove_documentation',
-      (params: unknown) => emptyTool.execute(params),
-      emptyTool.inputSchema,
-      true
-    );
-
-    const res = await emptyRouter.route({
+    const res = await router.route({
       toolName: 'remove_documentation',
       params: validParams(),
     });

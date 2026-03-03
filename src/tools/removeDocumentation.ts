@@ -129,11 +129,11 @@ export class RemoveDocumentationTool extends BaseTool {
       return this.errorResult(pathErrors);
     }
 
-    // ── Stage 3: Existence check — file must exist in knowledge base ─────
+    // ── Stage 3: Existence check — file must exist in GitHub repo ──────
     const exists = await this.checkExists(p.filePath);
     if (!exists) {
       return this.errorResult([
-        `File "${p.filePath}" does not exist in the knowledge base. Nothing to remove.`,
+        `File "${p.filePath}" does not exist in the repository. Nothing to remove.`,
       ]);
     }
 
@@ -235,11 +235,12 @@ export class RemoveDocumentationTool extends BaseTool {
 
   /**
    * Check if the file exists in the GitHub repository.
+   * Returns true when no token is available (benefit of the doubt for offline staging).
    */
   async checkExists(filePath: string): Promise<boolean> {
     try {
       const token = process.env.GITHUB_TOKEN;
-      if (!token) return false;
+      if (!token) return true; // can't verify — allow offline staging
 
       const owner = process.env.GITHUB_OWNER || 'owner';
       const repo = process.env.GITHUB_REPO || 'cspc319_feathersJS_C';

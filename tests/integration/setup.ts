@@ -1,6 +1,12 @@
 import { McpServer, ToolRegistry } from '../../src/protocol';
 import { ErrorHandler, ParameterValidator, Router, ToolHandlerRegistry } from '../../src/routing';
-import { SearchDocsTool, SubmitDocumentationTool } from '../../src/tools';
+import {
+  SearchDocsTool,
+  SubmitDocumentationTool,
+  RemoveDocumentationTool,
+  UpdateDocumentationTool,
+} from '../../src/tools';
+import { BaseTool } from '../../src/tools/baseTool';
 import { MockTransport } from '../helpers/mockTransport';
 
 export interface IntegrationServerContext {
@@ -8,7 +14,7 @@ export interface IntegrationServerContext {
   protocolRegistry: ToolRegistry;
   routingRegistry: ToolHandlerRegistry;
   router: Router;
-  tools: Array<SearchDocsTool | SubmitDocumentationTool>;
+  tools: BaseTool[];
   transport: MockTransport;
 }
 
@@ -21,7 +27,12 @@ export function createIntegrationServer(): IntegrationServerContext {
   const errorHandler = new ErrorHandler();
   const router = new Router(routingRegistry, validator, errorHandler);
 
-  const tools = [new SearchDocsTool(), new SubmitDocumentationTool()];
+  const tools: BaseTool[] = [
+    new SearchDocsTool(),
+    new SubmitDocumentationTool(),
+    new RemoveDocumentationTool(),
+    new UpdateDocumentationTool(),
+  ];
 
   for (const tool of tools) {
     protocolRegistry.register(tool.register());

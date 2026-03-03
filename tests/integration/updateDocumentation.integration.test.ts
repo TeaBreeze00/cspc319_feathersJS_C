@@ -10,7 +10,6 @@ import { ToolHandlerRegistry } from '../../src/routing/toolRegistry';
 import { ParameterValidator } from '../../src/routing/validator';
 import { ErrorHandler } from '../../src/routing/errorHandler';
 import { UpdateDocumentationTool, _resetRateLimit } from '../../src/tools/updateDocumentation';
-import { KnowledgeLoader } from '../../src/knowledge';
 
 // Mock GitHubClient
 jest.mock('../../src/tools/github/githubClient', () => {
@@ -26,19 +25,9 @@ jest.mock('../../src/tools/github/githubClient', () => {
   };
 });
 
-const EXISTING_DOC = {
-  id: 'v6-custom-hooks-0',
-  heading: 'Custom Hooks Guide',
-  content: 'old hooks content',
-  rawContent: 'old hooks content',
-  breadcrumb: 'Guides > Custom Hooks',
-  version: 'v6',
-  tokens: 200,
-  category: 'hooks',
-  sourceFile: 'docs/v6_docs/guides/custom-hooks.md',
-  hasCode: true,
-  codeLanguages: ['typescript'],
-};
+// Mock global fetch for GitHub API existence checks
+const mockFetch = jest.fn();
+(global as any).fetch = mockFetch;
 
 function validParams() {
   return {
@@ -64,14 +53,10 @@ describe('update_documentation integration (Router → Tool → mock GitHub)', (
   beforeEach(() => {
     _resetRateLimit();
 
-    const mockLoader = {
-      load: jest.fn().mockResolvedValue([EXISTING_DOC]),
-      preload: jest.fn(),
-      clearCache: jest.fn(),
-      buildIndex: jest.fn(),
-    } as any;
+    // By default, mock fetch to return 200 (file exists in GitHub)
+    mockFetch.mockResolvedValue({ ok: true });
 
-    const tool = new UpdateDocumentationTool(mockLoader);
+    const tool = new UpdateDocumentationTool();
 
     const routingRegistry = new ToolHandlerRegistry();
     const validator = new ParameterValidator();
@@ -99,6 +84,7 @@ describe('update_documentation integration (Router → Tool → mock GitHub)', (
   afterEach(() => {
     process.env = originalEnv;
     jest.restoreAllMocks();
+    mockFetch.mockReset();
   });
 
   it('successfully routes a valid update and returns PR details', async () => {
@@ -144,27 +130,10 @@ describe('update_documentation integration (Router → Tool → mock GitHub)', (
     expect(res.error!.code).toBe('INVALID_PARAMS');
   });
 
-  it('rejects update when doc does not exist in knowledge base', async () => {
-    const emptyLoader = {
-      load: jest.fn().mockResolvedValue([]),
-      preload: jest.fn(),
-      clearCache: jest.fn(),
-      buildIndex: jest.fn(),
-    } as any;
-    const emptyTool = new UpdateDocumentationTool(emptyLoader);
+  it('rejects update when doc does not exist in GitHub', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false });
 
-    const routingRegistry = new ToolHandlerRegistry();
-    const validator = new ParameterValidator();
-    const errorHandler = new ErrorHandler();
-    const emptyRouter = new Router(routingRegistry, validator, errorHandler);
-    routingRegistry.register(
-      'update_documentation',
-      (params: unknown) => emptyTool.execute(params),
-      emptyTool.inputSchema,
-      true
-    );
-
-    const res = await emptyRouter.route({
+    const res = await router.route({
       toolName: 'update_documentation',
       params: validParams(),
     });

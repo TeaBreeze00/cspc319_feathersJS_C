@@ -349,11 +349,12 @@ export class UpdateDocumentationTool extends BaseTool {
 
   /**
    * Check if the file exists in the GitHub repository.
+   * Returns true when no token is available (benefit of the doubt for offline staging).
    */
   async checkExists(filePath: string): Promise<boolean> {
     try {
       const token = process.env.GITHUB_TOKEN;
-      if (!token) return false;
+      if (!token) return true; // can't verify — allow offline staging
 
       const owner = process.env.GITHUB_OWNER || 'owner';
       const repo = process.env.GITHUB_REPO || 'cspc319_feathersJS_C';
