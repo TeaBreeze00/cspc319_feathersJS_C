@@ -67,4 +67,4 @@ export const messageSchema = Type.Object({
 npx @feathersjs/cli migrate
 ```
 
-This codemod handles the most common mechanical renames automatically.
+I am changing this here to see if it gets picked up by github automatically or not.
