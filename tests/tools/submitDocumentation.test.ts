@@ -335,24 +335,9 @@ describe('SubmitDocumentationTool', () => {
   // =========================================================================
 
   describe('Stage 5 — Duplication detection', () => {
-    it('marks submission as update when filePath matches existing doc', async () => {
-      const existingDocs = [
-        {
-          id: 'existing-doc',
-          heading: 'Koa Middleware',
-          content: 'old content',
-          rawContent: 'old content',
-          breadcrumb: 'Cookbook > Koa',
-          version: 'v6',
-          tokens: 100,
-          category: 'cookbook',
-          sourceFile: 'docs/v6_docs/cookbook/koa-middleware.md',
-          hasCode: false,
-          codeLanguages: [],
-        },
-      ];
-      const loader = createMockLoader(existingDocs);
-      const localTool = new SubmitDocumentationTool(loader, mockGithubClient);
+    it('marks submission as update when filePath exists in GitHub', async () => {
+      // Mock fetch to return 200 (file exists in GitHub repo)
+      mockFetch.mockResolvedValueOnce({ ok: true });
 
       mockGithubClient.createDocsPR.mockResolvedValue({
         success: true,
@@ -361,7 +346,7 @@ describe('SubmitDocumentationTool', () => {
         branch: 'docs/contrib/test',
       });
 
-      const result = await localTool.execute(validParams());
+      const result = await tool.execute(validParams());
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(true);
       expect(parsed.isUpdate).toBe(true);
@@ -372,7 +357,8 @@ describe('SubmitDocumentationTool', () => {
       );
     });
 
-    it('marks submission as new when filePath does not match', async () => {
+    it('marks submission as new when filePath does not exist in GitHub', async () => {
+      // Default fetch mock returns 404 (file does not exist)
       mockGithubClient.createDocsPR.mockResolvedValue({
         success: true,
         prUrl: 'https://github.com/test/pull/3',
