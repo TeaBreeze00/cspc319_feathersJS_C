@@ -62,10 +62,21 @@ function loadEnvFile(filePath: string): number {
 
 function bootstrapEnv(): void {
   const cwd = process.cwd();
-  const candidates = [path.join(cwd, '.env'), path.join(cwd, 'ui', '.env')];
+  const projectRoot = path.resolve(__dirname, '..');
+  const candidates = [
+    path.join(cwd, '.env'),
+    path.join(cwd, 'ui', '.env'),
+    path.join(projectRoot, '.env'),
+    path.join(projectRoot, 'ui', '.env'),
+  ];
+  const seen = new Set<string>();
 
   let totalLoaded = 0;
   for (const envPath of candidates) {
+    if (seen.has(envPath)) {
+      continue;
+    }
+    seen.add(envPath);
     totalLoaded += loadEnvFile(envPath);
   }
 
