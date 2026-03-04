@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { McpServer, ToolRegistry } from './protocol';
 import { ToolHandlerRegistry, ParameterValidator, ErrorHandler, Router } from './routing';
 import {
@@ -6,6 +8,73 @@ import {
   RemoveDocumentationTool,
   UpdateDocumentationTool,
 } from './tools';
+
+function parseEnvLine(line: string): [string, string] | null {
+  const trimmed = line.trim();
+  if (!trimmed || trimmed.startsWith('#')) {
+    return null;
+  }
+
+  const eqIdx = trimmed.indexOf('=');
+  if (eqIdx <= 0) {
+    return null;
+  }
+
+  const key = trimmed.slice(0, eqIdx).trim();
+  if (!key) {
+    return null;
+  }
+
+  let value = trimmed.slice(eqIdx + 1).trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+
+  return [key, value];
+}
+
+function loadEnvFile(filePath: string): number {
+  if (!fs.existsSync(filePath)) {
+    return 0;
+  }
+
+  const content = fs.readFileSync(filePath, 'utf8');
+  let loaded = 0;
+
+  for (const rawLine of content.split(/\r?\n/)) {
+    const parsed = parseEnvLine(rawLine);
+    if (!parsed) {
+      continue;
+    }
+
+    const [key, value] = parsed;
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+      loaded += 1;
+    }
+  }
+
+  return loaded;
+}
+
+function bootstrapEnv(): void {
+  const cwd = process.cwd();
+  const candidates = [path.join(cwd, '.env'), path.join(cwd, 'ui', '.env')];
+
+  let totalLoaded = 0;
+  for (const envPath of candidates) {
+    totalLoaded += loadEnvFile(envPath);
+  }
+
+  if (totalLoaded > 0) {
+    console.error(`Loaded ${totalLoaded} env var(s) from .env files`);
+  }
+}
+
+bootstrapEnv();
 
 // Protocol-level registry (metadata + implementations)
 const registry = new ToolRegistry();
