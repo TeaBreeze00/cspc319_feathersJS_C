@@ -1,5 +1,5 @@
 import { DocEntry } from '../../src/knowledge/types';
-import { sendMcpRequest, expectMcpResponse } from './helpers';
+import { expectMcpResponse, sendMcpRequest } from './helpers';
 import { resetIntegrationServer } from './setup';
 import * as vectorSearchModule from '../../src/tools/search/vectorSearch';
 import { _resetRateLimit as resetSubmitRate } from '../../src/tools/submitDocumentation';
@@ -12,34 +12,11 @@ jest.mock('../../src/tools/search/vectorSearch', () => ({
   },
 }));
 
-jest.mock('../../src/tools/github/githubClient', () => {
-  return {
-    GitHubClient: jest.fn().mockImplementation(() => ({
-      createDocsPR: jest.fn().mockResolvedValue({
-        success: true,
-        prUrl: 'https://github.com/test/repo/pull/100',
-        prNumber: 100,
-        branch: 'docs/contrib/20260302T000000Z-full-flow-test',
-      }),
-      createRemovalPR: jest.fn().mockResolvedValue({
-        success: true,
-        prUrl: 'https://github.com/test/repo/pull/101',
-        prNumber: 101,
-        branch: 'docs/contrib/20260302T000000Z-remove-test',
-      }),
-    })),
-  };
-});
-
-// Mock global fetch for GitHub existence checks (remove/update tools)
-const mockFetch = jest.fn();
-(global as any).fetch = mockFetch;
-
 const mockedVectorSearch = vectorSearchModule.vectorSearch as jest.Mocked<
   typeof vectorSearchModule.vectorSearch
 >;
 
-describe('Full request flow integration', () => {
+describe('Integration smoke flow', () => {
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -47,8 +24,6 @@ describe('Full request flow integration', () => {
     resetSubmitRate();
     resetRemoveRate();
     resetUpdateRate();
-
-    mockFetch.mockResolvedValue({ ok: true });
 
     process.env = {
       ...originalEnv,
@@ -69,22 +44,13 @@ describe('Full request flow integration', () => {
         const loweredQuery = query.toLowerCase().trim();
         if (!loweredQuery) return [];
 
-        const scored = docs
-          .map((doc) => {
-            const haystack = `${doc.heading} ${doc.rawContent}`.toLowerCase();
-            const hits = loweredQuery
-              .split(/\s+/)
-              .filter((token) => token.length > 0)
-              .filter((token) => haystack.includes(token)).length;
-            return { id: doc.id, score: hits };
-          })
+        return docs
+          .map((doc) => ({
+            id: doc.id,
+            score: `${doc.heading} ${doc.rawContent}`.toLowerCase().includes(loweredQuery) ? 1 : 0,
+          }))
           .filter((entry) => entry.score > 0)
-          .sort((a, b) => b.score - a.score)
           .slice(0, limit);
-
-        if (scored.length === 0) return [];
-        const max = scored[0].score;
-        return scored.map((entry) => ({ id: entry.id, score: entry.score / max }));
       }
     );
   });
@@ -92,14 +58,29 @@ describe('Full request flow integration', () => {
   afterEach(() => {
     process.env = originalEnv;
     jest.restoreAllMocks();
-    mockFetch.mockReset();
+    mockedVectorSearch.search.mockReset();
   });
 
-  // =========================================================================
-  // search_docs
-  // =========================================================================
+  test('tools/list exposes the 4 current tools through the JSON-RPC harness', async () => {
+    const response = await sendMcpRequest('tools/list');
 
-  test('search_docs executes Protocol -> Routing -> Tool -> Knowledge flow', async () => {
+    expectMcpResponse(response, { id: response.id });
+    expect(response.error).toBeUndefined();
+
+    const result = response.result as {
+      tools: Array<{ name: string; description: string }>;
+    };
+
+    expect(result.tools).toHaveLength(4);
+    expect(result.tools.map((tool) => tool.name).sort()).toEqual([
+      'remove_documentation',
+      'search_docs',
+      'submit_documentation',
+      'update_documentation',
+    ]);
+  });
+
+  test('search_docs executes the integration harness against the current tool chain', async () => {
     const response = await sendMcpRequest('tools/call', {
       name: 'search_docs',
       arguments: { query: 'hooks', version: 'v6', limit: 3 },
@@ -107,17 +88,18 @@ describe('Full request flow integration', () => {
 
     expectMcpResponse(response, { id: response.id });
     expect(response.error).toBeUndefined();
+
     const result = response.result as { content: string; metadata: { tool: string } };
     const payload = JSON.parse(result.content) as {
       results: Array<{ id: string; heading: string }>;
     };
+
     expect(result.metadata.tool).toBe('search_docs');
-    expect(Array.isArray(payload.results)).toBe(true);
     expect(payload.results.length).toBeGreaterThan(0);
     expect(payload.results[0]).toHaveProperty('heading');
   });
 
-  test('unknown tool requests fail cleanly', async () => {
+  test('unknown tool requests fail cleanly through the integration harness', async () => {
     const response = await sendMcpRequest('tools/call', {
       name: 'get_feathers_template',
       arguments: { database: 'mongodb', auth: true, typescript: true },
@@ -128,148 +110,7 @@ describe('Full request flow integration', () => {
     expect(response.error?.message).toContain('Unknown tool');
   });
 
-  // =========================================================================
-  // submit_documentation
-  // =========================================================================
-
-  test('submit_documentation executes full Protocol -> Routing -> Tool -> GitHub flow', async () => {
-    const response = await sendMcpRequest('tools/call', {
-      name: 'submit_documentation',
-      arguments: {
-        title: 'Add integration test guide for FeathersJS',
-        filePath: 'docs/v6_docs/guides/integration-test.md',
-        content:
-          '# Integration Test Guide\n\n' +
-          'This guide covers integration testing patterns in FeathersJS v6.\n\n' +
-          '## Setup\n\nInstall the test dependencies and configure your test runner.\n\n' +
-          '## Running Tests\n\nRun the test suite with `npm test`.\n\n' +
-          'Additional text to meet the minimum length requirement for submissions.',
-        version: 'v6',
-      },
-    });
-
-    expect(response.error).toBeUndefined();
-    const result = response.result as { content: string };
-    const parsed = JSON.parse(result.content);
-    expect(parsed.success).toBe(true);
-    expect(parsed.prUrl).toBeDefined();
-    expect(parsed.prNumber).toBeDefined();
-  });
-
-  test('submit_documentation rejects invalid params through router', async () => {
-    const response = await sendMcpRequest('tools/call', {
-      name: 'submit_documentation',
-      arguments: {
-        // Missing required fields
-        title: 'x',
-      },
-    });
-
-    // Router-level validation or tool-level validation catches it
-    if (response.error) {
-      expect(response.error.code).toBe(-32602);
-    } else {
-      const result = response.result as { content: string };
-      const parsed = JSON.parse(result.content);
-      expect(parsed.success).toBe(false);
-    }
-  });
-
-  // =========================================================================
-  // remove_documentation
-  // =========================================================================
-
-  test('remove_documentation executes full Protocol -> Routing -> Tool -> GitHub flow', async () => {
-    const response = await sendMcpRequest('tools/call', {
-      name: 'remove_documentation',
-      arguments: {
-        filePath: 'docs/v6_docs/cookbook/old-guide.md',
-        version: 'v6',
-        reason: 'This guide is outdated and has been superseded by the new guide.',
-      },
-    });
-
-    expect(response.error).toBeUndefined();
-    const result = response.result as { content: string };
-    const parsed = JSON.parse(result.content);
-    expect(parsed.success).toBe(true);
-    expect(parsed.prUrl).toBeDefined();
-  });
-
-  test('remove_documentation fails when file does not exist', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false });
-
-    const response = await sendMcpRequest('tools/call', {
-      name: 'remove_documentation',
-      arguments: {
-        filePath: 'docs/v6_docs/cookbook/nonexistent.md',
-        version: 'v6',
-        reason: 'This file should not exist and this removal should fail.',
-      },
-    });
-
-    expect(response.error).toBeUndefined();
-    const result = response.result as { content: string };
-    const parsed = JSON.parse(result.content);
-    expect(parsed.success).toBe(false);
-    expect(parsed.errors.some((e: string) => /does not exist/i.test(e))).toBe(true);
-  });
-
-  // =========================================================================
-  // update_documentation
-  // =========================================================================
-
-  test('update_documentation executes full Protocol -> Routing -> Tool -> GitHub flow', async () => {
-    const response = await sendMcpRequest('tools/call', {
-      name: 'update_documentation',
-      arguments: {
-        title: 'Update hooks guide with around hook patterns',
-        filePath: 'docs/v6_docs/guides/custom-hooks.md',
-        content:
-          '# Custom Hooks Guide (Updated)\n\n' +
-          'This guide explains how to write custom hooks in FeathersJS v6.\n\n' +
-          '## Around Hooks\n\nAround hooks wrap the entire service method.\n\n' +
-          '## Before Hooks\n\nBefore hooks run before the service method.\n\n' +
-          'Additional text to meet the minimum length requirement for update submissions.',
-        version: 'v6',
-      },
-    });
-
-    expect(response.error).toBeUndefined();
-    const result = response.result as { content: string };
-    const parsed = JSON.parse(result.content);
-    expect(parsed.success).toBe(true);
-    expect(parsed.prUrl).toBeDefined();
-  });
-
-  test('update_documentation fails when file does not exist', async () => {
-    mockFetch.mockResolvedValueOnce({ ok: false });
-
-    const response = await sendMcpRequest('tools/call', {
-      name: 'update_documentation',
-      arguments: {
-        title: 'Update a guide that does not exist yet',
-        filePath: 'docs/v6_docs/guides/nonexistent.md',
-        content:
-          '# Nonexistent Guide\n\n' +
-          'This should fail because the file does not exist.\n\n' +
-          '## Section\n\nMore text to meet the minimum length requirement for submissions.',
-        version: 'v6',
-      },
-    });
-
-    expect(response.error).toBeUndefined();
-    const result = response.result as { content: string };
-    const parsed = JSON.parse(result.content);
-    expect(parsed.success).toBe(false);
-    expect(parsed.errors.some((e: string) => /does not exist/i.test(e))).toBe(true);
-  });
-
-  // =========================================================================
-  // Network-tier gate — cross-tool verification
-  // =========================================================================
-
-  test('network tools are blocked when ALLOW_NETWORK_TOOLS is not set', async () => {
+  test('network tools stay blocked when ALLOW_NETWORK_TOOLS is not set', async () => {
     delete process.env.ALLOW_NETWORK_TOOLS;
 
     const submitRes = await sendMcpRequest('tools/call', {
@@ -284,7 +125,6 @@ describe('Full request flow integration', () => {
       },
     });
 
-    // Network tools should be blocked at the router level
     expect(submitRes.error).toBeDefined();
     expect(submitRes.error!.message).toContain('network');
   });

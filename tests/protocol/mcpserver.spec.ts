@@ -1,6 +1,6 @@
 /// <reference types="jest" />
 
-jest.mock('@modelcontextprotocol/sdk/server/index', () => {
+jest.mock('@modelcontextprotocol/sdk/server/index.js', () => {
   class MockServer {
     static __lastInstance: any;
     connect = jest.fn(async (_t?: any) => {});
@@ -13,7 +13,7 @@ jest.mock('@modelcontextprotocol/sdk/server/index', () => {
   return { Server: MockServer };
 });
 
-jest.mock('@modelcontextprotocol/sdk/server/stdio', () => {
+jest.mock('@modelcontextprotocol/sdk/server/stdio.js', () => {
   class MockTransport {
     static __lastInstance: any;
     sent: any[] = [];
@@ -30,7 +30,7 @@ jest.mock('@modelcontextprotocol/sdk/server/stdio', () => {
   return { StdioServerTransport: MockTransport };
 });
 
-jest.mock('@modelcontextprotocol/sdk/types', () => {
+jest.mock('@modelcontextprotocol/sdk/types.js', () => {
   return {
     ListToolsRequestSchema: { method: 'tools/list' },
     CallToolRequestSchema: { method: 'tools/call' },
@@ -46,8 +46,8 @@ describe('McpServer (mocked SDK)', () => {
 
     await server.start();
 
-    const MockServer = require('@modelcontextprotocol/sdk/server/index').Server;
-    const MockTransport = require('@modelcontextprotocol/sdk/server/stdio').StdioServerTransport;
+    const MockServer = require('@modelcontextprotocol/sdk/server/index.js').Server;
+    const MockTransport = require('@modelcontextprotocol/sdk/server/stdio.js').StdioServerTransport;
 
     const serverInstance = (MockServer as any).__lastInstance;
     const transportInstance = (MockTransport as any).__lastInstance;
@@ -75,7 +75,7 @@ describe('McpServer (mocked SDK)', () => {
     const server = new McpServer(registry as any);
     await server.start();
 
-    const MockServer = require('@modelcontextprotocol/sdk/server/index').Server;
+    const MockServer = require('@modelcontextprotocol/sdk/server/index.js').Server;
     const serverInstance = (MockServer as any).__lastInstance;
 
     // Verify setRequestHandler was called for both schemas
@@ -104,7 +104,7 @@ describe('McpServer (mocked SDK)', () => {
     const server = new McpServer(registry as any);
     await server.start();
 
-    const MockServer = require('@modelcontextprotocol/sdk/server/index').Server;
+    const MockServer = require('@modelcontextprotocol/sdk/server/index.js').Server;
     const serverInstance = (MockServer as any).__lastInstance;
 
     // Get the tools/list handler
@@ -134,7 +134,7 @@ describe('McpServer (mocked SDK)', () => {
     const server = new McpServer(registry as any);
     await server.start();
 
-    const MockServer = require('@modelcontextprotocol/sdk/server/index').Server;
+    const MockServer = require('@modelcontextprotocol/sdk/server/index.js').Server;
     const serverInstance = (MockServer as any).__lastInstance;
 
     // Get the tools/call handler
@@ -160,7 +160,7 @@ describe('McpServer (mocked SDK)', () => {
     const server = new McpServer(registry as any);
     await server.start();
 
-    const MockServer = require('@modelcontextprotocol/sdk/server/index').Server;
+    const MockServer = require('@modelcontextprotocol/sdk/server/index.js').Server;
     const serverInstance = (MockServer as any).__lastInstance;
 
     // Get the tools/call handler
@@ -195,7 +195,7 @@ describe('McpServer (mocked SDK)', () => {
     const server = new McpServer(registry as any);
     await server.start();
 
-    const MockServer = require('@modelcontextprotocol/sdk/server/index').Server;
+    const MockServer = require('@modelcontextprotocol/sdk/server/index.js').Server;
     const serverInstance = (MockServer as any).__lastInstance;
 
     // Get the tools/call handler
@@ -237,7 +237,7 @@ describe('McpServer (mocked SDK)', () => {
     const server = new McpServer(registry as any);
     await server.start();
 
-    const MockServer = require('@modelcontextprotocol/sdk/server/index').Server;
+    const MockServer = require('@modelcontextprotocol/sdk/server/index.js').Server;
     const serverInstance = (MockServer as any).__lastInstance;
 
     const listToolsHandler = serverInstance.setRequestHandler.mock.calls[0][1];
