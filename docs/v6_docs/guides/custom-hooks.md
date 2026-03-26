@@ -1,4 +1,4 @@
-# Custom Hooks
+# Custom Hooks (Updated)
 
 Hooks are the primary way to add cross-cutting logic in FeathersJS — think
 validation, authorization, logging, and data transformation.
@@ -8,7 +8,6 @@ validation, authorization, logging, and data transformation.
 ```typescript
 import type { HookContext } from '../declarations';
 
-// A simple before-create hook that stamps a createdAt field
 export const addTimestamp = async (context: HookContext) => {
   context.data = {
     ...context.data,
@@ -29,17 +28,26 @@ app.service('messages').hooks({
 });
 ```
 
-## Around hooks (v6+)
+## Around hooks (v6+ — NEW SECTION)
 
-Around hooks wrap the entire method call, giving you control of both
-the before and after phases in one function:
+Around hooks are the recommended pattern in v6. They wrap the entire method
+call, giving you control of both the before and after phases:
 
 ```typescript
 export const logDuration = async (context: HookContext, next: Function) => {
   const start = Date.now();
   await next();
-  console.log(`${context.method} took ${Date.now() - start} ms`);
+  const ms = Date.now() - start;
+  console.log(`${context.method} on ${context.path} took ${ms}ms`);
 };
+```
+
+## Composing multiple hooks
+
+```typescript
+import { hooks } from '@feathersjs/hooks';
+
+const composed = hooks([validateData, addTimestamp, logDuration]);
 ```
 
 ## Unit-testing a hook
@@ -53,4 +61,3 @@ test('stamps createdAt', async () => {
   expect(ctx.data.createdAt).toBeDefined();
 });
 ```
-I am adding this just to make our lives easier
