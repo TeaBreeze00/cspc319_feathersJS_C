@@ -8,6 +8,7 @@ import {
   RemoveDocumentationTool,
   UpdateDocumentationTool,
 } from './tools';
+import { KnowledgeLoader, runBackgroundSync } from './knowledge';
 
 function parseEnvLine(line: string): [string, string] | null {
   const trimmed = line.trim();
@@ -96,8 +97,11 @@ const validator = new ParameterValidator();
 const errorHandler = new ErrorHandler();
 const router = new Router(routingRegistry, validator, errorHandler);
 
+// Shared loader — injected into SearchDocsTool so the sync manager can hot-swap it
+const sharedLoader = new KnowledgeLoader();
+
 // Create tool instances
-const searchDocsTool = new SearchDocsTool();
+const searchDocsTool = new SearchDocsTool(sharedLoader);
 const submitDocTool = new SubmitDocumentationTool();
 const removeDocTool = new RemoveDocumentationTool();
 const updateDocTool = new UpdateDocumentationTool();
@@ -143,6 +147,8 @@ async function startServer() {
   try {
     await server.start();
     console.error('feathers-mcp-server started');
+    // Kick off background KB sync — never blocks startup
+    runBackgroundSync(sharedLoader);
   } catch (err) {
     console.error('Failed to start MCP server:', err instanceof Error ? err.message : err);
     process.exitCode = 1;

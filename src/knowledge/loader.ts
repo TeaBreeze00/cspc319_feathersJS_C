@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
 import { promisify } from 'util';
 import {
   DocEntry,
@@ -14,13 +15,29 @@ import {
 const readFile = promisify(fs.readFile);
 const readdir = promisify(fs.readdir);
 
+const USER_CACHE_DIR = path.join(os.homedir(), '.feathersjs-mcp');
+const USER_CACHE_CHUNKS_DIR = path.join(USER_CACHE_DIR, 'chunks');
+
 export class KnowledgeLoader {
   private kbRoot: string;
   private cache: Map<string, any[]>;
 
-  constructor(kbRoot = path.join(process.cwd(), 'knowledge-base')) {
-    this.kbRoot = kbRoot;
+  constructor(kbRoot?: string) {
+    if (kbRoot) {
+      this.kbRoot = kbRoot;
+    } else if (fs.existsSync(USER_CACHE_CHUNKS_DIR)) {
+      // Use previously downloaded chunks from ~/.feathersjs-mcp if available
+      this.kbRoot = USER_CACHE_DIR;
+    } else {
+      this.kbRoot = path.join(process.cwd(), 'knowledge-base');
+    }
     this.cache = new Map();
+  }
+
+  /** Hot-swap the knowledge base root and clear the cache. */
+  setKbRoot(newRoot: string): void {
+    this.kbRoot = newRoot;
+    this.cache.clear();
   }
 
   /**

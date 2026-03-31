@@ -1,0 +1,9 @@
+{
+  "context_servers": {
+    "feathers-mcp": {
+      "command": "/Users/shamsetibriz/cspc319_feathersJS_C/run_mcp.sh",
+      "args": [],
+      "env": {}
+    }
+  }
+}
