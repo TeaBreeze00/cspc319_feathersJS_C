@@ -141,3 +141,8 @@ export function runBackgroundSync(loader: KnowledgeLoader): void {
     console.error(`[feathers-mcp] Background KB sync failed (will retry next startup): ${msg}`);
   });
 }
+
+/** Exposed for testing only — awaitable version of the background sync. */
+export async function _syncForTesting(loader: KnowledgeLoader): Promise<void> {
+  return sync(loader);
+}
