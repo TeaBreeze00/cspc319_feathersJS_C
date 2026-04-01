@@ -121,14 +121,14 @@ function buildServerEntry(env: Record<string, string>, format: 'mcpServers' | 'v
     return {
       type: 'stdio',
       command: 'npx',
-      args: ['feathersjs-mcp'],
+      args: ['feathersjs-mcp-server'],
       ...(Object.keys(env).length > 0 ? { env } : {}),
     };
   }
   // mcpServers and claude-code both use the same shape
   return {
     command: 'npx',
-    args: ['feathersjs-mcp'],
+    args: ['feathersjs-mcp-server'],
     ...(Object.keys(env).length > 0 ? { env } : {}),
   };
 }
@@ -243,7 +243,7 @@ export async function runInit(): Promise<void> {
 
   console.log('\nRestart your AI tool for the changes to take effect.');
   if (!enableNetwork) {
-    console.log('To enable network tools later, re-run: npx feathersjs-mcp init');
+    console.log('To enable network tools later, re-run: npx feathersjs-mcp-server init');
   }
 
   prompter.close();

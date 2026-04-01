@@ -64,7 +64,7 @@ function checkKnowledgeBase(): void {
     : [];
 
   if (files.length === 0) {
-    fail('Chunks', 'No chunk files found', 'Run: npx feathersjs-mcp (will auto-sync on startup)');
+    fail('Chunks', 'No chunk files found', 'Run: npx feathersjs-mcp-server (will auto-sync on startup)');
     return;
   }
 
@@ -162,7 +162,7 @@ function checkMcpClients(): void {
     }
 
     if (!fs.existsSync(client.configPath)) {
-      fail(client.name, 'Config file missing', `Run: npx feathersjs-mcp init`);
+      fail(client.name, 'Config file missing', `Run: npx feathersjs-mcp-server init`);
       continue;
     }
 
@@ -174,10 +174,10 @@ function checkMcpClients(): void {
         const cmd = [entry.command, ...(entry.args ?? [])].join(' ');
         pass(client.name, `configured  (${cmd})`);
       } else {
-        fail(client.name, 'feathersjs entry missing', `Run: npx feathersjs-mcp init`);
+        fail(client.name, 'feathersjs entry missing', `Run: npx feathersjs-mcp-server init`);
       }
     } catch {
-      fail(client.name, 'Config file unreadable', `Run: npx feathersjs-mcp init`);
+      fail(client.name, 'Config file unreadable', `Run: npx feathersjs-mcp-server init`);
     }
   }
 }
