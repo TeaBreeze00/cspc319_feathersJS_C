@@ -511,49 +511,31 @@ describe('SubmitDocumentationTool', () => {
   });
 
   // =========================================================================
-  // Offline fallback (local staging)
+  // Bundled token fallback
   // =========================================================================
 
-  describe('Offline fallback — local staging', () => {
-    let tmpDir: string;
-
+  describe('Bundled token fallback', () => {
     beforeEach(() => {
-      // Remove GITHUB_TOKEN to trigger offline mode
       delete process.env.GITHUB_TOKEN;
-      tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'mcp-test-'));
-
-      // Override cwd so pending-contributions/ is created in the temp dir
-      jest.spyOn(process, 'cwd').mockReturnValue(tmpDir);
+      delete process.env.GITHUB_OWNER;
+      delete process.env.GITHUB_REPO;
+      process.env.ALLOW_NETWORK_TOOLS = 'true';
     });
 
-    afterEach(() => {
-      // Clean up temp files
-      const stagingDir = path.join(tmpDir, 'pending-contributions');
-      if (fs.existsSync(stagingDir)) {
-        for (const file of fs.readdirSync(stagingDir)) {
-          fs.unlinkSync(path.join(stagingDir, file));
-        }
-        fs.rmdirSync(stagingDir);
-      }
-      fs.rmdirSync(tmpDir);
-    });
+    it('uses the bundled token when GITHUB_TOKEN env var is absent', async () => {
+      mockGithubClient.createDocsPR.mockResolvedValue({
+        success: true,
+        prUrl: 'https://github.com/TeaBreeze00/cspc319_feathersJS_C/pull/99',
+        prNumber: 99,
+        branch: 'docs/test-branch',
+      });
 
-    it('saves submission locally when GITHUB_TOKEN is absent', async () => {
       const result = await tool.execute(validParams());
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(true);
-      expect(parsed.mode).toBe('local-staging');
-      expect(parsed.file).toMatch(/\.json$/);
-
-      // Verify file was written
-      const stagingDir = path.join(tmpDir, 'pending-contributions');
-      const files = fs.readdirSync(stagingDir);
-      expect(files.length).toBe(1);
-
-      const payload = JSON.parse(fs.readFileSync(path.join(stagingDir, files[0]), 'utf-8'));
-      expect(payload.title).toBe('Add a new Koa middleware guide for FeathersJS');
-      expect(payload.filePath).toBe('docs/v6_docs/cookbook/koa-middleware.md');
-      expect(payload.version).toBe('v6');
+      expect(mockGithubClient.createDocsPR).toHaveBeenCalledWith(
+        expect.objectContaining({ owner: 'TeaBreeze00', repo: 'cspc319_feathersJS_C' })
+      );
     });
   });
 

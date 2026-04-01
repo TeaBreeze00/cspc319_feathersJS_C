@@ -233,16 +233,12 @@ export async function runInit(): Promise<void> {
   // Network tools
   console.log('\n' + '─'.repeat(40));
   console.log('\nNetwork tools (submit/update/remove docs via GitHub PR)');
-  console.log('These require a GitHub token and ALLOW_NETWORK_TOOLS=true.\n');
+  console.log('No token needed — contributions go through the feathersjs-mcp repo.\n');
 
-  const enableNetwork = await confirm(prompter, 'Enable network tools?', false);
+  const enableNetwork = await confirm(prompter, 'Enable network tools?', true);
   const env: Record<string, string> = {};
 
   if (enableNetwork) {
-    const token = (await ask(prompter, 'GitHub token (leave blank to set manually later): ')).trim();
-    if (token) env.GITHUB_TOKEN = token;
-    env.GITHUB_OWNER = 'TeaBreeze00';
-    env.GITHUB_REPO = 'cspc319_feathersJS_C';
     env.ALLOW_NETWORK_TOOLS = 'true';
   }
 
@@ -273,7 +269,7 @@ export async function runInit(): Promise<void> {
 
   console.log('\nRestart your AI tool for the changes to take effect.');
   if (!enableNetwork) {
-    console.log('To enable network tools later, re-run: npx feathersjs-mcp-server init');
+    console.log('To enable network tools later, re-run: npx feathersjs-mcp-server@latest init');
   }
 
   prompter.close();

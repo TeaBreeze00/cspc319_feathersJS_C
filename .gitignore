@@ -6,3 +6,4 @@ coverage/
 ui/.env
 .DS_Store
 pending-contributions/
+src/config/credentials.ts

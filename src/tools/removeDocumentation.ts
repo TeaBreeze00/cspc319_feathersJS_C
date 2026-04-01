@@ -14,6 +14,7 @@ import * as fs from 'fs';
 import { BaseTool } from './baseTool';
 import { ToolResult, JsonSchema } from '../protocol/types';
 import { GitHubClient } from './github/githubClient';
+import { BUNDLED_GITHUB_TOKEN } from '../config/credentials';
 
 // ---------------------------------------------------------------------------
 // Rate limiting (per-instance, resets on restart)
@@ -144,11 +145,8 @@ export class RemoveDocumentationTool extends BaseTool {
       return this.errorResult([`Rate limited. Please try again in ${waitSec} seconds.`]);
     }
 
-    // ── Dispatch: GitHub PR or local staging ─────────────────────────────
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) {
-      return this.stageLocally(p);
-    }
+    // ── Dispatch: GitHub PR ───────────────────────────────────────────────
+    const token = process.env.GITHUB_TOKEN || BUNDLED_GITHUB_TOKEN;
 
     // Defense-in-depth: G1.5 gate also enforced inside the tool
     if (process.env.ALLOW_NETWORK_TOOLS !== 'true') {
@@ -161,7 +159,7 @@ export class RemoveDocumentationTool extends BaseTool {
 
     const result = await this.githubClient.createRemovalPR({
       token,
-      owner: process.env.GITHUB_OWNER || 'owner',
+      owner: process.env.GITHUB_OWNER || 'TeaBreeze00',
       repo: process.env.GITHUB_REPO || 'cspc319_feathersJS_C',
       filePath: p.filePath,
       reason: p.reason,
@@ -239,10 +237,8 @@ export class RemoveDocumentationTool extends BaseTool {
    */
   async checkExists(filePath: string): Promise<boolean> {
     try {
-      const token = process.env.GITHUB_TOKEN;
-      if (!token) return true; // can't verify — allow offline staging
-
-      const owner = process.env.GITHUB_OWNER || 'owner';
+      const token = process.env.GITHUB_TOKEN || BUNDLED_GITHUB_TOKEN;
+      const owner = process.env.GITHUB_OWNER || 'TeaBreeze00';
       const repo = process.env.GITHUB_REPO || 'cspc319_feathersJS_C';
 
       const response = await fetch(

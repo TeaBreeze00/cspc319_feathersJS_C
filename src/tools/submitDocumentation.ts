@@ -17,6 +17,7 @@ import { KnowledgeLoader } from '../knowledge';
 import { DocEntry } from '../knowledge/types';
 import { GitHubClient } from './github/githubClient';
 import { sanitizeContent } from './github/sanitizer';
+import { BUNDLED_GITHUB_TOKEN } from '../config/credentials';
 
 // ---------------------------------------------------------------------------
 // Rate limiting (per-instance, resets on restart — not cross-request state)
@@ -234,11 +235,8 @@ export class SubmitDocumentationTool extends BaseTool {
       return this.errorResult([`Rate limited. Please try again in ${waitSec} seconds.`]);
     }
 
-    // ── Dispatch: GitHub PR or local staging ─────────────────────────────
-    const token = process.env.GITHUB_TOKEN;
-    if (!token) {
-      return this.stageLocally(p, dupeInfo, sanitization.warnings);
-    }
+    // ── Dispatch: GitHub PR ───────────────────────────────────────────────
+    const token = process.env.GITHUB_TOKEN || BUNDLED_GITHUB_TOKEN;
 
     // Defense-in-depth: G1.5 gate also enforced inside the tool so it fires
     // even when McpServer calls execute() directly (bypassing the Router).
@@ -253,7 +251,7 @@ export class SubmitDocumentationTool extends BaseTool {
 
     const result = await this.githubClient.createDocsPR({
       token,
-      owner: process.env.GITHUB_OWNER || 'owner',
+      owner: process.env.GITHUB_OWNER || 'TeaBreeze00',
       repo: process.env.GITHUB_REPO || 'cspc319_feathersJS_C',
       filePath: p.filePath,
       content: sanitization.cleanContent,
@@ -360,10 +358,8 @@ export class SubmitDocumentationTool extends BaseTool {
    */
   async checkDuplication(filePath: string, _content: string): Promise<DuplicationInfo> {
     try {
-      const token = process.env.GITHUB_TOKEN;
-      if (!token) return { isUpdate: false };
-
-      const owner = process.env.GITHUB_OWNER || 'owner';
+      const token = process.env.GITHUB_TOKEN || BUNDLED_GITHUB_TOKEN;
+      const owner = process.env.GITHUB_OWNER || 'TeaBreeze00';
       const repo = process.env.GITHUB_REPO || 'cspc319_feathersJS_C';
 
       const response = await fetch(

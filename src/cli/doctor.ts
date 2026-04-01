@@ -98,21 +98,16 @@ function checkKnowledgeBase(): void {
 }
 
 function checkCredentials(): void {
-  section('Credentials & Network Tools');
+  section('Network Tools');
 
-  const token = process.env.GITHUB_TOKEN;
   const networkEnabled = process.env.ALLOW_NETWORK_TOOLS === 'true';
 
-  if (!token) {
-    warn('GITHUB_TOKEN', 'Not set', 'Network tools (submit/update/remove) will be disabled');
-  } else {
-    pass('GITHUB_TOKEN', `set (${token.slice(0, 8)}...)`);
-  }
+  pass('GitHub token', 'bundled (no user config needed)');
 
   if (networkEnabled) {
     pass('Network tools', 'enabled (ALLOW_NETWORK_TOOLS=true)');
   } else {
-    warn('Network tools', 'disabled', 'Set ALLOW_NETWORK_TOOLS=true in your MCP client env config');
+    warn('Network tools', 'disabled', 'Re-run: npx feathersjs-mcp-server@latest init');
   }
 }
 

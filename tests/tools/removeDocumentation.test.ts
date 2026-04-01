@@ -301,27 +301,31 @@ describe('RemoveDocumentationTool', () => {
   });
 
   // =========================================================================
-  // Local staging (no GITHUB_TOKEN)
+  // Bundled token fallback
   // =========================================================================
 
   describe('Local staging fallback', () => {
     beforeEach(() => {
       delete process.env.GITHUB_TOKEN;
+      delete process.env.GITHUB_OWNER;
+      delete process.env.GITHUB_REPO;
+      process.env.ALLOW_NETWORK_TOOLS = 'true';
     });
 
-    it('stages removal locally when GITHUB_TOKEN is not set', async () => {
-      // Mock fs to avoid actually writing files
-      const mkdirSpy = jest.spyOn(require('fs'), 'existsSync').mockReturnValue(true);
-      const writeSpy = jest.spyOn(require('fs'), 'writeFileSync').mockImplementation(() => {});
+    it('uses the bundled token when GITHUB_TOKEN is not set', async () => {
+      (mockGithubClient as any).createRemovalPR.mockResolvedValue({
+        success: true,
+        prUrl: 'https://github.com/TeaBreeze00/cspc319_feathersJS_C/pull/99',
+        prNumber: 99,
+        branch: 'docs/remove-test',
+      });
 
       const result = await tool.execute(validParams());
       const parsed = JSON.parse(result.content);
       expect(parsed.success).toBe(true);
-      expect(parsed.mode).toBe('local-staging');
-      expect(parsed.file).toContain('remove-');
-
-      mkdirSpy.mockRestore();
-      writeSpy.mockRestore();
+      expect((mockGithubClient as any).createRemovalPR).toHaveBeenCalledWith(
+        expect.objectContaining({ owner: 'TeaBreeze00', repo: 'cspc319_feathersJS_C' })
+      );
     });
   });
 });
