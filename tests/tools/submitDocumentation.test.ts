@@ -514,28 +514,17 @@ describe('SubmitDocumentationTool', () => {
   // Bundled token fallback
   // =========================================================================
 
-  describe('Bundled token fallback', () => {
+  describe('No token configured', () => {
     beforeEach(() => {
       delete process.env.GITHUB_TOKEN;
-      delete process.env.GITHUB_OWNER;
-      delete process.env.GITHUB_REPO;
       process.env.ALLOW_NETWORK_TOOLS = 'true';
     });
 
-    it('uses the bundled token when GITHUB_TOKEN env var is absent', async () => {
-      mockGithubClient.createDocsPR.mockResolvedValue({
-        success: true,
-        prUrl: 'https://github.com/TeaBreeze00/cspc319_feathersJS_C/pull/99',
-        prNumber: 99,
-        branch: 'docs/test-branch',
-      });
-
+    it('returns an error with init instructions when GITHUB_TOKEN is absent', async () => {
       const result = await tool.execute(validParams());
       const parsed = JSON.parse(result.content);
-      expect(parsed.success).toBe(true);
-      expect(mockGithubClient.createDocsPR).toHaveBeenCalledWith(
-        expect.objectContaining({ owner: 'TeaBreeze00', repo: 'cspc319_feathersJS_C' })
-      );
+      expect(parsed.success).toBe(false);
+      expect(parsed.errors.some((e: string) => /init/i.test(e))).toBe(true);
     });
   });
 

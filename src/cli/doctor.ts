@@ -98,16 +98,21 @@ function checkKnowledgeBase(): void {
 }
 
 function checkCredentials(): void {
-  section('Network Tools');
+  section('Credentials & Network Tools');
 
+  const token = process.env.GITHUB_TOKEN;
   const networkEnabled = process.env.ALLOW_NETWORK_TOOLS === 'true';
 
-  pass('GitHub token', 'bundled (no user config needed)');
+  if (!token) {
+    warn('GITHUB_TOKEN', 'Not set', 'Run: npx feathersjs-mcp-server@latest init');
+  } else {
+    pass('GITHUB_TOKEN', `set (${token.slice(0, 12)}...)`);
+  }
 
   if (networkEnabled) {
     pass('Network tools', 'enabled (ALLOW_NETWORK_TOOLS=true)');
   } else {
-    warn('Network tools', 'disabled', 'Re-run: npx feathersjs-mcp-server@latest init');
+    warn('Network tools', 'disabled', 'Run: npx feathersjs-mcp-server@latest init');
   }
 }
 
