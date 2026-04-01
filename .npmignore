@@ -1,0 +1,15 @@
+src/
+tests/
+docs/
+scripts/
+coverage/
+ui/
+pending-contributions/
+pending-removals/
+.eslintrc.json
+.prettierrc
+jest.config.js
+tsconfig.json
+*.log
+.env
+.DS_Store

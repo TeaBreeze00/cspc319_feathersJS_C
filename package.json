@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "FeathersJS MCP Server",
   "main": "dist/index.js",
+  "bin": {
+    "feathersjs-mcp": "./bin/feathersjs-mcp.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
