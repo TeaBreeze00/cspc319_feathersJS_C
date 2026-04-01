@@ -1,11 +1,30 @@
 {
-  "name": "feathers-mcp-server",
+  "name": "feathersjs-mcp",
   "version": "1.0.0",
-  "description": "FeathersJS MCP Server",
+  "description": "MCP server for FeathersJS — semantic search over v5/v6 docs with AI-assisted contribution via GitHub PRs",
   "main": "dist/index.js",
   "bin": {
     "feathersjs-mcp": "./bin/feathersjs-mcp.js"
   },
+  "keywords": [
+    "mcp",
+    "feathersjs",
+    "feathers",
+    "model-context-protocol",
+    "claude",
+    "ai",
+    "documentation",
+    "semantic-search"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/TeaBreeze00/cspc319_feathersJS_C.git"
+  },
+  "homepage": "https://github.com/TeaBreeze00/cspc319_feathersJS_C#readme",
+  "bugs": {
+    "url": "https://github.com/TeaBreeze00/cspc319_feathersJS_C/issues"
+  },
+  "author": "TeaBreeze00",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -20,7 +39,6 @@
     "update:kb": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/incremental-update.ts",
     "test:submit": "ts-node --compiler-options '{\"module\":\"CommonJS\",\"esModuleInterop\":true,\"target\":\"ES2020\"}' scripts/test-submit.ts"
   },
-  "author": "",
   "license": "MIT",
   "engines": {
     "node": ">=20.0.0"

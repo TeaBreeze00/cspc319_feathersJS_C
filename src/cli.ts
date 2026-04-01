@@ -13,6 +13,11 @@ if (command === 'init') {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);
   });
+} else if (command === 'doctor') {
+  import('./cli/doctor').then(m => m.runDoctor()).catch(err => {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  });
 } else {
   // Default: start the MCP server
   require('./index');
