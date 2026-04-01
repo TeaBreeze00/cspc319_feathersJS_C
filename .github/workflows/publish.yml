@@ -17,15 +17,15 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies
-        run: npm ci
-
       - name: Write bundled credentials
         run: |
           mkdir -p src/config
           printf "export const BUNDLED_GITHUB_TOKEN = '%s';\n" "$BUNDLED_TOKEN" > src/config/credentials.ts
         env:
           BUNDLED_TOKEN: ${{ secrets.BUNDLED_GITHUB_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Build
         run: npm run build
