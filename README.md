@@ -19,71 +19,94 @@ The FeathersJS MCP Server connects AI assistants (Claude Desktop, VS Code Copilo
 
 ### Prerequisites
 
-- **Node.js 20+**
-- An MCP-compatible AI client (Claude Desktop, VS Code, Cline)
+- **Node.js 20+** — [nodejs.org](https://nodejs.org/)
+- An MCP-compatible AI client: Claude Desktop, Claude Code CLI, Cursor, Windsurf, VS Code (GitHub Copilot), or Codex CLI
 
-### 1. Clone & Install
-
-```bash
-git clone <repository-url>
-cd cspc319_feathersJS_C
-npm install
-```
-
-### 2. Build
+### 1. Run the setup wizard
 
 ```bash
-npm run build
+npx feathersjs-mcp-server@latest init
 ```
 
-### 3. Configure Your AI Client
+The wizard will:
+- Detect which AI tools are installed on your machine
+- Ask which ones to configure
+- Optionally enable network tools (submit/update/remove docs via GitHub PR — no token required)
+- Write the MCP config into each tool's config file automatically
 
-#### Claude Desktop
-
-Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
-
-```json
-{
-  "mcpServers": {
-    "feathers": {
-      "command": "node",
-      "args": ["/absolute/path/to/cspc319_feathersJS_C/dist/index.js"],
-      "env": {
-        "ALLOW_NETWORK_TOOLS": "true",
-        "GITHUB_TOKEN": "ghp_yourtoken",
-        "GITHUB_OWNER": "your-org",
-        "GITHUB_REPO": "cspc319_feathersJS_C"
-      }
-    }
-  }
-}
-```
-
-#### VS Code (Copilot / Cline)
-
-Add to `.vscode/settings.json` or your extension settings:
-
-```json
-{
-  "mcp.servers": {
-    "feathers": {
-      "command": "node",
-      "args": ["./dist/index.js"],
-      "cwd": "/absolute/path/to/cspc319_feathersJS_C"
-    }
-  }
-}
-```
-
-### 4. Restart your AI client
+### 2. Restart your AI client
 
 The assistant now has access to FeathersJS documentation search and all three contribution tools.
 
-### 5. Try it
+### 3. Try it
 
 ```
 Search the FeathersJS docs for how hooks work in v6
 ```
+
+### Diagnostics
+
+If something isn't working, run:
+
+```bash
+npx feathersjs-mcp-server@latest doctor
+```
+
+---
+
+### Manual Configuration (optional)
+
+If you prefer to configure your AI client by hand instead of using the wizard:
+
+#### Claude Desktop (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS)
+
+```json
+{
+  "mcpServers": {
+    "feathersjs": {
+      "command": "npx",
+      "args": ["feathersjs-mcp-server"]
+    }
+  }
+}
+```
+
+#### Cursor (`~/.cursor/mcp.json`) / Windsurf (`~/.codeium/windsurf/mcp_config.json`)
+
+```json
+{
+  "mcpServers": {
+    "feathersjs": {
+      "command": "npx",
+      "args": ["feathersjs-mcp-server"]
+    }
+  }
+}
+```
+
+#### VS Code — GitHub Copilot (`~/Library/Application Support/Code/User/mcp.json` on macOS)
+
+```json
+{
+  "servers": {
+    "feathersjs": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["feathersjs-mcp-server"]
+    }
+  }
+}
+```
+
+To enable network tools, add an `env` block to any of the above:
+
+```json
+"env": {
+  "ALLOW_NETWORK_TOOLS": "true"
+}
+```
+
+No GitHub token is required — the wizard and the package include a shared token scoped to this project.
 
 ---
 
