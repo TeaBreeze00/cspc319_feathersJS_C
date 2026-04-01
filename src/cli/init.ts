@@ -71,7 +71,7 @@ async function ask(prompter: Prompter, question: string): Promise<string> {
 interface McpTool {
   name: string;
   configPath: string;
-  format: 'mcpServers' | 'vscode';
+  format: 'mcpServers' | 'vscode' | 'claude-code';
 }
 
 function getTools(): McpTool[] {
@@ -80,6 +80,11 @@ function getTools(): McpTool[] {
   const appData = process.env.APPDATA ?? path.join(home, 'AppData', 'Roaming');
 
   return [
+    {
+      name: 'Claude Code (CLI)',
+      configPath: path.join(home, '.claude', 'settings.json'),
+      format: 'claude-code',
+    },
     {
       name: 'Claude Desktop',
       configPath: isWin
@@ -111,7 +116,7 @@ function getTools(): McpTool[] {
 // Config writers
 // ---------------------------------------------------------------------------
 
-function buildServerEntry(env: Record<string, string>, format: 'mcpServers' | 'vscode'): object {
+function buildServerEntry(env: Record<string, string>, format: 'mcpServers' | 'vscode' | 'claude-code'): object {
   if (format === 'vscode') {
     return {
       type: 'stdio',
@@ -120,6 +125,7 @@ function buildServerEntry(env: Record<string, string>, format: 'mcpServers' | 'v
       ...(Object.keys(env).length > 0 ? { env } : {}),
     };
   }
+  // mcpServers and claude-code both use the same shape
   return {
     command: 'npx',
     args: ['feathersjs-mcp'],
