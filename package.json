@@ -1,10 +1,11 @@
 {
   "name": "feathersjs-mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MCP server for FeathersJS — semantic search over v5/v6 docs with AI-assisted contribution via GitHub PRs",
   "main": "dist/index.js",
   "bin": {
-    "feathersjs-mcp": "./bin/feathersjs-mcp.js"
+    "feathersjs-mcp": "./bin/feathersjs-mcp.js",
+    "feathersjs-mcp-server": "./bin/feathersjs-mcp.js"
   },
   "keywords": [
     "mcp",
