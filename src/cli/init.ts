@@ -11,22 +11,57 @@ import * as os from 'os';
 import * as readline from 'readline';
 
 // ---------------------------------------------------------------------------
-// Readline helpers
+// Readline helpers — queue-based so piped and TTY input both work correctly
 // ---------------------------------------------------------------------------
 
-function createRl(): readline.Interface {
-  return readline.createInterface({ input: process.stdin, output: process.stdout });
+interface Prompter {
+  ask(question: string): Promise<string>;
+  close(): void;
 }
 
-function ask(rl: readline.Interface, question: string): Promise<string> {
-  return new Promise(resolve => rl.question(question, resolve));
+function createPrompter(): Prompter {
+  const lineQueue: string[] = [];
+  const waiters: Array<(line: string) => void> = [];
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+
+  rl.on('line', (line: string) => {
+    if (waiters.length > 0) {
+      waiters.shift()!(line);
+    } else {
+      lineQueue.push(line);
+    }
+  });
+
+  return {
+    ask(question: string): Promise<string> {
+      process.stdout.write(question);
+      return new Promise(resolve => {
+        if (lineQueue.length > 0) {
+          resolve(lineQueue.shift()!);
+        } else {
+          waiters.push(resolve);
+        }
+      });
+    },
+    close() {
+      rl.close();
+    },
+  };
 }
 
-async function confirm(rl: readline.Interface, question: string, defaultYes = true): Promise<boolean> {
+async function confirm(prompter: Prompter, question: string, defaultYes = true): Promise<boolean> {
   const hint = defaultYes ? '[Y/n]' : '[y/N]';
-  const answer = (await ask(rl, `${question} ${hint} `)).trim().toLowerCase();
+  const answer = (await prompter.ask(`${question} ${hint} `)).trim().toLowerCase();
+  process.stdout.write('\n');
   if (answer === '') return defaultYes;
   return answer === 'y' || answer === 'yes';
+}
+
+async function ask(prompter: Prompter, question: string): Promise<string> {
+  const answer = await prompter.ask(question);
+  process.stdout.write('\n');
+  return answer;
 }
 
 // ---------------------------------------------------------------------------
@@ -119,7 +154,7 @@ function writeConfig(tool: McpTool, env: Record<string, string>): void {
 // ---------------------------------------------------------------------------
 
 export async function runInit(): Promise<void> {
-  const rl = createRl();
+  const prompter = createPrompter();
 
   console.log('\nfeathersjs-mcp setup wizard');
   console.log('─'.repeat(40));
@@ -148,27 +183,27 @@ export async function runInit(): Promise<void> {
     const q = isDetected
       ? `Configure feathersjs-mcp for ${tool.name}?`
       : `Configure feathersjs-mcp for ${tool.name} (not detected)?`;
-    if (await confirm(rl, q, isDetected)) {
+    if (await confirm(prompter, q, isDetected)) {
       toConfigure.push(tool);
     }
   }
 
   if (toConfigure.length === 0) {
     console.log('\nNothing to configure. Exiting.');
-    rl.close();
+    prompter.close();
     return;
   }
 
   // Network tools
-  console.log('\n─'.repeat(40));
+  console.log('\n' + '─'.repeat(40));
   console.log('\nNetwork tools (submit/update/remove docs via GitHub PR)');
   console.log('These require a GitHub token and ALLOW_NETWORK_TOOLS=true.\n');
 
-  const enableNetwork = await confirm(rl, 'Enable network tools?', false);
+  const enableNetwork = await confirm(prompter, 'Enable network tools?', false);
   const env: Record<string, string> = {};
 
   if (enableNetwork) {
-    const token = (await ask(rl, 'GitHub token (leave blank to set manually later): ')).trim();
+    const token = (await ask(prompter, 'GitHub token (leave blank to set manually later): ')).trim();
     if (token) env.GITHUB_TOKEN = token;
     env.GITHUB_OWNER = 'TeaBreeze00';
     env.GITHUB_REPO = 'cspc319_feathersJS_C';
@@ -176,7 +211,7 @@ export async function runInit(): Promise<void> {
   }
 
   // Write configs
-  console.log('\n─'.repeat(40));
+  console.log('\n' + '─'.repeat(40));
   const configured: string[] = [];
   const failed: string[] = [];
 
@@ -205,5 +240,5 @@ export async function runInit(): Promise<void> {
     console.log('To enable network tools later, re-run: npx feathersjs-mcp init');
   }
 
-  rl.close();
+  prompter.close();
 }
