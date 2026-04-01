@@ -130,6 +130,11 @@ function checkMcpClients(): void {
       serverKey: 'mcpServers',
     },
     {
+      name: 'Codex (CLI)',
+      configPath: path.join(home, '.codex', 'config.toml'),
+      serverKey: 'codex',
+    },
+    {
       name: 'Claude Desktop',
       configPath: isWin
         ? path.join(appData, 'Claude', 'claude_desktop_config.json')
@@ -167,7 +172,19 @@ function checkMcpClients(): void {
     }
 
     try {
-      const config = JSON.parse(fs.readFileSync(client.configPath, 'utf8'));
+      const raw = fs.readFileSync(client.configPath, 'utf8');
+
+      // Codex uses TOML — check with a simple regex instead of JSON.parse
+      if (client.serverKey === 'codex') {
+        if (/\[mcp_servers\.feathersjs\]/.test(raw)) {
+          pass(client.name, 'configured  (npx feathersjs-mcp-server)');
+        } else {
+          fail(client.name, 'feathersjs entry missing', `Run: npx feathersjs-mcp-server init`);
+        }
+        continue;
+      }
+
+      const config = JSON.parse(raw);
       const servers = config[client.serverKey] ?? {};
       if ('feathersjs' in servers) {
         const entry = servers['feathersjs'];

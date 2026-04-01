@@ -71,7 +71,7 @@ async function ask(prompter: Prompter, question: string): Promise<string> {
 interface McpTool {
   name: string;
   configPath: string;
-  format: 'mcpServers' | 'vscode' | 'claude-code';
+  format: 'mcpServers' | 'vscode' | 'claude-code' | 'codex';
 }
 
 function getTools(): McpTool[] {
@@ -84,6 +84,11 @@ function getTools(): McpTool[] {
       name: 'Claude Code (CLI)',
       configPath: path.join(home, '.claude', 'settings.json'),
       format: 'claude-code',
+    },
+    {
+      name: 'Codex (CLI)',
+      configPath: path.join(home, '.codex', 'config.toml'),
+      format: 'codex',
     },
     {
       name: 'Claude Desktop',
@@ -116,7 +121,7 @@ function getTools(): McpTool[] {
 // Config writers
 // ---------------------------------------------------------------------------
 
-function buildServerEntry(env: Record<string, string>, format: 'mcpServers' | 'vscode' | 'claude-code'): object {
+function buildServerEntry(env: Record<string, string>, format: 'mcpServers' | 'vscode' | 'claude-code' | 'codex'): object {
   if (format === 'vscode') {
     return {
       type: 'stdio',
@@ -133,9 +138,34 @@ function buildServerEntry(env: Record<string, string>, format: 'mcpServers' | 'v
   };
 }
 
+function writeCodexConfig(configPath: string, env: Record<string, string>): void {
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+
+  let toml = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
+
+  // Remove any existing feathersjs mcp_servers block
+  toml = toml.replace(/\[mcp_servers\.feathersjs\][\s\S]*?(?=\n\[|\n*$)/g, '').trimEnd();
+
+  // Append new block
+  let block = '\n\n[mcp_servers.feathersjs]\ncommand = "npx"\nargs = ["feathersjs-mcp-server"]';
+  if (Object.keys(env).length > 0) {
+    block += '\n\n[mcp_servers.feathersjs.env]';
+    for (const [k, v] of Object.entries(env)) {
+      block += `\n${k} = "${v}"`;
+    }
+  }
+
+  fs.writeFileSync(configPath, toml + block + '\n', 'utf8');
+}
+
 function writeConfig(tool: McpTool, env: Record<string, string>): void {
   const configDir = path.dirname(tool.configPath);
   fs.mkdirSync(configDir, { recursive: true });
+
+  if (tool.format === 'codex') {
+    writeCodexConfig(tool.configPath, env);
+    return;
+  }
 
   let existing: Record<string, any> = {};
   if (fs.existsSync(tool.configPath)) {
