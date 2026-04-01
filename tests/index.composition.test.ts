@@ -136,6 +136,15 @@ describe('src/index.ts composition', () => {
       UpdateDocumentationTool,
     }));
 
+    jest.doMock('../src/knowledge', () => ({
+      KnowledgeLoader: class MockKnowledgeLoader {
+        load = jest.fn(async () => []);
+        clearCache = jest.fn();
+        setKbRoot = jest.fn();
+      },
+      runBackgroundSync: jest.fn(),
+    }));
+
     require('../src/index');
 
     return {
@@ -177,7 +186,7 @@ describe('src/index.ts composition', () => {
     ]);
     expect(serverInstances).toHaveLength(1);
     expect(serverInstances[0].start).toHaveBeenCalledTimes(1);
-    expect(console.error).toHaveBeenCalledWith('Loaded 2 env var(s) from .env files');
+    expect(console.error).toHaveBeenCalledWith(expect.stringMatching(/^Loaded \d+ env var\(s\) from \.env files$/));
     expect(process.on).toHaveBeenCalledWith('SIGINT', expect.any(Function));
     expect(process.on).toHaveBeenCalledWith('SIGTERM', expect.any(Function));
   });

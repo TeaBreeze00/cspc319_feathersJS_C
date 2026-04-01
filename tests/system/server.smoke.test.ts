@@ -1,3 +1,12 @@
+jest.mock('../../src/knowledge', () => ({
+  KnowledgeLoader: class MockKnowledgeLoader {
+    load = jest.fn(async () => []);
+    clearCache = jest.fn();
+    setKbRoot = jest.fn();
+  },
+  runBackgroundSync: jest.fn(),
+}));
+
 jest.mock('@modelcontextprotocol/sdk/server/index.js', () => {
   class MockServer {
     static __lastInstance: MockServer | undefined;
@@ -98,7 +107,7 @@ describe('System smoke: entry module', () => {
 
   it('keeps network-gated tools disabled when the env flag is absent', async () => {
     process.env.GITHUB_TOKEN = 'ghp_systemsmoke';
-    delete process.env.ALLOW_NETWORK_TOOLS;
+    process.env.ALLOW_NETWORK_TOOLS = 'false'; // explicit non-true so bootstrapEnv won't overwrite it from ui/.env
 
     const server = await bootServer();
     const response = (await server.callToolHandler?.({
