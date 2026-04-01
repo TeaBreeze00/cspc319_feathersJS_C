@@ -143,8 +143,8 @@ function writeCodexConfig(configPath: string, env: Record<string, string>): void
 
   let toml = fs.existsSync(configPath) ? fs.readFileSync(configPath, 'utf8') : '';
 
-  // Remove any existing feathersjs mcp_servers block
-  toml = toml.replace(/\[mcp_servers\.feathersjs\][\s\S]*?(?=\n\[|\n*$)/g, '').trimEnd();
+  // Remove any existing feathersjs mcp_servers blocks (main table and any sub-tables like .env)
+  toml = toml.replace(/\n?\[mcp_servers\.feathersjs(?:\.[^\]]+)?\][\s\S]*?(?=\n\[|\n*$)/g, '').trimEnd();
 
   // Append new block
   let block = '\n\n[mcp_servers.feathersjs]\ncommand = "npx"\nargs = ["feathersjs-mcp-server"]';
